@@ -34,15 +34,28 @@ Programが以下の行動を記述し、Processorが各コンポーネントへ�
 3. CRAFT    加工素材からコンポーネントを製造(Assembler) ← 何を作るかはProgramが指定
 4. CRAFT    空のMemoryCoreを製造(Assembler)
 5. ASSEMBLE コンポーネント群を組み立て(Assembler) → 非活性キャラクター体（隣接タイルに配置）
-6. WRITE    自身のMemoryCore内容を娘のMemoryCoreへコピー(Processor)
-7. ACTIVATE 娘を起動(Processor)
+6. WRITE    自身のMemoryCore内容を娘のMemoryCoreへコピー(Processor) → 娘が活性化
 ```
 
 ### 各ステップの意味
 
 - **ステップ3**: 「何を作るか」がProgramに埋め込まれた組立指示。ここを変えれば異なる構成の娘が生まれる
 - **ステップ4**: 空のMemoryCoreを物理製造する（データなし）
-- **ステップ6**: データをコピーする。ステップ4と6でクワインの2段階構造が成立する
+- **ステップ5**: MemoryCoreを含むコンポーネント群を組み立てると `program: null` の非活性キャラクターが生成される
+- **ステップ6**: データをコピーする。ステップ4と6でクワインの2段階構造が成立する。WRITEによりProgramが書き込まれた時点で娘は活性化する（`program: null` → `program: Program`）
+
+### ACTIVATEについて
+
+仕様上は手順の最終ステップとしてACTIVATEが定義されていたが、実装ではWRITEによるProgramの書き込みが
+完了した時点でキャラクターが活性状態（`program != null`）になるため、ACTIVATEは冪等な操作となる。
+ACTIVATEを省略してもProgramの伝達と活性化は成立する。
+
+### WRITEの対象指定
+
+WRITEの `target` に `"nearest_inactive"` を指定すると、隣接タイル（マンハッタン距離1以内）にいる
+非活性キャラクターが自動的に解決される。ASSEMBLEで生成された娘は必ず隣接タイルに配置されるため、
+ASSEMBLE直後のWRITEで `nearest_inactive` を使用すればIDを事前に知らなくてもProgramを伝達できる。
+
 - 各コンポーネントの製造レシピは**世界のルール**として存在し、Programは「何を作れ」と指示するだけ
 
 ## 検証ポイント
@@ -55,3 +68,9 @@ Programが以下の行動を記述し、Processorが各コンポーネントへ�
 
 自己複製のステップ3で指定するコンポーネントリストを変更すると、親とは異なる構成の娘が生まれる。
 Programの自己書き換え（ステップ6の前にMemoryCoreを編集）により、行動ロジックも変更可能。
+
+### 実装上の進化の実現方法
+
+プロトタイプでは、Program内のASSEMBLE命令が保持するコンポーネントリストを外部から変更する
+`evolveProgram()` ユーティリティにより進化をテストで検証している。
+ランタイムでのProgram自己書き換え機構は本プロトタイプの範囲外とする。

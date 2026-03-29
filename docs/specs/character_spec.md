@@ -10,16 +10,22 @@ CPU + ROM + ペリフェラル モデル。全コンポーネントが汎用部�
 
 ```
 Character = {
+  id: string,             // 一意な識別子（例: "char-001"）
+  position: {x, y},       // マップ上の座標
   components: [...],      // 搭載コンポーネント一覧 = Body
-  inventory: [...],       // 所持アイテム
-  durability: number      // Frameの耐久値 → 0で死亡
+  inventory: {...},       // 所持アイテム（アイテム名 → 個数 の辞書）
+  durability: number,     // Frameの耐久値 → 0で死亡
+  program: Program | null // null = 非活性（WRITEされるまでProgramなし）
 }
 ```
 
 - キャラクター = `(Body, Program)`
 - Bodyの構成はProgramの組立指示によって決まる
-- Programはキャラクターの直接プロパティではなく、MemoryCoreに格納されたデータ
-- ProcessorはMemoryCoreからProgramを読み出し、接続コンポーネントへ命令を発行する
+- 概念上、ProgramはMemoryCoreに格納されたデータである
+- 実装上、`program` フィールドとしてキャラクターオブジェクトが直接保持する
+- `program: null` は非活性状態を表す（ASSEMBLEで生成された直後、WRITEされるまで）
+- `program: Program` は活性状態を表す（毎ティックProcessorがProgramを評価・実行する）
+- ProcessorはProgramを読み出し、接続コンポーネントへ命令を発行する
 - 各コンポーネントはProcessorからの命令に応じて動作する汎用ペリフェラル
 
 ## コンポーネント一覧
@@ -62,7 +68,10 @@ Character = {
 #### Assembler
 - `PROCESS(recipe)` — 原料を加工素材へ変換
 - `CRAFT(component)` — 加工素材からコンポーネントを製造
-- `ASSEMBLE(component_list)` — コンポーネント群を組み立てて非活性キャラクター体を生成し、任意の隣接タイルに配置
+- `ASSEMBLE(component_list)` — コンポーネント群を組み立てて非活性キャラクター体を生成し、隣接タイルに配置
+  - 配置先はN→S→E→Wの順で最初のマップ内タイルが選択される
+  - マップ内の隣接タイルが存在しない場合（マップ角など）、操作失敗
+  - コンポーネントの重複や種類の制約はない（任意の組み合わせが指定可能）
 - `REPAIR` — inventory内のFrameを消費してdurabilityを100回復
 
 #### MemoryCore
