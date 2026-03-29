@@ -236,11 +236,12 @@ export function createCharacterC2(size: number, char: Character): Container {
 }
 
 // ============================================================
-// Proposal C3: Membrane shrinks with durability, inner ring = inventory
+// Proposal C3: Nucleus area = durability, inventory arc
 //
 // - Component ring: always full, fixed alpha
-// - Durability: second thin membrane circle inside, radius shrinks
-// - Inventory: concentric fill ring between nucleus and component ring
+// - Durability: nucleus (center red circle) area shrinks proportionally
+//   - radius = maxR * sqrt(ratio) so that area ∝ durability
+// - Inventory: gray arc ring between nucleus and component ring
 // ============================================================
 export function createCharacterC3(size: number, char: Character): Container {
   const c = new Container();
@@ -249,7 +250,7 @@ export function createCharacterC3(size: number, char: Character): Container {
   const ratio = durRatio(char);
   const active = isActive(char);
   const outerR = size * 0.4;
-  const innerR = size * 0.18;
+  const maxNucleusR = size * 0.18;
   const ringWidth = size * 0.07;
 
   // Cytoplasm
@@ -263,21 +264,10 @@ export function createCharacterC3(size: number, char: Character): Container {
   drawComponentRing(ring, cx, cy, outerR - ringWidth / 2, ringWidth, char, active);
   c.addChild(ring);
 
-  // Durability membrane — circle that shrinks inward as HP drops
-  if (active) {
-    const memR = (outerR - ringWidth) * ratio;
-    if (memR > innerR) {
-      const mem = new Graphics();
-      mem.circle(cx, cy, memR);
-      mem.stroke({ color: 0x4dd0e1, width: 1.2, alpha: 0.25 + 0.25 * ratio });
-      c.addChild(mem);
-    }
-  }
-
   // Inventory fill ring — arc between nucleus and component ring
   const invRatio = Math.min(1, inventoryTotal(char) / INVENTORY_VISUAL_MAX);
   if (invRatio > 0) {
-    const invR = (innerR + outerR - ringWidth) / 2;
+    const invR = (maxNucleusR + outerR - ringWidth) / 2;
     const invAngle = Math.PI * 2 * invRatio;
     const inv = new Graphics();
     inv.arc(cx, cy, invR, -Math.PI / 2, -Math.PI / 2 + invAngle);
@@ -289,18 +279,25 @@ export function createCharacterC3(size: number, char: Character): Container {
     c.addChild(inv);
   }
 
-  // Nucleus
-  const nucleus = new Graphics();
+  // Nucleus — area proportional to durability: r = maxR * sqrt(ratio)
+  const nucleusR = maxNucleusR * Math.sqrt(ratio);
   const nucleusColor = active
     ? (char.components.includes('Processor') ? COMPONENT_COLORS.Processor : 0x555555)
     : 0x555555;
-  nucleus.circle(cx, cy, innerR);
-  nucleus.fill({ color: nucleusColor, alpha: active ? 0.8 : 0.3 });
-  c.addChild(nucleus);
 
-  if (char.components.includes('MemoryCore')) {
+  if (nucleusR > 0.5) {
+    const nucleus = new Graphics();
+    nucleus.circle(cx, cy, nucleusR);
+    nucleus.fill({ color: nucleusColor, alpha: active ? 0.8 : 0.3 });
+    c.addChild(nucleus);
+  }
+
+  // MemoryCore dot — scale with nucleus but keep minimum visible size
+  if (char.components.includes('MemoryCore') && nucleusR > 1) {
+    const mcR = Math.max(size * 0.02, size * 0.035 * Math.sqrt(ratio));
+    const mcOffset = nucleusR * 0.4;
     const mc = new Graphics();
-    mc.circle(cx, cy - innerR * 0.35, size * 0.035);
+    mc.circle(cx, cy - mcOffset, mcR);
     mc.fill({ color: active ? COMPONENT_COLORS.MemoryCore : 0x777777, alpha: 0.9 });
     c.addChild(mc);
   }

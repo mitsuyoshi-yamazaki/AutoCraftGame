@@ -28,6 +28,7 @@
 - GUI仕様は `docs/ui_spec/` を参照する
 - `ui/renderer.ts` の描画関数はセル単位でexportし、Rendererクラスとstoriesの両方から利用する
 - 新しい描画要素を追加した場合は対応するStoryも追加する
+- デザイン変更の提案時は `ui/stories/proposals/` に複数案をStoryとして実装し、Storybookで視覚比較する。採用後も提案Storyは削除せず履歴として残す
 - Vite設定（`vite.config.ts`, root: ui）とVitest設定（`vitest.config.ts`）は分離されている。混同しないこと
 
 ## 仕様との関係

@@ -47,7 +47,8 @@ ui/                           ... ブラウザGUI（Canvas描画）
     ├── helpers.ts             ... Canvas生成ヘルパー
     ├── ResourceNode.stories.ts
     ├── Character.stories.ts
-    └── GridOverview.stories.ts
+    ├── GridOverview.stories.ts
+    └── proposals/             ... デザイン提案（履歴として保持）
 test/
 ├── recipes.test.ts
 ├── character.test.ts

@@ -147,6 +147,31 @@ npm run ui
 | 灰 ◆ | 非アクティブキャラクター（プログラム未書込） |
 | 金枠 | 選択中のキャラクター |
 
+### Storybook
+
+描画オブジェクトの確認・デザイン提案の比較に使用する。
+
+```bash
+npm run storybook
+```
+
+`http://localhost:6006` で以下のストーリーを閲覧できる:
+
+| グループ | 内容 |
+|---------|------|
+| Map/ResourceNode | 資源ノードの各状態（通常・枯渇） |
+| Map/Character | キャラクターの各状態（アクティブ・非アクティブ・選択・耐久値段階） |
+| Map/GridOverview | 全要素を配置した一覧 |
+| Proposals/ | デザイン変更時の提案・比較用ストーリー（採用済みも履歴として残す） |
+
+#### デザイン提案の進め方
+
+1. `ui/stories/proposals/` に描画関数を作成する（例: `resource-node-proposals.ts`）
+2. 対応する `.stories.ts` で複数案をStoryとして実装し、状態バリエーションを横並び表示する
+3. `npm run storybook` で視覚的に比較・選定する
+4. 採用した描画を `ui/renderer.ts` に統合する
+5. 提案Storyは削除せず履歴として残す
+
 ## プロジェクト構造
 
 ```
@@ -166,7 +191,9 @@ ui/
 ├── index.html        ... GUIエントリHTML
 ├── main.ts           ... UIコントローラー（タイマー制御・DOM更新）
 ├── renderer.ts       ... Canvas描画（グリッド・キャラクター）
-└── style.css         ... スタイル
+├── style.css         ... スタイル
+└── stories/          ... Storybookストーリー
+    └── proposals/    ... デザイン提案（履歴）
 docs/specs/           ... 仕様書
 docs/ui_spec/         ... GUI仕様書
 results/              ... シミュレーション結果

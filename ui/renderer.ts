@@ -80,8 +80,16 @@ export function createResourceNodeGraphics(size: number, node: ResourceNode): Co
 }
 
 // ============================================================
-// Character — amoeba blob + scattered organelle dots
+// Character — nucleus + component ring + inventory arc
+//
+// - Outer ring: colored arc per component type (always fully drawn)
+// - Nucleus: area shrinks with durability (r = maxR * sqrt(ratio))
+// - Inventory: gray arc between nucleus and component ring
 // ============================================================
+
+/** Visual max for inventory fill gauge */
+const INVENTORY_VISUAL_MAX = 34; // Ore x16 + Crystal x18
+
 export function createCharacterGraphics(
   size: number,
   char: Character,
@@ -92,64 +100,77 @@ export function createCharacterGraphics(
   const cy = size / 2;
   const active = isActive(char);
   const ratio = durRatio(char);
+  const outerR = size * 0.4;
+  const maxNucleusR = size * 0.18;
+  const ringWidth = size * 0.07;
 
-  // Blob outline — 8-point irregular circle with quadratic curves
-  const baseR = size * 0.38;
-  const blob = new Graphics();
-  const points = 8;
-  const coords: { x: number; y: number }[] = [];
+  // Cytoplasm (background fill)
+  const cyto = new Graphics();
+  cyto.circle(cx, cy, outerR);
+  cyto.fill({ color: active ? 0x1a3a4a : 0x2a2a2a, alpha: active ? 0.35 : 0.12 });
+  container.addChild(cyto);
 
-  for (let i = 0; i < points; i++) {
-    const angle = (Math.PI * 2 * i) / points;
-    const rVar = baseR * (0.85 + 0.15 * Math.sin(i * 2.7 + 1.3));
-    coords.push({
-      x: cx + rVar * Math.cos(angle),
-      y: cy + rVar * Math.sin(angle),
-    });
+  // Component ring (always full)
+  const counts = componentCounts(char);
+  const total = counts.reduce((sum, [, n]) => sum + n, 0);
+  if (total > 0) {
+    const ring = new Graphics();
+    let currentAngle = -Math.PI / 2;
+    for (const [type, count] of counts) {
+      const arcAngle = (Math.PI * 2 * count) / total;
+      const color = active ? COMPONENT_COLORS[type] : 0x666666;
+      ring.arc(cx, cy, outerR - ringWidth / 2, currentAngle, currentAngle + arcAngle);
+      ring.stroke({ color, width: ringWidth, alpha: active ? 0.85 : 0.35 });
+      currentAngle += arcAngle;
+    }
+    container.addChild(ring);
   }
-
-  blob.moveTo(coords[0].x, coords[0].y);
-  for (let i = 0; i < points; i++) {
-    const curr = coords[i];
-    const next = coords[(i + 1) % points];
-    const midX = (curr.x + next.x) / 2;
-    const midY = (curr.y + next.y) / 2;
-    blob.quadraticCurveTo(curr.x, curr.y, midX, midY);
-  }
-  blob.closePath();
-
-  const baseColor = active ? COLORS.membrane : COLORS.membraneInactive;
-  const fillAlpha = active ? (0.3 + 0.4 * ratio) : 0.2;
-  const strokeAlpha = active ? (0.5 + 0.5 * ratio) : 0.3;
-
-  blob.fill({ color: baseColor, alpha: fillAlpha });
-  blob.stroke({ color: baseColor, width: size * 0.03, alpha: strokeAlpha });
-  container.addChild(blob);
 
   // Selection ring
   if (selected) {
     const sel = new Graphics();
-    sel.circle(cx, cy, size * 0.42).stroke({ color: COLORS.selected, width: 2, alpha: 0.9 });
+    sel.circle(cx, cy, outerR + 2).stroke({ color: COLORS.selected, width: 2, alpha: 0.9 });
     container.addChild(sel);
   }
 
-  // Component dots — scattered using golden angle
-  const counts = componentCounts(char);
-  const dotG = new Graphics();
-  let dotIndex = 0;
-  for (const [type, count] of counts) {
-    for (let j = 0; j < Math.min(count, 2); j++) {
-      const phi = 2.399963 * (dotIndex + 1);
-      const dist = size * 0.12 * Math.sqrt(dotIndex + 1);
-      const dx = cx + dist * Math.cos(phi);
-      const dy = cy + dist * Math.sin(phi);
-      const dr = size * 0.05;
-      const color = active ? COMPONENT_COLORS[type] : 0x777777;
-      dotG.circle(dx, dy, dr).fill({ color, alpha: active ? 0.8 : 0.35 });
-      dotIndex++;
-    }
+  // Inventory arc — between nucleus and component ring
+  const invTotal = Object.values(char.inventory).reduce((s, n) => s + n, 0);
+  const invRatio = Math.min(1, invTotal / INVENTORY_VISUAL_MAX);
+  if (invRatio > 0) {
+    const invR = (maxNucleusR + outerR - ringWidth) / 2;
+    const invAngle = Math.PI * 2 * invRatio;
+    const inv = new Graphics();
+    inv.arc(cx, cy, invR, -Math.PI / 2, -Math.PI / 2 + invAngle);
+    inv.stroke({
+      color: active ? 0xaaaaaa : 0x555555,
+      width: size * 0.04,
+      alpha: active ? 0.4 : 0.2,
+    });
+    container.addChild(inv);
   }
-  container.addChild(dotG);
+
+  // Nucleus — area proportional to durability: r = maxR * sqrt(ratio)
+  const nucleusR = maxNucleusR * Math.sqrt(ratio);
+  const nucleusColor = active
+    ? (char.components.includes('Processor') ? COMPONENT_COLORS.Processor : 0x555555)
+    : 0x555555;
+
+  if (nucleusR > 0.5) {
+    const nucleus = new Graphics();
+    nucleus.circle(cx, cy, nucleusR);
+    nucleus.fill({ color: nucleusColor, alpha: active ? 0.8 : 0.3 });
+    container.addChild(nucleus);
+  }
+
+  // MemoryCore dot
+  if (char.components.includes('MemoryCore') && nucleusR > 1) {
+    const mcR = Math.max(size * 0.02, size * 0.035 * Math.sqrt(ratio));
+    const mcOffset = nucleusR * 0.4;
+    const mc = new Graphics();
+    mc.circle(cx, cy - mcOffset, mcR);
+    mc.fill({ color: active ? COMPONENT_COLORS.MemoryCore : 0x777777, alpha: 0.9 });
+    container.addChild(mc);
+  }
 
   if (!active) container.alpha = INACTIVE_ALPHA;
 

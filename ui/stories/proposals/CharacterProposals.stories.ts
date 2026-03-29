@@ -138,8 +138,8 @@ export const ProposalC2: Story = {
 export const ProposalC3: Story = {
   name: 'C3: Shrinking membrane + Inventory arc',
   render: () => renderProposal(
-    'C3: Inner membrane shrinks = durability, arc ring = inventory',
-    'Component ring: always full, fixed alpha.<br>Durability: inner membrane circle shrinks toward nucleus.<br>Inventory: gray arc between nucleus and ring fills clockwise.',
+    'C3: Nucleus area = durability, arc ring = inventory',
+    'Component ring: always full, fixed alpha.<br>Durability: nucleus (red circle) area shrinks proportionally (r = maxR × √ratio).<br>Inventory: gray arc between nucleus and ring fills clockwise.',
     createCharacterC3,
   ),
 };
