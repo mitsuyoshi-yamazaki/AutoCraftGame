@@ -1,0 +1,29 @@
+{
+  "simulation": {
+    "ticks": 500,
+    "map": {
+      "width": 20,
+      "height": 20
+    },
+    "program": "programs/self-replicator.json",
+    "command": "npm run sim -- --ticks 500 --program programs/self-replicator.json --map-size 20x20"
+  },
+  "ancestor": {
+    "id": "char-001",
+    "position": { "x": 10, "y": 10 },
+    "components": ["Frame", "Actuator", "Sensor", "Processor", "Harvester", "Assembler", "MemoryCore"],
+    "durability": 100,
+    "inventory": {},
+    "required_materials": {
+      "Metal": 8,
+      "Circuit": 9,
+      "Ore": 16,
+      "Crystal": 18
+    }
+  },
+  "map_layout": {
+    "ore_nodes": "x in {0, 3, 6, 9}, y in {0, 3, 6, 9, 12, 15, 18} — left half, 3-tile grid",
+    "crystal_nodes": "x in {10, 13, 16, 19}, y in {0, 3, 6, 9, 12, 15, 18} — right half, 3-tile grid",
+    "regeneration": "all nodes regenerate every tick"
+  }
+}

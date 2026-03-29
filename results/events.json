@@ -1,0 +1,49 @@
+{
+  "events": [
+    {
+      "type": "character_spawned",
+      "parentId": "char-001",
+      "childId": "char-002"
+    },
+    {
+      "type": "character_died",
+      "id": "char-001"
+    },
+    {
+      "type": "character_spawned",
+      "parentId": "char-002",
+      "childId": "char-003"
+    },
+    {
+      "type": "character_died",
+      "id": "char-002"
+    },
+    {
+      "type": "character_spawned",
+      "parentId": "char-003",
+      "childId": "char-004"
+    },
+    {
+      "type": "character_died",
+      "id": "char-003"
+    },
+    {
+      "type": "character_spawned",
+      "parentId": "char-004",
+      "childId": "char-005"
+    },
+    {
+      "type": "character_died",
+      "id": "char-004"
+    },
+    {
+      "type": "character_spawned",
+      "parentId": "char-005",
+      "childId": "char-006"
+    },
+    {
+      "type": "character_died",
+      "id": "char-005"
+    }
+  ]
+}
