@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
 import type { Character, ComponentType } from '@/types.js';
 import { MIN_COMPONENTS } from '@/recipes.js';
+import { Graphics } from 'pixi.js';
 import { createStoryApp, CELL_SIZE } from '../helpers.js';
 import {
-  createCharacterA,
-  createCharacterB,
-  createCharacterC,
+  createCharacterC1,
+  createCharacterC2,
+  createCharacterC3,
 } from './character-proposals.js';
 
 const meta: Meta = {
@@ -30,26 +31,38 @@ function makeChar(overrides: Partial<Character> & { id: string }): Character {
   };
 }
 
-// Characters to display in each row
 const CHAR_VARIANTS: { label: string; char: Character }[] = [
-  { label: 'Active 100%', char: makeChar({ id: 'c1', durability: 100 }) },
-  { label: 'Active 60%', char: makeChar({ id: 'c2', durability: 60 }) },
-  { label: 'Active 20%', char: makeChar({ id: 'c3', durability: 20 }) },
-  { label: 'Inactive', char: makeChar({ id: 'c4', program: null, durability: 100 }) },
   {
-    label: 'Minimal (Frame+Proc)',
-    char: makeChar({
-      id: 'c5',
-      components: ['Frame', 'Processor'] as ComponentType[],
-      durability: 80,
-    }),
+    label: '100% / empty inv',
+    char: makeChar({ id: 'c1', durability: 100 }),
   },
   {
-    label: '3x Frame',
+    label: '100% / half inv',
+    char: makeChar({ id: 'c2', durability: 100, inventory: { Ore: 8, Crystal: 9 } }),
+  },
+  {
+    label: '100% / full inv',
+    char: makeChar({ id: 'c3', durability: 100, inventory: { Ore: 16, Crystal: 18 } }),
+  },
+  {
+    label: '50% / half inv',
+    char: makeChar({ id: 'c4', durability: 50, inventory: { Metal: 4, Circuit: 5 } }),
+  },
+  {
+    label: '15% / empty inv',
+    char: makeChar({ id: 'c5', durability: 15 }),
+  },
+  {
+    label: 'Inactive',
+    char: makeChar({ id: 'c6', program: null, durability: 100 }),
+  },
+  {
+    label: 'Minimal (F+P)',
     char: makeChar({
-      id: 'c6',
-      components: ['Frame', 'Frame', 'Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'MemoryCore'] as ComponentType[],
-      durability: 250,
+      id: 'c7',
+      components: ['Frame', 'Processor'] as ComponentType[],
+      durability: 80,
+      inventory: { Ore: 4 },
     }),
   },
 ];
@@ -68,8 +81,8 @@ function renderProposal(
   wrapper.appendChild(title);
 
   const desc = document.createElement('div');
-  desc.style.cssText = 'font-family:monospace; font-size:12px; color:#999; margin-bottom:12px;';
-  desc.textContent = description;
+  desc.style.cssText = 'font-family:monospace; font-size:12px; color:#999; margin-bottom:12px; line-height:1.5;';
+  desc.innerHTML = description;
   wrapper.appendChild(desc);
 
   (async () => {
@@ -77,8 +90,7 @@ function renderProposal(
     const { app, container } = await createStoryApp(S * cols, S);
 
     for (let i = 0; i < cols; i++) {
-      // Dark background per cell
-      const bg = new (await import('pixi.js')).Graphics();
+      const bg = new Graphics();
       bg.rect(i * S, 0, S, S).fill(0x1a2a1a);
       bg.rect(i * S, 0, S, S).stroke({ color: 0x333333, width: 0.5 });
       container.addChild(bg);
@@ -91,7 +103,6 @@ function renderProposal(
 
     wrapper.appendChild(app.canvas as HTMLCanvasElement);
 
-    // Labels
     const labelRow = document.createElement('div');
     labelRow.style.cssText = `display:flex; width:${S * cols}px; font-family:monospace; font-size:10px; color:#888;`;
     for (const v of CHAR_VARIANTS) {
@@ -106,38 +117,29 @@ function renderProposal(
   return wrapper;
 }
 
-// ============================================================
-// Proposal A: Circle membrane + organelle dots
-// ============================================================
-export const ProposalA: Story = {
-  name: 'A: Membrane + Organelles',
+export const ProposalC1: Story = {
+  name: 'C1: Durability outline + Nucleus fill',
   render: () => renderProposal(
-    'Proposal A: Circle Membrane + Organelle Dots',
-    'Outer membrane thickness = durability. Inner colored dots = component types. Center dot = Processor.',
-    createCharacterA,
+    'C1: Durability outline + Nucleus fill = inventory',
+    'Component ring: always full.<br>Durability: cytoplasm opacity fades + thin white arc shows remaining HP.<br>Inventory: nucleus fills bottom-up.',
+    createCharacterC1,
   ),
 };
 
-// ============================================================
-// Proposal B: Amoeba blob + scattered dots
-// ============================================================
-export const ProposalB: Story = {
-  name: 'B: Amoeba Blob',
+export const ProposalC2: Story = {
+  name: 'C2: Ring brightness + Inventory dots',
   render: () => renderProposal(
-    'Proposal B: Amoeba Blob + Scattered Dots',
-    'Irregular organic outline. Fill brightness = durability. Scattered dots = components.',
-    createCharacterB,
+    'C2: Ring brightness = durability, scattered dots = inventory',
+    'Component ring: always drawn, alpha dims with low HP.<br>Inventory: small dots appear between nucleus and ring (up to 12).',
+    createCharacterC2,
   ),
 };
 
-// ============================================================
-// Proposal C: Double circle + ring segments
-// ============================================================
-export const ProposalC: Story = {
-  name: 'C: Nucleus + Ring Segments',
+export const ProposalC3: Story = {
+  name: 'C3: Shrinking membrane + Inventory arc',
   render: () => renderProposal(
-    'Proposal C: Nucleus + Component Ring',
-    'Outer ring = colored arcs per component (missing arc = damage). Inner circle = processor nucleus.',
-    createCharacterC,
+    'C3: Inner membrane shrinks = durability, arc ring = inventory',
+    'Component ring: always full, fixed alpha.<br>Durability: inner membrane circle shrinks toward nucleus.<br>Inventory: gray arc between nucleus and ring fills clockwise.',
+    createCharacterC3,
   ),
 };

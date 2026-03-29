@@ -1,153 +1,162 @@
 /**
- * ResourceNode design proposals — drawing functions for each variant.
+ * ResourceNode design proposals — small rounded square with halo.
  *
- * All functions return a pixi.js Container positioned at (0,0).
- * The caller is responsible for setting x/y on the returned container.
+ * Shared design:
+ * - Size: ~1/3 of the cell
+ * - Rounded square, solid fill, no border
+ * - Bright single-tone color
+ * - Halo glow when not depleted
+ * - Depleted: semi-transparent body, no halo
+ *
+ * Variants differ in color palette and halo style.
  */
 import { Container, Graphics } from 'pixi.js';
 import type { ResourceNode } from '@/types.js';
 
-// ============================================================
-// Color palette
-// ============================================================
-const ORE_PRIMARY = 0x8b4513;
-const ORE_SECONDARY = 0xa0522d;
-const ORE_VEIN = 0xcd853f;
-const CRYSTAL_PRIMARY = 0x6a0dad;
-const CRYSTAL_SECONDARY = 0x7b1fa2;
-const CRYSTAL_VEIN = 0xba68c8;
 const GRID_COLOR = 0x333333;
 const DEPLETED_ALPHA = 0.3;
 
 // ============================================================
-// Proposal A: Rounded rect + diagonal vein lines
-// Metaphor: cross-section of a mineral deposit
+// Proposal A: Warm ore / Cool crystal — soft radial halo
 // ============================================================
+const A_ORE = 0xd4915e;
+const A_CRYSTAL = 0xa78bfa;
+const A_ORE_HALO = 0xd4915e;
+const A_CRYSTAL_HALO = 0xa78bfa;
+
 export function createResourceNodeA(size: number, node: ResourceNode): Container {
   const c = new Container();
   const isOre = node.type === 'OreNode';
-  const primary = isOre ? ORE_PRIMARY : CRYSTAL_PRIMARY;
-  const vein = isOre ? ORE_VEIN : CRYSTAL_VEIN;
-  const margin = size * 0.08;
-  const inner = size - margin * 2;
 
-  // Background rounded rect
-  const bg = new Graphics();
-  bg.roundRect(margin, margin, inner, inner, size * 0.12);
-  bg.fill(primary);
-  c.addChild(bg);
+  drawBackground(c, size);
 
-  // Vein pattern — diagonal lines
-  const veins = new Graphics();
-  const step = size * 0.18;
-  for (let offset = -size; offset < size * 2; offset += step) {
-    veins.moveTo(offset, margin);
-    veins.lineTo(offset + inner, margin + inner);
-    veins.stroke({ color: vein, width: size * 0.04, alpha: 0.5 });
+  if (!node.depleted) {
+    drawRadialHalo(c, size, isOre ? A_ORE_HALO : A_CRYSTAL_HALO);
   }
-  // Mask to rounded rect area
-  const mask = new Graphics();
-  mask.roundRect(margin, margin, inner, inner, size * 0.12);
-  mask.fill(0xffffff);
-  c.addChild(mask);
-  veins.mask = mask;
-  c.addChild(veins);
 
-  // Grid border
-  const border = new Graphics();
-  border.rect(0, 0, size, size).stroke({ color: GRID_COLOR, width: 0.5 });
-  c.addChild(border);
+  drawBody(c, size, isOre ? A_ORE : A_CRYSTAL, node.depleted);
+  drawGrid(c, size);
 
-  c.alpha = node.depleted ? DEPLETED_ALPHA : 1;
   return c;
 }
 
 // ============================================================
-// Proposal B: Hexagonal shape + crystal dots
-// Metaphor: crystalline mineral structure
+// Proposal B: Gold ore / Cyan crystal — layered ring halo
 // ============================================================
+const B_ORE = 0xe8b84b;
+const B_CRYSTAL = 0x67d4e2;
+const B_ORE_HALO = 0xe8b84b;
+const B_CRYSTAL_HALO = 0x67d4e2;
+
 export function createResourceNodeB(size: number, node: ResourceNode): Container {
   const c = new Container();
   const isOre = node.type === 'OreNode';
-  const primary = isOre ? ORE_PRIMARY : CRYSTAL_PRIMARY;
-  const dot = isOre ? ORE_VEIN : CRYSTAL_VEIN;
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size * 0.42;
 
-  // Hexagon
-  const hex = new Graphics();
-  const points: number[] = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i - Math.PI / 6;
-    points.push(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+  drawBackground(c, size);
+
+  if (!node.depleted) {
+    drawRingHalo(c, size, isOre ? B_ORE_HALO : B_CRYSTAL_HALO);
   }
-  hex.poly(points);
-  hex.fill(primary);
-  hex.poly(points);
-  hex.stroke({ color: isOre ? ORE_SECONDARY : CRYSTAL_SECONDARY, width: size * 0.04 });
-  c.addChild(hex);
 
-  // Crystal dots inside
-  const dots = new Graphics();
-  const dotPositions = [
-    [0.35, 0.3], [0.6, 0.35], [0.45, 0.55],
-    [0.3, 0.65], [0.65, 0.6], [0.5, 0.4],
-  ];
-  for (const [dx, dy] of dotPositions) {
-    const dr = size * (0.03 + Math.random() * 0.02);
-    dots.circle(size * dx, size * dy, dr);
-    dots.fill({ color: dot, alpha: 0.7 });
-  }
-  c.addChild(dots);
+  drawBody(c, size, isOre ? B_ORE : B_CRYSTAL, node.depleted);
+  drawGrid(c, size);
 
-  // Grid border
-  const border = new Graphics();
-  border.rect(0, 0, size, size).stroke({ color: GRID_COLOR, width: 0.5 });
-  c.addChild(border);
-
-  c.alpha = node.depleted ? DEPLETED_ALPHA : 1;
   return c;
 }
 
 // ============================================================
-// Proposal C: Cluster of small rectangles
-// Metaphor: open-pit mining blocks
+// Proposal C: Salmon ore / Lavender crystal — square glow halo
 // ============================================================
+const C_ORE = 0xf0a08a;
+const C_CRYSTAL = 0xc4b5fd;
+const C_ORE_HALO = 0xf0a08a;
+const C_CRYSTAL_HALO = 0xc4b5fd;
+
 export function createResourceNodeC(size: number, node: ResourceNode): Container {
   const c = new Container();
   const isOre = node.type === 'OreNode';
-  const primary = isOre ? ORE_PRIMARY : CRYSTAL_PRIMARY;
-  const secondary = isOre ? ORE_SECONDARY : CRYSTAL_SECONDARY;
-  const vein = isOre ? ORE_VEIN : CRYSTAL_VEIN;
 
-  // Block layout — irregular cluster of small rects
-  const blocks: { x: number; y: number; w: number; h: number; color: number }[] = [
-    { x: 0.15, y: 0.12, w: 0.35, h: 0.28, color: primary },
-    { x: 0.52, y: 0.10, w: 0.30, h: 0.32, color: secondary },
-    { x: 0.10, y: 0.42, w: 0.32, h: 0.30, color: secondary },
-    { x: 0.44, y: 0.44, w: 0.38, h: 0.28, color: primary },
-    { x: 0.20, y: 0.72, w: 0.28, h: 0.18, color: vein },
-    { x: 0.52, y: 0.74, w: 0.26, h: 0.16, color: secondary },
-  ];
+  drawBackground(c, size);
+
+  if (!node.depleted) {
+    drawSquareHalo(c, size, isOre ? C_ORE_HALO : C_CRYSTAL_HALO);
+  }
+
+  drawBody(c, size, isOre ? C_ORE : C_CRYSTAL, node.depleted);
+  drawGrid(c, size);
+
+  return c;
+}
+
+// ============================================================
+// Shared drawing helpers
+// ============================================================
+
+function drawBackground(c: Container, size: number): void {
+  const bg = new Graphics();
+  bg.rect(0, 0, size, size).fill(0x1a2a1a);
+  c.addChild(bg);
+}
+
+function drawGrid(c: Container, size: number): void {
+  const g = new Graphics();
+  g.rect(0, 0, size, size).stroke({ color: GRID_COLOR, width: 0.5 });
+  c.addChild(g);
+}
+
+/** Rounded-square body at center, ~1/3 of cell */
+function drawBody(c: Container, size: number, color: number, depleted: boolean): void {
+  const bodySize = Math.round(size / 3);
+  const offset = Math.round((size - bodySize) / 2);
+  const radius = bodySize * 0.2;
 
   const g = new Graphics();
-  for (const b of blocks) {
-    const gap = size * 0.02;
-    g.roundRect(
-      size * b.x + gap, size * b.y + gap,
-      size * b.w - gap * 2, size * b.h - gap * 2,
-      size * 0.04,
-    );
-    g.fill(b.color);
+  g.roundRect(offset, offset, bodySize, bodySize, radius).fill(color);
+  g.alpha = depleted ? DEPLETED_ALPHA : 1;
+  c.addChild(g);
+}
+
+/** Soft radial glow — concentric circles with decreasing alpha */
+function drawRadialHalo(c: Container, size: number, color: number): void {
+  const cx = size / 2;
+  const cy = size / 2;
+  const g = new Graphics();
+  const layers = 3;
+  const bodyR = size / 6;
+
+  for (let i = layers; i >= 1; i--) {
+    const r = bodyR + bodyR * 0.4 * i;
+    const alpha = 0.08 / i;
+    g.circle(cx, cy, r).fill({ color, alpha });
   }
   c.addChild(g);
+}
 
-  // Grid border
-  const border = new Graphics();
-  border.rect(0, 0, size, size).stroke({ color: GRID_COLOR, width: 0.5 });
-  c.addChild(border);
+/** Layered ring glow — thin concentric ring strokes */
+function drawRingHalo(c: Container, size: number, color: number): void {
+  const cx = size / 2;
+  const cy = size / 2;
+  const g = new Graphics();
+  const bodyR = size / 6;
 
-  c.alpha = node.depleted ? DEPLETED_ALPHA : 1;
-  return c;
+  const rings = [
+    { r: bodyR * 1.4, alpha: 0.25, width: 1.5 },
+    { r: bodyR * 1.8, alpha: 0.12, width: 1.0 },
+  ];
+
+  for (const ring of rings) {
+    g.circle(cx, cy, ring.r).stroke({ color, width: ring.width, alpha: ring.alpha });
+  }
+  c.addChild(g);
+}
+
+/** Square glow — larger rounded rect behind the body */
+function drawSquareHalo(c: Container, size: number, color: number): void {
+  const g = new Graphics();
+  const haloSize = Math.round(size / 2.2);
+  const offset = Math.round((size - haloSize) / 2);
+  const radius = haloSize * 0.22;
+
+  g.roundRect(offset, offset, haloSize, haloSize, radius).fill({ color, alpha: 0.12 });
+  c.addChild(g);
 }

@@ -1,9 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
 import type { ResourceNode } from '@/types.js';
-import {
-  createEmptyCellGraphics,
-  createResourceNodeGraphics,
-} from '../renderer.js';
+import { createResourceNodeGraphics, createEmptyCellGraphics } from '../renderer.js';
 import { createStoryApp, CELL_SIZE } from './helpers.js';
 
 const meta: Meta = {
@@ -13,56 +10,33 @@ export default meta;
 
 type Story = StoryObj;
 
-async function renderNode(node: ResourceNode): Promise<HTMLCanvasElement> {
-  const { app, container } = await createStoryApp(CELL_SIZE, CELL_SIZE);
-  container.addChild(createResourceNodeGraphics(CELL_SIZE, node));
-  return app.canvas as HTMLCanvasElement;
+function renderNode(node: ResourceNode): HTMLElement {
+  const wrapper = document.createElement('div');
+  (async () => {
+    const { app, container } = await createStoryApp(CELL_SIZE, CELL_SIZE);
+    container.addChild(createResourceNodeGraphics(CELL_SIZE, node));
+    wrapper.appendChild(app.canvas as HTMLCanvasElement);
+  })();
+  return wrapper;
 }
 
-// --- OreNode ---
-
 export const OreNode: Story = {
-  render: () => {
-    const wrapper = document.createElement('div');
-    renderNode({ position: { x: 0, y: 0 }, type: 'OreNode', depleted: false })
-      .then((c) => wrapper.appendChild(c));
-    return wrapper;
-  },
+  render: () => renderNode({ position: { x: 0, y: 0 }, type: 'OreNode', depleted: false }),
 };
 
 export const OreNodeDepleted: Story = {
   name: 'OreNode (depleted)',
-  render: () => {
-    const wrapper = document.createElement('div');
-    renderNode({ position: { x: 0, y: 0 }, type: 'OreNode', depleted: true })
-      .then((c) => wrapper.appendChild(c));
-    return wrapper;
-  },
+  render: () => renderNode({ position: { x: 0, y: 0 }, type: 'OreNode', depleted: true }),
 };
 
-// --- CrystalNode ---
-
 export const CrystalNode: Story = {
-  name: 'CrystalNode',
-  render: () => {
-    const wrapper = document.createElement('div');
-    renderNode({ position: { x: 0, y: 0 }, type: 'CrystalNode', depleted: false })
-      .then((c) => wrapper.appendChild(c));
-    return wrapper;
-  },
+  render: () => renderNode({ position: { x: 0, y: 0 }, type: 'CrystalNode', depleted: false }),
 };
 
 export const CrystalNodeDepleted: Story = {
   name: 'CrystalNode (depleted)',
-  render: () => {
-    const wrapper = document.createElement('div');
-    renderNode({ position: { x: 0, y: 0 }, type: 'CrystalNode', depleted: true })
-      .then((c) => wrapper.appendChild(c));
-    return wrapper;
-  },
+  render: () => renderNode({ position: { x: 0, y: 0 }, type: 'CrystalNode', depleted: true }),
 };
-
-// --- Empty cell ---
 
 export const EmptyCell: Story = {
   render: () => {

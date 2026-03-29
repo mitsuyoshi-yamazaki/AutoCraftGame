@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
-import type { Character } from '@/types.js';
+import type { Character, ComponentType } from '@/types.js';
 import { MIN_COMPONENTS } from '@/recipes.js';
 import {
   createEmptyCellGraphics,
