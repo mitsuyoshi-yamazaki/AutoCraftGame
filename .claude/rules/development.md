@@ -22,6 +22,14 @@
 - `replication.test.ts` に検証事項3件を直接テストケースとして記述する
 - プロトタイプのためエッジケースのテストは不要。正常系のみ
 
+## GUI開発ルール
+
+- ゲームロジック（`src/`）を変更しない。GUI（`ui/`）はimportして利用するだけ
+- GUI仕様は `docs/ui_spec/` を参照する
+- `ui/renderer.ts` の描画関数はセル単位でexportし、Rendererクラスとstoriesの両方から利用する
+- 新しい描画要素を追加した場合は対応するStoryも追加する
+- Vite設定（`vite.config.ts`, root: ui）とVitest設定（`vitest.config.ts`）は分離されている。混同しないこと
+
 ## 仕様との関係
 
 - 実装は `docs/specs/` の仕様に従う

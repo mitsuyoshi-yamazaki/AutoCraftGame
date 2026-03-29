@@ -6,12 +6,16 @@
   "scripts": {
     "test": "vitest run",
     "sim": "npx tsx src/cli.ts",
-    "ui": "vite"
+    "ui": "vite",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "devDependencies": {
     "tsx": "^4.10.0",
     "typescript": "^5.4.0",
     "vite": "^8.0.3",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "storybook": "^10.3.3",
+    "@storybook/html-vite": "^10.3.3"
   }
 }

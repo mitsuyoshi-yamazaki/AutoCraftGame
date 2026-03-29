@@ -1,4 +1,5 @@
 {
   "claudeCode.initialPermissionMode": "bypassPermissions",
-  "claudeCode.hideOnboarding": false
+  "claudeCode.hideOnboarding": false,
+  "defaultMode": "bypassPermissions"
 }

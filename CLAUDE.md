@@ -22,20 +22,31 @@
 
 - TypeScript + Node.js
 - Vitest（テスト）
-- GUIなし — CUI出力（JSON）で検証
+- Vite（GUI・Storybookのバンドル）
+- Storybook（@storybook/html-vite — UIコンポーネントカタログ）
 
 ## プロジェクト構造
 
 ```
-src/
-├── types.ts          ... 全体の型定義
-├── world.ts          ... マップ、資源ノード、ゲーム世界
-├── recipes.ts        ... 素材階層、レシピ定義
-├── character.ts      ... キャラクター、コンポーネント
-├── program.ts        ... Program評価（Condition/Action）
-├── replication.ts    ... 自己複製関連のAction実装
-├── simulation.ts     ... ゲームループ、ティック実行
-└── cli.ts            ... CUIエントリポイント
+src/                          ... ゲームロジック（純粋関数、DOM非依存）
+├── types.ts                  ... 全体の型定義
+├── world.ts                  ... マップ、資源ノード、ゲーム世界
+├── recipes.ts                ... 素材階層、レシピ定義
+├── character.ts              ... キャラクター、コンポーネント
+├── program.ts                ... Program評価（Condition/Action）
+├── replication.ts            ... 自己複製関連のAction実装
+├── simulation.ts             ... ゲームループ、ティック実行
+└── cli.ts                    ... CUIエントリポイント
+ui/                           ... ブラウザGUI（Canvas描画）
+├── index.html                ... エントリHTML
+├── main.ts                   ... UIコントローラー（タイマー制御、DOM更新）
+├── renderer.ts               ... Canvas描画（セル単位の関数 + Rendererクラス）
+├── style.css                 ... スタイル
+└── stories/                  ... Storybookストーリー
+    ├── helpers.ts             ... Canvas生成ヘルパー
+    ├── ResourceNode.stories.ts
+    ├── Character.stories.ts
+    └── GridOverview.stories.ts
 test/
 ├── recipes.test.ts
 ├── character.test.ts
@@ -44,6 +55,9 @@ test/
 └── simulation.test.ts
 programs/
 └── self-replicator.json
+.storybook/                   ... Storybook設定
+docs/specs/                   ... ゲーム仕様書
+docs/ui_spec/                 ... GUI仕様書（要件定義・アーキテクチャ）
 ```
 
 ## コマンド
@@ -51,6 +65,17 @@ programs/
 - `npm test` — 全テスト実行
 - `npm run sim` — シミュレーション実行（`npx tsx src/cli.ts`）
 - `npm run sim -- --ticks 200 --program programs/self-replicator.json` — オプション付き実行
+- `npm run ui` — GUI起動（Vite dev server）
+- `npm run storybook` — Storybook起動（port 6006）
+- `npm run build-storybook` — Storybook静的ビルド
+
+## GUI アーキテクチャ
+
+- `ui/` は `src/` のゲームロジックをimportして利用する（`@/` エイリアス → `src/`）
+- ゲームロジック（`src/`）はDOM非依存。GUI（`ui/`）がCanvasに描画する
+- `ui/renderer.ts` はセル単位の描画関数（`drawEmptyCell`, `drawResourceNode`, `drawCharacter`）をexportし、Rendererクラスとstoriesの両方から利用される
+- Vite設定は `vite.config.ts`（root: ui）、Vitest設定は `vitest.config.ts`（root: プロジェクトルート）で分離
+- Storybook設定は `.storybook/main.ts` の `viteFinal` で `@` エイリアスを設定
 
 ## 開発方針
 
