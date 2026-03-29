@@ -1,6 +1,12 @@
-import { Application, Container, Graphics } from 'pixi.js';
-import type { World, Character, ResourceNode, Position, ComponentType } from '@/types.js';
-import { isActive } from '@/character.js';
+import { Application, Container, Graphics } from "pixi.js";
+import type {
+  World,
+  Character,
+  ResourceNode,
+  Position,
+  ComponentType,
+} from "@/types.js";
+import { isActive } from "@/character.js";
 
 // ============================================================
 // Color constants
@@ -34,16 +40,23 @@ const INACTIVE_ALPHA = 0.65;
 export function createEmptyCellGraphics(size: number): Graphics {
   const g = new Graphics();
   g.rect(0, 0, size, size).fill(COLORS.empty);
-  g.rect(0, 0, size, size).stroke({ color: COLORS.grid, width: 0.5 });
+  g.rect(0, 0, size, size).stroke({
+    color: COLORS.grid,
+    width: 1,
+    alpha: 0.55,
+  });
   return g;
 }
 
 // ============================================================
 // ResourceNode — small rounded square + ring halo
 // ============================================================
-export function createResourceNodeGraphics(size: number, node: ResourceNode): Container {
+export function createResourceNodeGraphics(
+  size: number,
+  node: ResourceNode,
+): Container {
   const c = new Container();
-  const isOre = node.type === 'OreNode';
+  const isOre = node.type === "OreNode";
   const color = isOre ? COLORS.ore : COLORS.crystal;
   const cx = Math.floor(size / 2);
   const cy = Math.floor(size / 2);
@@ -73,7 +86,9 @@ export function createResourceNodeGraphics(size: number, node: ResourceNode): Co
 
   // Grid line
   const grid = new Graphics();
-  grid.rect(0, 0, size, size).stroke({ color: COLORS.grid, width: 0.5 });
+  grid
+    .rect(0, 0, size, size)
+    .stroke({ color: COLORS.grid, width: 1, alpha: 0.55 });
   c.addChild(grid);
 
   return c;
@@ -107,7 +122,10 @@ export function createCharacterGraphics(
   // Cytoplasm (background fill)
   const cyto = new Graphics();
   cyto.circle(cx, cy, outerR);
-  cyto.fill({ color: active ? 0x1a3a4a : 0x2a2a2a, alpha: active ? 0.35 : 0.12 });
+  cyto.fill({
+    color: active ? 0x1a3a4a : 0x2a2a2a,
+    alpha: active ? 0.35 : 0.12,
+  });
   container.addChild(cyto);
 
   // Component ring (always full)
@@ -119,7 +137,13 @@ export function createCharacterGraphics(
     for (const [type, count] of counts) {
       const arcAngle = (Math.PI * 2 * count) / total;
       const color = active ? COMPONENT_COLORS[type] : 0x666666;
-      ring.arc(cx, cy, outerR - ringWidth / 2, currentAngle, currentAngle + arcAngle);
+      ring.arc(
+        cx,
+        cy,
+        outerR - ringWidth / 2,
+        currentAngle,
+        currentAngle + arcAngle,
+      );
       ring.stroke({ color, width: ringWidth, alpha: active ? 0.85 : 0.35 });
       currentAngle += arcAngle;
     }
@@ -129,7 +153,9 @@ export function createCharacterGraphics(
   // Selection ring
   if (selected) {
     const sel = new Graphics();
-    sel.circle(cx, cy, outerR + 2).stroke({ color: COLORS.selected, width: 2, alpha: 0.9 });
+    sel
+      .circle(cx, cy, outerR + 2)
+      .stroke({ color: COLORS.selected, width: 2, alpha: 0.9 });
     container.addChild(sel);
   }
 
@@ -152,7 +178,9 @@ export function createCharacterGraphics(
   // Nucleus — area proportional to durability: r = maxR * sqrt(ratio)
   const nucleusR = maxNucleusR * Math.sqrt(ratio);
   const nucleusColor = active
-    ? (char.components.includes('Processor') ? COMPONENT_COLORS.Processor : 0x555555)
+    ? char.components.includes("Processor")
+      ? COMPONENT_COLORS.Processor
+      : 0x555555
     : 0x555555;
 
   if (nucleusR > 0.5) {
@@ -163,12 +191,15 @@ export function createCharacterGraphics(
   }
 
   // MemoryCore dot
-  if (char.components.includes('MemoryCore') && nucleusR > 1) {
+  if (char.components.includes("MemoryCore") && nucleusR > 1) {
     const mcR = Math.max(size * 0.02, size * 0.035 * Math.sqrt(ratio));
     const mcOffset = nucleusR * 0.4;
     const mc = new Graphics();
     mc.circle(cx, cy - mcOffset, mcR);
-    mc.fill({ color: active ? COMPONENT_COLORS.MemoryCore : 0x777777, alpha: 0.9 });
+    mc.fill({
+      color: active ? COMPONENT_COLORS.MemoryCore : 0x777777,
+      alpha: 0.9,
+    });
     container.addChild(mc);
   }
 
@@ -181,7 +212,7 @@ export function createCharacterGraphics(
 // Helpers
 // ============================================================
 function durRatio(char: Character): number {
-  const maxDur = char.components.filter((c) => c === 'Frame').length * 100;
+  const maxDur = char.components.filter((c) => c === "Frame").length * 100;
   return maxDur > 0 ? Math.max(0, Math.min(1, char.durability / maxDur)) : 0;
 }
 
@@ -220,7 +251,9 @@ export class Renderer {
   draw(world: World, selectedId: string | null): void {
     const canvasW = this.app.canvas.clientWidth;
     const canvasH = this.app.canvas.clientHeight;
-    const cellSize = Math.floor(Math.min(canvasW, canvasH) / Math.max(world.width, world.height));
+    const cellSize = Math.floor(
+      Math.min(canvasW, canvasH) / Math.max(world.width, world.height),
+    );
     this.cellSize = cellSize;
 
     this.gridContainer.removeChildren();
@@ -255,7 +288,11 @@ export class Renderer {
 
         const char = charMap.get(key);
         if (char) {
-          const charGraphics = createCharacterGraphics(cellSize, char, char.id === selectedId);
+          const charGraphics = createCharacterGraphics(
+            cellSize,
+            char,
+            char.id === selectedId,
+          );
           charGraphics.x = px;
           charGraphics.y = py;
           this.gridContainer.addChild(charGraphics);
@@ -269,9 +306,11 @@ export class Renderer {
     const localY = globalY - this.gridContainer.y;
     const gridX = Math.floor(localX / this.cellSize);
     const gridY = Math.floor(localY / this.cellSize);
-    return world.characters.find(
-      (c) => c.position.x === gridX && c.position.y === gridY,
-    ) ?? null;
+    return (
+      world.characters.find(
+        (c) => c.position.x === gridX && c.position.y === gridY,
+      ) ?? null
+    );
   }
 }
 
