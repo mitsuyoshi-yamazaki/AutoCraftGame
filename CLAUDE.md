@@ -22,6 +22,7 @@
 
 - TypeScript + Node.js
 - Vitest（テスト）
+- pixi.js v8（2D描画エンジン — Canvas/WebGL）
 - Vite（GUI・Storybookのバンドル）
 - Storybook（@storybook/html-vite — UIコンポーネントカタログ）
 
@@ -73,7 +74,8 @@ docs/ui_spec/                 ... GUI仕様書（要件定義・アーキテク�
 
 - `ui/` は `src/` のゲームロジックをimportして利用する（`@/` エイリアス → `src/`）
 - ゲームロジック（`src/`）はDOM非依存。GUI（`ui/`）がCanvasに描画する
-- `ui/renderer.ts` はセル単位の描画関数（`drawEmptyCell`, `drawResourceNode`, `drawCharacter`）をexportし、Rendererクラスとstoriesの両方から利用される
+- `ui/renderer.ts` はpixi.js Graphicsを返すセル単位の関数（`createEmptyCellGraphics`, `createResourceNodeGraphics`, `createCharacterGraphics`）をexportし、Rendererクラスとstoriesの両方から利用される
+- pixi.js v8: `Application.init()` は非同期。`Renderer` クラスも `async init()` で初期化する
 - Vite設定は `vite.config.ts`（root: ui）、Vitest設定は `vitest.config.ts`（root: プロジェクトルート）で分離
 - Storybook設定は `.storybook/main.ts` の `viteFinal` で `@` エイリアスを設定
 

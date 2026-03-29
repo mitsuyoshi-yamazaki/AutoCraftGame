@@ -1,16 +1,25 @@
-/**
- * Storybook helper: create a Canvas element with fixed cell size and dark background.
- */
-export function createCellCanvas(cellSize: number, cols: number = 1, rows: number = 1): {
-  canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
-} {
-  const canvas = document.createElement('canvas');
-  canvas.width = cellSize * cols;
-  canvas.height = cellSize * rows;
-  canvas.style.imageRendering = 'pixelated';
-  const ctx = canvas.getContext('2d')!;
-  return { canvas, ctx };
-}
+import { Application, Container } from 'pixi.js';
+import { COLORS } from '../renderer.js';
 
 export const CELL_SIZE = 48;
+
+/**
+ * Create a pixi Application for a story and return its canvas element.
+ * The returned promise resolves to the canvas HTMLElement after init.
+ */
+export async function createStoryApp(
+  width: number,
+  height: number,
+): Promise<{ app: Application; container: Container }> {
+  const app = new Application();
+  await app.init({
+    width,
+    height,
+    background: COLORS.empty,
+    antialias: false,
+    resolution: 1,
+  });
+  const container = new Container();
+  app.stage.addChild(container);
+  return { app, container };
+}

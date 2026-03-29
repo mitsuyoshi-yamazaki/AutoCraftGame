@@ -1,8 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
-import type { Character, ResourceNode, World } from '@/types.js';
+import type { Character, ResourceNode } from '@/types.js';
 import { MIN_COMPONENTS } from '@/recipes.js';
-import { drawEmptyCell, drawResourceNode, drawCharacter } from '../renderer.js';
-import { createCellCanvas } from './helpers.js';
+import {
+  createEmptyCellGraphics,
+  createResourceNodeGraphics,
+  createCharacterGraphics,
+} from '../renderer.js';
+import { createStoryApp } from './helpers.js';
 
 const meta: Meta = {
   title: 'Map/GridOverview',
@@ -56,50 +60,56 @@ function buildMiniWorld(): {
 
 export const Overview: Story = {
   render: () => {
-    const { canvas, ctx } = createCellCanvas(CELL, GRID, GRID);
-    const { nodes, characters } = buildMiniWorld();
+    const wrapper = document.createElement('div');
 
-    const nodeMap = new Map<string, ResourceNode>();
-    for (const n of nodes) nodeMap.set(`${n.position.x},${n.position.y}`, n);
-    const charMap = new Map<string, Character>();
-    for (const c of characters) charMap.set(`${c.position.x},${c.position.y}`, c);
+    (async () => {
+      const { app, container } = await createStoryApp(CELL * GRID, CELL * GRID);
+      const { nodes, characters } = buildMiniWorld();
 
-    for (let y = 0; y < GRID; y++) {
-      for (let x = 0; x < GRID; x++) {
-        const px = x * CELL;
-        const py = y * CELL;
-        const key = `${x},${y}`;
+      const nodeMap = new Map<string, ResourceNode>();
+      for (const n of nodes) nodeMap.set(`${n.position.x},${n.position.y}`, n);
+      const charMap = new Map<string, Character>();
+      for (const c of characters) charMap.set(`${c.position.x},${c.position.y}`, c);
 
-        const node = nodeMap.get(key);
-        if (node) {
-          drawResourceNode(ctx, px, py, CELL, node);
-        } else {
-          drawEmptyCell(ctx, px, py, CELL);
-        }
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          const px = x * CELL;
+          const py = y * CELL;
+          const key = `${x},${y}`;
 
-        const char = charMap.get(key);
-        if (char) {
-          drawCharacter(ctx, px, py, CELL, char, char.id === 'char-001');
+          const node = nodeMap.get(key);
+          const cellG = node
+            ? createResourceNodeGraphics(CELL, node)
+            : createEmptyCellGraphics(CELL);
+          cellG.x = px;
+          cellG.y = py;
+          container.addChild(cellG);
+
+          const char = charMap.get(key);
+          if (char) {
+            const charG = createCharacterGraphics(CELL, char, char.id === 'char-001');
+            charG.x = px;
+            charG.y = py;
+            container.addChild(charG);
+          }
         }
       }
-    }
 
-    // Legend below the canvas
-    const wrapper = document.createElement('div');
-    wrapper.appendChild(canvas);
+      wrapper.appendChild(app.canvas as HTMLCanvasElement);
 
-    const legend = document.createElement('div');
-    legend.style.cssText = 'margin-top:12px; font-family:monospace; font-size:13px; color:#ccc; line-height:1.8;';
-    legend.innerHTML = [
-      '<b>Legend:</b>',
-      '(0,0) OreNode &nbsp; (1,0) OreNode depleted',
-      '(4,0) CrystalNode &nbsp; (5,0) CrystalNode depleted',
-      '(2,2) char-001: active, selected, dur 90%',
-      '(3,2) char-002: active, dur 30% (critical)',
-      '(3,3) char-003: inactive',
-      '(0,3) char-004: active on OreNode, dur 50%',
-    ].join('<br>');
-    wrapper.appendChild(legend);
+      const legend = document.createElement('div');
+      legend.style.cssText = 'margin-top:12px; font-family:monospace; font-size:13px; color:#ccc; line-height:1.8;';
+      legend.innerHTML = [
+        '<b>Legend:</b>',
+        '(0,0) OreNode &nbsp; (1,0) OreNode depleted',
+        '(4,0) CrystalNode &nbsp; (5,0) CrystalNode depleted',
+        '(2,2) char-001: active, selected, dur 90%',
+        '(3,2) char-002: active, dur 30% (critical)',
+        '(3,3) char-003: inactive',
+        '(0,3) char-004: active on OreNode, dur 50%',
+      ].join('<br>');
+      wrapper.appendChild(legend);
+    })();
 
     return wrapper;
   },

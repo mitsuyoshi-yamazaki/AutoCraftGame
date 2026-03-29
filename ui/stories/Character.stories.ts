@@ -1,8 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
-import type { Character, ComponentType } from '@/types.js';
+import type { Character } from '@/types.js';
 import { MIN_COMPONENTS } from '@/recipes.js';
-import { drawCharacter, drawEmptyCell, drawResourceNode } from '../renderer.js';
-import { createCellCanvas, CELL_SIZE } from './helpers.js';
+import {
+  createEmptyCellGraphics,
+  createResourceNodeGraphics,
+  createCharacterGraphics,
+} from '../renderer.js';
+import { createStoryApp, CELL_SIZE } from './helpers.js';
 
 const meta: Meta = {
   title: 'Map/Character',
@@ -25,92 +29,72 @@ function makeChar(overrides: Partial<Character> & { id: string }): Character {
   };
 }
 
-function renderCharOnEmpty(char: Character, selected: boolean): HTMLCanvasElement {
-  const { canvas, ctx } = createCellCanvas(CELL_SIZE);
-  drawEmptyCell(ctx, 0, 0, CELL_SIZE);
-  drawCharacter(ctx, 0, 0, CELL_SIZE, char, selected);
-  return canvas;
+function renderCharStory(char: Character, selected: boolean): HTMLElement {
+  const wrapper = document.createElement('div');
+  (async () => {
+    const { app, container } = await createStoryApp(CELL_SIZE, CELL_SIZE);
+    container.addChild(createEmptyCellGraphics(CELL_SIZE));
+    container.addChild(createCharacterGraphics(CELL_SIZE, char, selected));
+    wrapper.appendChild(app.canvas as HTMLCanvasElement);
+  })();
+  return wrapper;
 }
 
-// --- Active character ---
-
 export const Active: Story = {
-  render: () => renderCharOnEmpty(
-    makeChar({ id: 'char-001', durability: 100 }),
-    false,
-  ),
+  render: () => renderCharStory(makeChar({ id: 'char-001', durability: 100 }), false),
 };
-
-// --- Inactive character (no program) ---
 
 export const Inactive: Story = {
-  render: () => renderCharOnEmpty(
-    makeChar({ id: 'char-002', program: null, durability: 100 }),
-    false,
-  ),
+  render: () => renderCharStory(makeChar({ id: 'char-002', program: null, durability: 100 }), false),
 };
-
-// --- Selected character ---
 
 export const Selected: Story = {
-  render: () => renderCharOnEmpty(
-    makeChar({ id: 'char-001', durability: 80 }),
-    true,
-  ),
+  render: () => renderCharStory(makeChar({ id: 'char-001', durability: 80 }), true),
 };
-
-// --- Durability states ---
 
 export const DurabilityFull: Story = {
   name: 'Durability 100%',
-  render: () => renderCharOnEmpty(
-    makeChar({ id: 'char-001', durability: 100 }),
-    false,
-  ),
+  render: () => renderCharStory(makeChar({ id: 'char-001', durability: 100 }), false),
 };
 
 export const DurabilityHalf: Story = {
   name: 'Durability 50%',
-  render: () => renderCharOnEmpty(
-    makeChar({ id: 'char-001', durability: 50 }),
-    false,
-  ),
+  render: () => renderCharStory(makeChar({ id: 'char-001', durability: 50 }), false),
 };
 
 export const DurabilityLow: Story = {
   name: 'Durability 10% (critical)',
-  render: () => renderCharOnEmpty(
-    makeChar({ id: 'char-001', durability: 10 }),
-    false,
-  ),
+  render: () => renderCharStory(makeChar({ id: 'char-001', durability: 10 }), false),
 };
-
-// --- Character on resource node ---
 
 export const OnOreNode: Story = {
   name: 'Active on OreNode',
   render: () => {
-    const { canvas, ctx } = createCellCanvas(CELL_SIZE);
-    drawResourceNode(ctx, 0, 0, CELL_SIZE, {
-      position: { x: 0, y: 0 },
-      type: 'OreNode',
-      depleted: false,
-    });
-    drawCharacter(ctx, 0, 0, CELL_SIZE, makeChar({ id: 'char-001' }), false);
-    return canvas;
+    const wrapper = document.createElement('div');
+    (async () => {
+      const { app, container } = await createStoryApp(CELL_SIZE, CELL_SIZE);
+      container.addChild(createResourceNodeGraphics(CELL_SIZE, {
+        position: { x: 0, y: 0 }, type: 'OreNode', depleted: false,
+      }));
+      container.addChild(createCharacterGraphics(CELL_SIZE, makeChar({ id: 'char-001' }), false));
+      wrapper.appendChild(app.canvas as HTMLCanvasElement);
+    })();
+    return wrapper;
   },
 };
 
 export const OnCrystalNode: Story = {
   name: 'Active on CrystalNode',
   render: () => {
-    const { canvas, ctx } = createCellCanvas(CELL_SIZE);
-    drawResourceNode(ctx, 0, 0, CELL_SIZE, {
-      position: { x: 0, y: 0 },
-      type: 'CrystalNode',
-      depleted: false,
-    });
-    drawCharacter(ctx, 0, 0, CELL_SIZE, makeChar({ id: 'char-001' }), false);
-    return canvas;
+    const wrapper = document.createElement('div');
+    (async () => {
+      const { app, container } = await createStoryApp(CELL_SIZE, CELL_SIZE);
+      container.addChild(createResourceNodeGraphics(CELL_SIZE, {
+        position: { x: 0, y: 0 }, type: 'CrystalNode', depleted: false,
+      }));
+      container.addChild(createCharacterGraphics(CELL_SIZE, makeChar({ id: 'char-001' }), false));
+      wrapper.appendChild(app.canvas as HTMLCanvasElement);
+    })();
+    return wrapper;
   },
 };

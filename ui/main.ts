@@ -32,7 +32,6 @@ interface UIState {
 function createInitialState(): UIState {
   let world = createWorld(MAP_SIZE, MAP_SIZE);
 
-  // Strip comment fields from rules
   const rules = selfReplicatorProgram.rules.map((r: any) => ({
     condition: r.condition,
     action: r.action,
@@ -63,7 +62,7 @@ let timerId: ReturnType<typeof setInterval> | null = null;
 // ============================================================
 // DOM elements
 // ============================================================
-const canvas = document.getElementById('grid-canvas') as HTMLCanvasElement;
+const canvasContainer = document.getElementById('canvas-container')!;
 const btnPlayPause = document.getElementById('btn-play-pause')!;
 const btnSpeedDown = document.getElementById('btn-speed-down')!;
 const btnSpeedUp = document.getElementById('btn-speed-up')!;
@@ -75,13 +74,32 @@ const statDeaths = document.getElementById('stat-deaths')!;
 const selectedContent = document.getElementById('selected-content')!;
 const eventLogContent = document.getElementById('event-log-content')!;
 
-const renderer = new Renderer(canvas);
+// ============================================================
+// Initialize pixi.js and start
+// ============================================================
+const renderer = new Renderer();
+
+async function main(): Promise<void> {
+  await renderer.init(canvasContainer);
+
+  // Click handler on pixi canvas
+  renderer.app.canvas.addEventListener('click', (e: MouseEvent) => {
+    const rect = renderer.app.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const char = renderer.hitTest(state.world, x, y);
+    state = { ...state, selectedCharacterId: char?.id ?? null };
+    render();
+  });
+
+  speedDisplay.textContent = String(state.ticksPerSecond);
+  render();
+}
 
 // ============================================================
 // Simulation step
 // ============================================================
 function step(): void {
-  // Record actions before tick
   const actions = new Map<string, Action>();
   for (const char of state.world.characters) {
     if (isActive(char) && char.program) {
@@ -108,7 +126,6 @@ function step(): void {
     characterActions: actions,
   };
 
-  // Clear selection if character died
   if (
     state.selectedCharacterId &&
     !result.world.characters.some((c) => c.id === state.selectedCharacterId)
@@ -156,7 +173,6 @@ function setSpeed(tps: number): void {
 // Rendering
 // ============================================================
 function render(): void {
-  renderer.resize(state.world);
   renderer.draw(state.world, state.selectedCharacterId);
   updateStats();
   updateSelected();
@@ -230,19 +246,9 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-canvas.addEventListener('click', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const char = renderer.hitTest(state.world, x, y);
-  state = { ...state, selectedCharacterId: char?.id ?? null };
-  render();
-});
-
 window.addEventListener('resize', () => render());
 
 // ============================================================
-// Initial render
+// Boot
 // ============================================================
-speedDisplay.textContent = String(state.ticksPerSecond);
-render();
+main();

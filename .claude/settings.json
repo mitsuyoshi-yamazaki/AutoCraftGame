@@ -3,7 +3,7 @@
     "allow": [
       "Bash(npm *)",
       "Bash(git *)",
-      "Bash(npx storybook:*)",
+      "Bash(npx *)",
       "Read",
       "Edit"
     ]
