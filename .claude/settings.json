@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(git *)",
+      "Bash(npx storybook:*)",
+      "Read",
+      "Edit"
+    ]
+  }
+}
