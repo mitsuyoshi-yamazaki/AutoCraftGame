@@ -45,6 +45,8 @@ export function createResourceNodeGraphics(size: number, node: ResourceNode): Co
   const c = new Container();
   const isOre = node.type === 'OreNode';
   const color = isOre ? COLORS.ore : COLORS.crystal;
+  const cx = Math.floor(size / 2);
+  const cy = Math.floor(size / 2);
 
   // Background
   const bg = new Graphics();
@@ -53,8 +55,6 @@ export function createResourceNodeGraphics(size: number, node: ResourceNode): Co
 
   // Halo (ring strokes) — only when not depleted
   if (!node.depleted) {
-    const cx = size / 2;
-    const cy = size / 2;
     const bodyR = size / 6;
     const halo = new Graphics();
     halo.circle(cx, cy, bodyR * 1.4).stroke({ color, width: 1.5, alpha: 0.25 });
@@ -64,7 +64,7 @@ export function createResourceNodeGraphics(size: number, node: ResourceNode): Co
 
   // Body — rounded square, ~1/3 of cell
   const bodySize = Math.round(size / 3);
-  const offset = Math.round((size - bodySize) / 2);
+  const offset = Math.floor((size - bodySize) / 2);
   const radius = bodySize * 0.2;
   const body = new Graphics();
   body.roundRect(offset, offset, bodySize, bodySize, radius).fill(color);
@@ -96,8 +96,8 @@ export function createCharacterGraphics(
   selected: boolean,
 ): Container {
   const container = new Container();
-  const cx = size / 2;
-  const cy = size / 2;
+  const cx = Math.floor(size / 2);
+  const cy = Math.floor(size / 2);
   const active = isActive(char);
   const ratio = durRatio(char);
   const outerR = size * 0.4;
