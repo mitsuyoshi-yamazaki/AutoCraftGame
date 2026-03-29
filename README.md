@@ -172,6 +172,26 @@ npm run storybook
 4. 採用した描画を `ui/renderer.ts` に統合する
 5. 提案Storyは削除せず履歴として残す
 
+## カスタマイズ
+
+### 初期状態の変更
+
+| 変更対象 | ファイル | 箇所 |
+|---------|---------|------|
+| キャラクター配置・コンポーネント・プログラム | `ui/main.ts` | `createInitialState()` |
+| キャラクターのプログラム内容 | `programs/self-replicator.json` | ルールベースの行動定義 |
+| リソースノードの数と配置 | `src/world.ts` | `createWorld()` 内の資源ノード生成ロジック |
+| 世界の広さ（GUI） | `ui/main.ts` | `MAP_SIZE` 定数 |
+| 世界の広さ（CLI） | CLIオプション | `--map-size WxH` |
+
+### ゲーム仕様の変更
+
+| 変更対象 | ファイル | 仕様書 |
+|---------|---------|--------|
+| 加工ルール（PROCESS: Ore→Metal等） | `src/recipes.ts` | `docs/specs/game_spec.md` |
+| 製造ルール（CRAFT: Metal→Frame等） | `src/recipes.ts` | `docs/specs/game_spec.md` |
+| キャラクターのdurability量 | `src/character.ts` | `docs/specs/character_spec.md` |
+
 ## プロジェクト構造
 
 ```
