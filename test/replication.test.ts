@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { executeAction } from '../src/program.js';
 import { createCharacter, createInactiveCharacter } from '../src/character.js';
-import { createWorld, addCharacter, nextCharacterId, getCharacter } from '../src/world.js';
+import { createWorld, addCharacter, nextCharacterId, getCharacter, createRng } from '../src/world.js';
 import { MIN_COMPONENTS } from '../src/recipes.js';
 import {
   deepCopyProgram,
@@ -25,7 +25,7 @@ const REPLICATOR_PROGRAM: Program = {
 };
 
 function setupWorld() {
-  let world = createWorld(20, 20);
+  let world = createWorld(20, 20, createRng(1));
   const { id, world: w2 } = nextCharacterId(world);
   world = w2;
   const char = createCharacter(id, { x: 5, y: 5 }, MIN_COMPONENTS, REPLICATOR_PROGRAM);
@@ -186,7 +186,7 @@ describe('検証事項3: Program内の組立指示の変更で進化が実現で
     const evolvedProgram = evolveProgram(parent_program, evolvedComponents);
 
     // Setup world with evolved parent
-    let world = createWorld(20, 20);
+    let world = createWorld(20, 20, createRng(1));
     const { id: parentId, world: w2 } = nextCharacterId(world);
     world = w2;
     const parent = createCharacter(parentId, { x: 5, y: 5 }, MIN_COMPONENTS, evolvedProgram);

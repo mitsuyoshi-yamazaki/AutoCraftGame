@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Program, SimulationEvent, World } from './types.js';
-import { createWorld, addCharacter, nextCharacterId } from './world.js';
+import { createWorld, addCharacter, nextCharacterId, createRng } from './world.js';
 import { createCharacter } from './character.js';
 import { MIN_COMPONENTS } from './recipes.js';
 import { executeTick } from './simulation.js';
@@ -86,7 +86,8 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
 
   // Create world
-  let world = createWorld(options.mapWidth, options.mapHeight);
+  const rng = createRng(Date.now());
+  let world = createWorld(options.mapWidth, options.mapHeight, rng);
 
   // Load and place initial character
   if (options.programPath) {

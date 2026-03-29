@@ -1,6 +1,26 @@
 import type { World, ResourceNode, Position, Character } from './types.js';
 
 // ============================================================
+// Seeded PRNG — mulberry32
+// ============================================================
+export type Rng = () => number;
+
+export function createRng(seed: number): Rng {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Generate a random integer in [0, max) */
+function randInt(rng: Rng, max: number): number {
+  return Math.floor(rng() * max);
+}
+
+// ============================================================
 // Resource node regeneration — undeplete all nodes each tick
 // ============================================================
 export function regenerateResources(world: World): World {
@@ -78,21 +98,33 @@ export function isInBounds(world: World, pos: Position): boolean {
 }
 
 // ============================================================
-// Create initial world with scattered resource nodes
+// Resource node counts per type
 // ============================================================
-export function createWorld(width: number, height: number): World {
+const NODES_PER_TYPE = 12;
+
+// ============================================================
+// Create initial world with randomly placed resource nodes
+// ============================================================
+export function createWorld(width: number, height: number, rng: Rng): World {
+  const occupied = new Set<string>();
   const resourceNodes: ResourceNode[] = [];
 
-  // Place Ore nodes in the left half, Crystal nodes in the right half
-  // Simple deterministic placement for prototype
-  for (let y = 0; y < height; y += 3) {
-    for (let x = 0; x < Math.floor(width / 2); x += 3) {
-      resourceNodes.push({ position: { x, y }, type: 'OreNode', depleted: false });
-    }
-    for (let x = Math.floor(width / 2); x < width; x += 3) {
-      resourceNodes.push({ position: { x, y }, type: 'CrystalNode', depleted: false });
+  function placeNodes(type: 'OreNode' | 'CrystalNode', count: number): void {
+    let placed = 0;
+    while (placed < count) {
+      const x = randInt(rng, width);
+      const y = randInt(rng, height);
+      const key = `${x},${y}`;
+      if (!occupied.has(key)) {
+        occupied.add(key);
+        resourceNodes.push({ position: { x, y }, type, depleted: false });
+        placed++;
+      }
     }
   }
+
+  placeNodes('OreNode', NODES_PER_TYPE);
+  placeNodes('CrystalNode', NODES_PER_TYPE);
 
   return {
     width,

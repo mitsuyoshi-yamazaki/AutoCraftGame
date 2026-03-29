@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { executeTick, runSimulation } from '../src/simulation.js';
 import { createCharacter } from '../src/character.js';
-import { createWorld, addCharacter, nextCharacterId } from '../src/world.js';
+import { createWorld, addCharacter, nextCharacterId, createRng } from '../src/world.js';
 import { MIN_COMPONENTS } from '../src/recipes.js';
 import type { Program } from '../src/types.js';
 
 describe('simulation', () => {
   it('tick increments world tick counter', () => {
-    let world = createWorld(10, 10);
+    let world = createWorld(10, 10, createRng(1));
     const { id, world: w2 } = nextCharacterId(world);
     const program: Program = { rules: [{ condition: { op: 'true' }, action: { op: 'NOOP' } }] };
     const char = createCharacter(id, { x: 1, y: 1 }, MIN_COMPONENTS, program);
@@ -18,7 +18,7 @@ describe('simulation', () => {
   });
 
   it('character dies after durability reaches 0', () => {
-    let world = createWorld(10, 10);
+    let world = createWorld(10, 10, createRng(1));
     const { id, world: w2 } = nextCharacterId(world);
     const program: Program = { rules: [{ condition: { op: 'true' }, action: { op: 'NOOP' } }] };
     const char = createCharacter(id, { x: 1, y: 1 }, MIN_COMPONENTS, program);
@@ -32,7 +32,7 @@ describe('simulation', () => {
   });
 
   it('runSimulation stops early when no characters remain', () => {
-    let world = createWorld(10, 10);
+    let world = createWorld(10, 10, createRng(1));
     const { id, world: w2 } = nextCharacterId(world);
     const program: Program = { rules: [{ condition: { op: 'true' }, action: { op: 'NOOP' } }] };
     const char = createCharacter(id, { x: 1, y: 1 }, MIN_COMPONENTS, program);
@@ -45,7 +45,7 @@ describe('simulation', () => {
   });
 
   it('resources regenerate each tick', () => {
-    let world = createWorld(10, 10);
+    let world = createWorld(10, 10, createRng(1));
     const { id, world: w2 } = nextCharacterId(world);
     const oreNode = w2.resourceNodes.find((n) => n.type === 'OreNode')!;
     const program: Program = { rules: [{ condition: { op: 'true' }, action: { op: 'HARVEST' } }] };

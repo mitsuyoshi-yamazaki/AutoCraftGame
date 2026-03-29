@@ -1,5 +1,5 @@
-import type { World, Character, SimulationEvent, Action } from '@/types.js';
-import { createWorld, addCharacter, nextCharacterId } from '@/world.js';
+import type { World, SimulationEvent, Action } from '@/types.js';
+import { createWorld, addCharacter, nextCharacterId, createRng } from '@/world.js';
 import { createCharacter, isActive } from '@/character.js';
 import { MIN_COMPONENTS } from '@/recipes.js';
 import { executeTick } from '@/simulation.js';
@@ -14,6 +14,8 @@ const MIN_TPS = 1;
 const MAX_TPS = 60;
 const DEFAULT_TPS = 5;
 const MAP_SIZE = 20;
+const INITIAL_CHARACTERS = 4;
+const DEFAULT_SEED = 42;
 
 // ============================================================
 // State
@@ -29,8 +31,9 @@ interface UIState {
   characterActions: Map<string, Action>;
 }
 
-function createInitialState(): UIState {
-  let world = createWorld(MAP_SIZE, MAP_SIZE);
+function createInitialState(seed?: number): UIState {
+  const rng = createRng(seed ?? DEFAULT_SEED);
+  let world = createWorld(MAP_SIZE, MAP_SIZE, rng);
 
   const rules = selfReplicatorProgram.rules.map((r: any) => ({
     condition: r.condition,
@@ -38,11 +41,22 @@ function createInitialState(): UIState {
   }));
   const program = { rules };
 
-  const { id, world: w2 } = nextCharacterId(world);
-  world = w2;
-  const startPos = { x: Math.floor(MAP_SIZE / 2), y: Math.floor(MAP_SIZE / 2) };
-  const character = createCharacter(id, startPos, [...MIN_COMPONENTS], program);
-  world = addCharacter(world, character);
+  // Place characters at random non-overlapping positions
+  const occupied = new Set(world.resourceNodes.map((n) => `${n.position.x},${n.position.y}`));
+  for (let i = 0; i < INITIAL_CHARACTERS; i++) {
+    let x: number, y: number, key: string;
+    do {
+      x = Math.floor(rng() * MAP_SIZE);
+      y = Math.floor(rng() * MAP_SIZE);
+      key = `${x},${y}`;
+    } while (occupied.has(key));
+    occupied.add(key);
+
+    const { id, world: w2 } = nextCharacterId(world);
+    world = w2;
+    const character = createCharacter(id, { x, y }, [...MIN_COMPONENTS], program);
+    world = addCharacter(world, character);
+  }
 
   return {
     world,
@@ -63,6 +77,7 @@ let timerId: ReturnType<typeof setInterval> | null = null;
 // DOM elements
 // ============================================================
 const canvasContainer = document.getElementById('canvas-container')!;
+const btnReset = document.getElementById('btn-reset')!;
 const btnPlayPause = document.getElementById('btn-play-pause')!;
 const btnSpeedDown = document.getElementById('btn-speed-down')!;
 const btnSpeedUp = document.getElementById('btn-speed-up')!;
@@ -233,8 +248,21 @@ function appendEvents(events: readonly SimulationEvent[], tick: number): void {
 }
 
 // ============================================================
+// Reset
+// ============================================================
+function resetWithRandomSeed(): void {
+  stopTimer();
+  const seed = Date.now() ^ (Math.random() * 0xffffffff);
+  state = createInitialState(seed);
+  btnPlayPause.textContent = '▶';
+  eventLogContent.innerHTML = '';
+  render();
+}
+
+// ============================================================
 // Event listeners
 // ============================================================
+btnReset.addEventListener('click', resetWithRandomSeed);
 btnPlayPause.addEventListener('click', toggleRunning);
 btnSpeedDown.addEventListener('click', () => setSpeed(state.ticksPerSecond - 1));
 btnSpeedUp.addEventListener('click', () => setSpeed(state.ticksPerSecond + 1));
