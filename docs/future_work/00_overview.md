@@ -23,3 +23,5 @@
 | 3 | [character_interaction.md](./03_character_interaction.md) | キャラクター間相互作用 |
 | 4 | [environment.md](./04_environment.md) | 環境の多様性と動的変化 |
 | 5 | [open_endedness.md](./05_open_endedness.md) | 開放性（進化の袋小路を避ける） |
+| 6 | [open_questions.md](./06_open_questions.md) | 次バージョン仕様策定にあたっての未解決課題 |
+| - | [requirement.md](./requirement.md) | 提案に対する追加要件とレビュー |
