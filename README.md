@@ -1,220 +1,49 @@
 # AutoCraftGame
 
-自己複製可能な自律キャラクターが構築できるかを検証するプロトタイプ。
+自己複製可能な自律キャラクターによる人工生命シミュレータを目指すプロジェクト。
 
-## セットアップ
+最終目標は、進化手法をゲームシステムとして提供せず、個々のキャラクター（人工生命）の自律的な活動の結果として進化が創発するシミュレータの実現。段階的にバージョンを重ね、各バージョンで特定の検証テーマに取り組む。
+
+## リポジトリ構成
+
+各バージョンは独立したnpmプロジェクトとして格納される。バージョン間のコード依存はない。
+
+```
+/
+├── v1/                ... バージョン1: 自己複製の検証（実装済み）
+├── v2/                ... バージョン2: 淘汰圧の導入（仕様策定済み）
+├── docs/future_work/  ... バージョン横断の検討資料（将来仕様の検討）
+├── CLAUDE.md          ... ClaudeCode共通ルール
+└── .claude/           ... ClaudeCode設定
+```
+
+### 各バージョンの概要
+
+| バージョン | テーマ | 状態 |
+|-----------|--------|------|
+| v1 | 自己複製の検証 | 実装・検証完了 |
+| v2 | 淘汰圧の導入（資源有限化、エネルギーモデル、残骸・分解） | 仕様策定済み |
+
+### バージョンの追加方法
+
+1. ルートに `vN/` ディレクトリを作成する
+2. `vN/` 内に独立したnpmプロジェクト（package.json, tsconfig.json等）を構成する
+3. 仕様は `vN/docs/specs/` に格納する
+4. `vN/CLAUDE.md` にそのバージョン固有の開発ルール・コマンドを記載する
+5. 本README.mdの一覧を更新する
+
+## 共通設定
+
+- ClaudeCode設定（`.claude/`）は全バージョンで共有される
+- 共通の開発ルールはルートの `CLAUDE.md` に記載されている
+- 各バージョン固有のルール・コマンドは `vN/CLAUDE.md` を参照
+
+## 各バージョンの実行方法
+
+各バージョンのディレクトリに移動してコマンドを実行する。詳細は各バージョンの `README.md` を参照。
 
 ```bash
+cd v1
 npm install
-```
-
-## コマンド
-
-### テスト実行
-
-```bash
 npm test
-```
-
-### シミュレーション実行
-
-```bash
-npm run sim -- [options]
-```
-
-#### オプション
-
-| オプション | 説明 | デフォルト |
-|-----------|------|-----------|
-| `--ticks N` | 実行ティック数 | 100 |
-| `--program <path>` | 初期キャラクターのProgramファイル（JSON） | なし（指定必須） |
-| `--map-size WxH` | マップサイズ（幅x高さ） | 20x20 |
-| `--output <mode>` | 出力モード: `tick` / `final` / `events` | final |
-
-#### 出力モード
-
-- **tick** — 毎ティックの状態をJSON（1行1ティック）で出力
-- **final** — 最終状態とイベント一覧をJSONで出力
-- **events** — イベント（誕生・死亡）のみをJSONで出力
-
-### 実行例
-
-```bash
-# 自己複製の観測（200ティック、イベントのみ表示）
-npm run sim -- --ticks 200 --program programs/self-replicator.json --output events
-
-# 毎ティックの状態を確認
-npm run sim -- --ticks 50 --program programs/self-replicator.json --output tick
-
-# マップサイズを変更して実行
-npm run sim -- --ticks 300 --program programs/self-replicator.json --map-size 30x30
-
-# 最終状態を確認（デフォルト）
-npm run sim -- --ticks 200 --program programs/self-replicator.json
-```
-
-## Program の書き方
-
-キャラクターの行動は `programs/` ディレクトリにJSON形式で記述する。
-ルールは上から順に評価され、最初にマッチしたルールのActionが実行される。
-
-### Condition（条件）
-
-| 述語 | 説明 |
-|------|------|
-| `{ "op": "true" }` | 常にマッチ |
-| `{ "op": "inventory_has", "item": "Ore", "count": 5 }` | 指定アイテムを指定数以上所持 |
-| `{ "op": "nearby", "type": "OreNode", "radius": 3 }` | 指定半径内に対象が存在 |
-| `{ "op": "durability_below", "threshold": 20 }` | 耐久値が閾値未満 |
-| `{ "op": "and", "conditions": [...] }` | 全条件がマッチ |
-| `{ "op": "or", "conditions": [...] }` | いずれかがマッチ |
-| `{ "op": "not", "condition": {...} }` | 条件の否定 |
-
-`nearby` の `type` に指定可能な値: `OreNode`, `CrystalNode`, `Character`, `InactiveCharacter`
-
-### Action（行動）
-
-| Action | 説明 |
-|--------|------|
-| `{ "op": "MOVE", "direction": "N" }` | 移動（N/S/E/W または `toward_nearest`） |
-| `{ "op": "HARVEST" }` | 現在地の資源を採取 |
-| `{ "op": "PROCESS", "recipe": "Metal" }` | 原料を加工素材に変換（Metal / Circuit） |
-| `{ "op": "CRAFT", "component": "Frame" }` | 加工素材からコンポーネントを製造 |
-| `{ "op": "ASSEMBLE", "components": [...] }` | コンポーネントを組み立てて新キャラクター生成 |
-| `{ "op": "WRITE", "target": "nearest_inactive" }` | 自身のProgramを対象にコピー |
-| `{ "op": "ACTIVATE", "target": "nearest_inactive" }` | 非活性キャラクターを起動 |
-| `{ "op": "SENSE" }` | 周囲情報を取得 |
-| `{ "op": "REPAIR" }` | Frameを消費して耐久値を100回復 |
-| `{ "op": "NOOP" }` | 何もしない |
-
-### レシピ一覧
-
-**加工（PROCESS）**: Ore x2 → Metal, Crystal x2 → Circuit
-
-**製造（CRAFT）**:
-
-| コンポーネント | 素材 |
-|--------------|------|
-| Frame | Metal x3 |
-| Actuator | Metal x1 + Circuit x1 |
-| Sensor | Circuit x2 |
-| Processor | Circuit x3 |
-| Harvester | Metal x2 |
-| Assembler | Metal x2 + Circuit x1 |
-| MemoryCore | Circuit x2 |
-
-**最小構成キャラクター**: Frame + Actuator + Sensor + Processor + Harvester + Assembler + MemoryCore
-（必要素材: Ore x16, Crystal x18）
-
-## GUI（2Dビジュアライザ）
-
-シミュレーションをブラウザ上の2Dグリッドでリアルタイム表示する。
-
-### 起動
-
-```bash
-npm run ui
-```
-
-表示されたURL（`http://localhost:5173`）をブラウザで開く。
-
-### 画面構成
-
-| 領域 | 内容 |
-|------|------|
-| コントロールバー | 再生/一時停止ボタン、速度調整、現在tick表示 |
-| グリッド（Canvas） | 20×20マップ。資源ノードとキャラクターを色分け表示 |
-| サイドパネル | 統計情報（生存数・誕生数・死亡数）、選択キャラクターの詳細 |
-| イベントログ | 誕生・死亡イベントをリアルタイム表示 |
-
-### 操作方法
-
-| 操作 | 説明 |
-|------|------|
-| ▶ / ⏸ ボタン | シミュレーションの再生・一時停止 |
-| スペースキー | 再生・一時停止のトグル |
-| ◀ / ▶（速度） | tick/s を 1〜60 の範囲で調整 |
-| グリッドクリック | キャラクターを選択し、サイドパネルに詳細表示 |
-
-### 表示凡例
-
-| 色 | 意味 |
-|-----|------|
-| 茶色 | OreNode（鉱石ノード） |
-| 紫色 | CrystalNode（結晶ノード） |
-| 半透明 | 枯渇中のノード（次tickで再生） |
-| 青 ◆ | アクティブキャラクター |
-| 灰 ◆ | 非アクティブキャラクター（プログラム未書込） |
-| 金枠 | 選択中のキャラクター |
-
-### Storybook
-
-描画オブジェクトの確認・デザイン提案の比較に使用する。
-
-```bash
-npm run storybook
-```
-
-`http://localhost:6006` で以下のストーリーを閲覧できる:
-
-| グループ | 内容 |
-|---------|------|
-| Map/ResourceNode | 資源ノードの各状態（通常・枯渇） |
-| Map/Character | キャラクターの各状態（アクティブ・非アクティブ・選択・耐久値段階） |
-| Map/GridOverview | 全要素を配置した一覧 |
-| Proposals/ | デザイン変更時の提案・比較用ストーリー（採用済みも履歴として残す） |
-
-#### デザイン提案の進め方
-
-1. `ui/stories/proposals/` に描画関数を作成する（例: `resource-node-proposals.ts`）
-2. 対応する `.stories.ts` で複数案をStoryとして実装し、状態バリエーションを横並び表示する
-3. `npm run storybook` で視覚的に比較・選定する
-4. 採用した描画を `ui/renderer.ts` に統合する
-5. 提案Storyは削除せず履歴として残す
-
-## カスタマイズ
-
-### 初期状態の変更
-
-| 変更対象 | ファイル | 箇所 |
-|---------|---------|------|
-| キャラクター配置・コンポーネント・プログラム | `ui/main.ts` | `createInitialState()` |
-| キャラクターのプログラム内容 | `programs/self-replicator.json` | ルールベースの行動定義 |
-| リソースノードの数と配置 | `src/world.ts` | `createWorld()` 内の資源ノード生成ロジック |
-| 世界の広さ（GUI） | `ui/main.ts` | `MAP_SIZE` 定数 |
-| 世界の広さ（CLI） | CLIオプション | `--map-size WxH` |
-
-### ゲーム仕様の変更
-
-| 変更対象 | ファイル | 仕様書 |
-|---------|---------|--------|
-| 加工ルール（PROCESS: Ore→Metal等） | `src/recipes.ts` | `docs/specs/game_spec.md` |
-| 製造ルール（CRAFT: Metal→Frame等） | `src/recipes.ts` | `docs/specs/game_spec.md` |
-| キャラクターのdurability量 | `src/character.ts` | `docs/specs/character_spec.md` |
-
-## プロジェクト構造
-
-```
-src/
-├── types.ts          ... 型定義
-├── recipes.ts        ... 素材階層・レシピ
-├── world.ts          ... マップ・資源ノード
-├── character.ts      ... キャラクター・コンポーネント
-├── program.ts        ... Condition評価・Action実行
-├── replication.ts    ... 自己複製関連
-├── simulation.ts     ... ゲームループ
-└── cli.ts            ... CLIエントリポイント
-test/                 ... テスト（36件）
-programs/
-└── self-replicator.json  ... 自己複製Program
-ui/
-├── index.html        ... GUIエントリHTML
-├── main.ts           ... UIコントローラー（タイマー制御・DOM更新）
-├── renderer.ts       ... Canvas描画（グリッド・キャラクター）
-├── style.css         ... スタイル
-└── stories/          ... Storybookストーリー
-    └── proposals/    ... デザイン提案（履歴）
-docs/specs/           ... 仕様書
-docs/ui_spec/         ... GUI仕様書
-results/              ... シミュレーション結果
 ```
