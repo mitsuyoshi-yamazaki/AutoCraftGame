@@ -9,6 +9,6 @@
     "outDir": "dist",
     "declaration": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "ui/**/*"],
   "exclude": ["node_modules", "dist", "test"]
 }
