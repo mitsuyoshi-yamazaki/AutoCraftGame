@@ -25,7 +25,7 @@ v2のシミュレーション挙動は2種類のパラメータで制御され�
 | | `ENERGY_COST_WRITE` | 10 | Program複製 |
 | | `ENERGY_COST_ACTIVATE` | 10 | キャラクター起動 |
 | | `ENERGY_COST_SENSE` | 5 | 周囲探索 |
-| | `ENERGY_COST_REPAIR` | 20 | 耐久度回復 |
+| | `ENERGY_COST_REPAIR` | 100 | 耐久度回復（エネルギーのみ、素材消費なし） |
 | | `ENERGY_COST_DISASSEMBLE` | 15 | 残骸分解 |
 | **失敗ペナルティ** | | | |
 | | `ACTION_FAILURE_COST_RATIO` | 0.8 | 前提条件不足の失敗時、コストの80%を消費 |
@@ -43,8 +43,9 @@ v2のシミュレーション挙動は2種類のパラメータで制御され�
 | **エネルギー回収・移転** | | | |
 | | `RECHARGE_AMOUNT` | 200 | RECHARGE 1回の回収量 |
 | | `ASSEMBLE_ENERGY_TRANSFER` | 500 | ASSEMBLE時の子への移転量 |
+| | `REPAIR_AMOUNT` | 200 | REPAIR 1回あたりの耐久度回復量 |
 | **耐久度** | | | |
-| | `FRAME_DURABILITY` | 200 | Frame 1個あたりの初期耐久度 / REPAIR回復量 |
+| | `FRAME_DURABILITY` | 200 | Frame 1個あたりの初期耐久度 |
 
 ### 注意点
 

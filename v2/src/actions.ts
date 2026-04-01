@@ -17,7 +17,7 @@ import {
   isComponentType,
   removeItems,
 } from './recipes.js';
-import { FRAME_DURABILITY } from './constants.js';
+import { REPAIR_AMOUNT } from './constants.js';
 import {
   RECHARGE_AMOUNT,
   ASSEMBLE_ENERGY_TRANSFER,
@@ -382,12 +382,8 @@ function executeRepair(world: World, character: Character): ActionResult {
   if (!hasComponent(character, 'Assembler')) {
     return fail(world, character, { op: 'REPAIR' });
   }
-  if (!hasItems(character.inventory, { Frame: 1 })) {
-    return fail(world, character, { op: 'REPAIR' });
-  }
 
-  const inv = removeItems(character.inventory, { Frame: 1 });
-  const updated = { ...character, inventory: inv, durability: character.durability + FRAME_DURABILITY };
+  const updated = { ...character, durability: character.durability + REPAIR_AMOUNT };
 
   return ok(updateCharacter(world, updated), character, { op: 'REPAIR' });
 }

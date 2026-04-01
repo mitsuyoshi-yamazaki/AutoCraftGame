@@ -285,9 +285,23 @@ v1の耐久度自然減衰（-1/tick）は維持する。これは構造的な�
 |         | 耐久度 (durability)               | エネルギー (energy)         |
 | ------- | --------------------------------- | --------------------------- |
 | 概念    | 構造的健全性（寿命）              | 活動資源（燃料）            |
-| 源泉    | Frame (REPAIR: +FRAME_DURABILITY) | EnergyNode (RECHARGE)       |
+| 源泉    | REPAIR: エネルギー消費のみ (+REPAIR_AMOUNT) | EnergyNode (RECHARGE)       |
 | 減少    | -1/tick (自然減衰)                | 基礎代謝 + アクションコスト |
 | 0以下で | 死亡                              | 行動不能（死亡はしない）    |
+
+### 5-3. REPAIRアクションの変更
+
+v1ではREPAIRはinventory内のFrameを消費して耐久度を回復していたが、v2ではFrame消費を廃止し、エネルギー消費のみで耐久度を回復する。
+
+```
+REPAIR:
+  - 必要コンポーネント: Assembler
+  - 素材消費: なし
+  - エネルギーコスト: ENERGY_COST_REPAIR
+  - 効果: durability += REPAIR_AMOUNT
+```
+
+> **変更理由**: Frameを消費するとprimitive資源（Ore）がゲーム世界から消滅し、資源保存則に反する。エネルギー消費のみとすることで、資源保存則を維持しつつ、エネルギー（散逸リソース）の消費として耐久度回復のコストを表現する。
 
 ---
 
@@ -477,12 +491,13 @@ v1からの変更点:
 | `METABOLISM_MEMORYCORE`         | MemoryCore 1個あたりの代謝コスト        | (実装後調整) |
 | `INVENTORY_METABOLISM_PER_ITEM` | インベントリ1アイテムあたりの代謝コスト | (実装後調整) |
 
-### エネルギー回収・移転
+### エネルギー回収・移転・修理
 
 | 定数名                     | 意味                                 | デフォルト値 |
 | -------------------------- | ------------------------------------ | ------------ |
 | `RECHARGE_AMOUNT`          | RECHARGE 1回あたりの回収量           | (実装後調整) |
 | `ASSEMBLE_ENERGY_TRANSFER` | ASSEMBLE時に子に移転するエネルギー量 | (実装後調整) |
+| `REPAIR_AMOUNT`            | REPAIR 1回あたりの耐久度回復量       | (実装後調整) |
 
 ### その他
 
@@ -510,7 +525,8 @@ v1からの変更点:
 6. **新Action: DISASSEMBLE**（Disassemblerで残骸から1アイテム取得。componentは構成素材に分解）
 7. **全アクションにエネルギーコストを追加**（エネルギー不足時は実行不可、前提条件不足の失敗時は80%消費）
 8. **ASSEMBLEの仕様変更**: 子に `ASSEMBLE_ENERGY_TRANSFER` 分のエネルギーを移転する
-9. **MIN_COMPONENTSの見直し**: Disassembler, Chargerは最小構成に含めるか？
+9. **REPAIRの仕様変更**: Frame消費を廃止し、エネルギー消費のみで耐久度を `REPAIR_AMOUNT` 回復する
+10. **MIN_COMPONENTSの見直し**: Disassembler, Chargerは最小構成に含めるか？
 
 > **提案**: Disassemblerは含めない。選択的なComponentとする。Chargerはエネルギー回収に必須であり、最小構成に含めるべきである
 

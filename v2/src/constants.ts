@@ -12,7 +12,7 @@ export const ENERGY_COST_ASSEMBLE = 50;
 export const ENERGY_COST_WRITE = 10;
 export const ENERGY_COST_ACTIVATE = 10;
 export const ENERGY_COST_SENSE = 5;
-export const ENERGY_COST_REPAIR = 20;
+export const ENERGY_COST_REPAIR = 100;
 export const ENERGY_COST_DISASSEMBLE = 15;
 
 // ============================================================
@@ -42,6 +42,7 @@ export const INVENTORY_METABOLISM_PER_ITEM = 1;
 // ============================================================
 export const RECHARGE_AMOUNT = 200;
 export const ASSEMBLE_ENERGY_TRANSFER = 500;
+export const REPAIR_AMOUNT = 200;
 
 // ============================================================
 // Durability
