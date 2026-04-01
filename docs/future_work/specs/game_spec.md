@@ -178,7 +178,7 @@ Character = {
 基礎代謝量は固定値ではなく、キャラクターの構成と状態から算出される:
 
 ```
-基礎代謝 = Σ(各コンポーネントの代謝コスト) + floor(インベントリ内アイテム総数 × INVENTORY_METABOLISM_PER_ITEM)
+基礎代謝 = Σ(各コンポーネントの代謝コスト) + ceil(インベントリ内アイテム総数 × INVENTORY_METABOLISM_PER_ITEM)
 ```
 
 **コンポーネント種別ごとの代謝コスト**:
@@ -205,7 +205,8 @@ Character = {
 ASSEMBLEアクション実行時、親のエネルギーから一定量を子に移転する。
 
 - ASSEMBLEの実行時、親のエネルギーから `ASSEMBLE_ENERGY_TRANSFER` を子に移転する
-- 親のエネルギーが `ENERGY_COST_ASSEMBLE + ASSEMBLE_ENERGY_TRANSFER` 未満の場合、ASSEMBLEは失敗する（前提条件不足）
+- ASSEMBLEの実質的なエネルギーコストは `ENERGY_COST_ASSEMBLE + ASSEMBLE_ENERGY_TRANSFER` である。ゲームループStep 3のエネルギーチェックではこの合計値を使用する
+- 親のエネルギーが `ENERGY_COST_ASSEMBLE + ASSEMBLE_ENERGY_TRANSFER` 未満の場合、エネルギー不足として実行しない（ペナルティなし）
 - 移転されたエネルギーが子の初期エネルギーとなる
 - 不活性キャラクターにも基礎代謝が適用されるため、親は子が活性化されるまでの基礎代謝分を見越して十分なエネルギーを移転する必要がある
 
@@ -339,10 +340,11 @@ CraftRecipe:
 DISASSEMBLE:
   - 必要コンポーネント: Disassembler
   - 対象: 隣接タイルの残骸 (Remains)
-  - 効果: 残骸からアイテムを1つ取得する
-  - 取得内容:
-    - inventoryのアイテム: そのままインベントリに追加
-    - components: 構成資源に分解されてインベントリに追加（後述）
+  - 効果: 残骸からアイテムを1つ取得し、分解結果をインベントリに追加する
+  - 分解ルール:
+    - 原料（Ore, Crystal）: そのままインベントリに追加
+    - 加工素材（Metal, Circuit）: そのままインベントリに追加
+    - Component: CraftRecipeの入力素材（Layer 1加工素材）に分解してインベントリに追加
   - 取得順: まずinventoryのアイテム（種別のアルファベット順）、次にcomponents（種別のアルファベット順）
   - 残骸のアイテムが全てなくなった場合、残骸はマップから除去される
 ```
@@ -350,19 +352,24 @@ DISASSEMBLE:
 - 1回のDISASSEMBLEで取得できるのは1アイテム（1tickで1個）
 - 隣接タイルに複数の残骸がある場合、N→S→E→W順で最初に見つかったものを対象とする
 
-### 7-3. コンポーネントの分解
+### 7-3. 分解ルールの詳細
 
-DISASSEMBLEで残骸のcomponentを取得した場合、componentそのものではなく、そのCraftRecipeの入力素材（Layer 1加工素材）がインベントリに追加される。
+DISASSEMBLEで取得されるアイテムは、そのアイテムの種別に応じて分解される。
+
+**Componentの分解**: CraftRecipeの入力素材（Layer 1加工素材）がインベントリに追加される。
 
 ```
 例:
-  残骸のcomponentsにFrameがある場合:
-    DISASSEMBLE → Frameを取得 → CraftRecipeの入力素材(Metal x3)がインベントリに追加
-  残骸のcomponentsにProcessorがある場合:
-    DISASSEMBLE → Processorを取得 → CraftRecipeの入力素材(Circuit x3)がインベントリに追加
+  Frame → CraftRecipeの入力素材: Metal x3 がインベントリに追加
+  Processor → CraftRecipeの入力素材: Circuit x3 がインベントリに追加
+  Assembler → CraftRecipeの入力素材: Metal x2 + Circuit x1 がインベントリに追加
 ```
 
-> **設計意図**: componentをそのまま取得できると、残骸からの部品取りが「新規製造より常に安い」ことになり、自分で加工する動機が薄れる。分解するとLayer 1素材に戻ることで、再利用にもCRAFTのコスト（エネルギー）がかかるようになる。
+これはinventory内のComponentにも適用される。例えば、死亡したキャラクターのインベントリにCRAFT済みのFrameがあった場合、DISASSEMBLEするとFrameそのものではなくMetal x3が得られる。
+
+**原料・加工素材**: Ore, Crystal, Metal, Circuitはそのままインベントリに追加される（分解不要）。
+
+> **設計意図**: componentをそのまま取得できると、残骸からの部品取りが「新規製造より常に安い」ことになり、自分で加工する動機が薄れる。分解するとLayer 1素材に戻ることで、再利用にもCRAFTのコスト（エネルギー）がかかるようになる。inventory内のComponentも同様に分解することで、「CRAFTしてからASSEMBLE前に死亡した部品を拾う」抜け道を防ぐ。
 
 > **備考**: 分解でLayer 1素材（Metal, Circuit）が得られるが、保存則はprimitive資源（Ore, Crystal）換算での総量一定であり、Metal x1 = Ore x2 として換算される。DISASSEMBLE → CRAFT の経路で資源量は保存される（例: Frame分解 → Metal x3 → Frame再製造で Metal x3消費。原料換算では Ore x6 が移動しただけ）。
 
@@ -393,7 +400,7 @@ requirement.md で「ATTACKはCharacterを対象としたDISASSEMBLEである」
 
 - MOVEの移動先タイルが占有されている場合、MOVEは失敗する（前提条件不足、ペナルティあり）
 - ASSEMBLEで子を配置する際、占有されているタイルは選択されない
-- HARVEST/DISASSEMBLEは隣接タイルのノード/残骸を対象とする（対象のタイルに入る必要がない）
+- HARVEST/RECHARGE/DISASSEMBLEは隣接タイルのノード/残骸を対象とする（対象のタイルに入る必要がない）
 
 ---
 
@@ -487,7 +494,7 @@ v1からの変更点:
 >
 > - **最小自己複製サイクル**を基準にする: 1体のキャラクターが自己複製を1回完了するのに必要なtick数・エネルギー量を計算し、それが「ギリギリ達成可能だが余裕はない」レベルに設定する
 > - EnergyNodeの生産レートは、マップ上の全ノードの総生産量が「全個体の基礎代謝+活動コスト」をやや上回る程度に設定する
-> - 全定数を整数にするため、100〜1000程度のオーダーで設計する（例: ENERGY_COST_MOVE = 100, HARVEST_ENERGY_AMOUNT = 500 など）
+> - 全定数を整数にするため、100〜1000程度のオーダーで設計する（例: ENERGY_COST_MOVE = 100, RECHARGE_AMOUNT = 500 など）
 
 ---
 
