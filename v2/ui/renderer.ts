@@ -293,6 +293,15 @@ function componentCounts(char: Character): [ComponentType, number][] {
 }
 
 // ============================================================
+// HitResult — what was clicked
+// ============================================================
+export type HitResult =
+  | { kind: 'character'; character: Character }
+  | { kind: 'resourceNode'; resourceNode: ResourceNode }
+  | { kind: 'energyNode'; energyNode: EnergyNode }
+  | { kind: 'remains'; remains: Remains };
+
+// ============================================================
 // Renderer class
 // ============================================================
 export class Renderer {
@@ -376,12 +385,25 @@ export class Renderer {
     }
   }
 
-  hitTest(world: World, globalX: number, globalY: number): Character | null {
+  hitTest(world: World, globalX: number, globalY: number): HitResult | null {
     const localX = globalX - this.gridContainer.x;
     const localY = globalY - this.gridContainer.y;
     const gridX = Math.floor(localX / this.cellSize);
     const gridY = Math.floor(localY / this.cellSize);
-    return world.characters.find((c) => c.position.x === gridX && c.position.y === gridY) ?? null;
+
+    const char = world.characters.find((c) => c.position.x === gridX && c.position.y === gridY);
+    if (char) return { kind: 'character', character: char };
+
+    const rn = world.resourceNodes.find((n) => n.position.x === gridX && n.position.y === gridY);
+    if (rn) return { kind: 'resourceNode', resourceNode: rn };
+
+    const en = world.energyNodes.find((n) => n.position.x === gridX && n.position.y === gridY);
+    if (en) return { kind: 'energyNode', energyNode: en };
+
+    const rem = world.remains.find((r) => r.position.x === gridX && r.position.y === gridY);
+    if (rem) return { kind: 'remains', remains: rem };
+
+    return null;
   }
 }
 

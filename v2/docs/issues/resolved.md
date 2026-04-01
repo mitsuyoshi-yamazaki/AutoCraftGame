@@ -13,3 +13,20 @@
 - Program型にoptionalな `name` フィールドを追加し、GUI上でキャラクター選択時にプログラム名を表示するようにした
 - 各プログラムJSONにルートレベルの `comment` で性格概要、`components` でコンポーネント構成を記載
 - GUI起動時に最初のキャラクターが自動選択された状態で表示されるようにした
+
+### スポーン時のイベントログの種族名表示
+
+- spawnイベントでは子のprogram（WRITE前はnull）ではなく親のprogram名を表示するよう修正
+
+### GUI: オブジェクトのクリック選択と状態表示
+
+- エネルギーノード、リソースノード、残骸をクリックして状態を表示できるようにした
+  - ResourceNode: type, position, remaining
+  - EnergyNode: position, stored/maxStored, productionRate
+  - Remains: position, components, inventory
+- 選択モデルをcharacterIdベースから汎用的なSelection型に変更
+
+### GUI: 種族ごとの個体数表示
+
+- Statsパネルに、1体以上存在する種族（program.name）ごとの個体数を表示するようにした
+- 個体数の多い順にソートして表示

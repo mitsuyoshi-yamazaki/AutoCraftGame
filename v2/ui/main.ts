@@ -1,4 +1,4 @@
-import type { World, SimulationEvent, Action, Program, ComponentType } from '@/types.js';
+import type { World, SimulationEvent, Action, Program, ComponentType, Position } from '@/types.js';
 import { createWorld, addCharacter, findNearestUnoccupied, createRng } from '@/world.js';
 import type { WorldConfig } from '@/world.js';
 import { DEFAULT_WORLD_CONFIG } from '@/world.js';
@@ -8,6 +8,7 @@ import { FRAME_DURABILITY } from '@/constants.js';
 import { executeTick } from '@/simulation.js';
 import { evaluateProgram } from '@/program.js';
 import { Renderer } from './renderer.js';
+import type { HitResult } from './renderer.js';
 import selfReplicatorProgram from '../programs/self-replicator.json';
 import scavengerProgram from '../programs/scavenger.json';
 import explorerProgram from '../programs/explorer.json';
@@ -25,12 +26,19 @@ const DEFAULT_SEED = 42;
 // ============================================================
 // State
 // ============================================================
+type Selection =
+  | { kind: 'character'; id: string }
+  | { kind: 'resourceNode'; pos: Position }
+  | { kind: 'energyNode'; pos: Position }
+  | { kind: 'remains'; pos: Position }
+  | null;
+
 interface UIState {
   world: World;
   allEvents: SimulationEvent[];
   running: boolean;
   ticksPerSecond: number;
-  selectedCharacterId: string | null;
+  selection: Selection;
   totalBirths: number;
   totalDeaths: number;
   characterActions: Map<string, Action>;
@@ -89,7 +97,7 @@ function createInitialState(seed?: number): UIState {
     allEvents: [],
     running: false,
     ticksPerSecond: DEFAULT_TPS,
-    selectedCharacterId: firstCharId,
+    selection: firstCharId ? { kind: 'character', id: firstCharId } : null,
     totalBirths: 0,
     totalDeaths: 0,
     characterActions: new Map(),
@@ -115,6 +123,7 @@ const statDeaths = document.getElementById('stat-deaths')!;
 const statResources = document.getElementById('stat-resources')!;
 const statEnergy = document.getElementById('stat-energy')!;
 const statRemains = document.getElementById('stat-remains')!;
+const statSpecies = document.getElementById('stat-species')!;
 const selectedContent = document.getElementById('selected-content')!;
 const eventLogContent = document.getElementById('event-log-content')!;
 
@@ -130,8 +139,15 @@ async function main(): Promise<void> {
     const rect = renderer.app.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const char = renderer.hitTest(state.world, x, y);
-    state = { ...state, selectedCharacterId: char?.id ?? null };
+    const hit = renderer.hitTest(state.world, x, y);
+    let selection: Selection = null;
+    if (hit) {
+      if (hit.kind === 'character') selection = { kind: 'character', id: hit.character.id };
+      else if (hit.kind === 'resourceNode') selection = { kind: 'resourceNode', pos: hit.resourceNode.position };
+      else if (hit.kind === 'energyNode') selection = { kind: 'energyNode', pos: hit.energyNode.position };
+      else if (hit.kind === 'remains') selection = { kind: 'remains', pos: hit.remains.position };
+    }
+    state = { ...state, selection };
     render();
   });
 
@@ -170,11 +186,18 @@ function step(): void {
     characterActions: actions,
   };
 
-  if (
-    state.selectedCharacterId &&
-    !result.world.characters.some((c) => c.id === state.selectedCharacterId)
-  ) {
-    state = { ...state, selectedCharacterId: null };
+  // Clear selection if selected character no longer exists
+  if (state.selection?.kind === 'character') {
+    if (!result.world.characters.some((c) => c.id === (state.selection as { kind: 'character'; id: string }).id)) {
+      state = { ...state, selection: null };
+    }
+  }
+  // Clear selection if selected remains no longer exists
+  if (state.selection?.kind === 'remains') {
+    const p = (state.selection as { kind: 'remains'; pos: Position }).pos;
+    if (!result.world.remains.some((r) => r.position.x === p.x && r.position.y === p.y)) {
+      state = { ...state, selection: null };
+    }
   }
 
   appendEvents(result.events, result.world.tick, prevWorld, result.world);
@@ -212,8 +235,12 @@ function setSpeed(tps: number): void {
 // ============================================================
 // Rendering
 // ============================================================
+function getSelectedCharacterId(): string | null {
+  return state.selection?.kind === 'character' ? state.selection.id : null;
+}
+
 function render(): void {
-  renderer.draw(state.world, state.selectedCharacterId);
+  renderer.draw(state.world, getSelectedCharacterId());
   updateStats();
   updateSelected();
 }
@@ -227,40 +254,96 @@ function updateStats(): void {
   const totalEnergy = state.world.energyNodes.reduce((s, n) => s + n.stored, 0);
   statEnergy.textContent = String(totalEnergy);
   statRemains.textContent = String(state.world.remains.length);
+
+  const counts = new Map<string, number>();
+  for (const c of state.world.characters) {
+    const name = c.program?.name ?? '(inactive)';
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  const lines = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => `<div>${name}: ${count}</div>`);
+  statSpecies.innerHTML = lines.length > 0 ? lines.join('') : '';
 }
 
 function updateSelected(): void {
-  if (!state.selectedCharacterId) {
-    selectedContent.innerHTML = '<em>Click a character</em>';
+  if (!state.selection) {
+    selectedContent.innerHTML = '<em>Click an object</em>';
     return;
   }
 
-  const char = state.world.characters.find((c) => c.id === state.selectedCharacterId);
-  if (!char) {
-    selectedContent.innerHTML = '<em>Click a character</em>';
+  const sel = state.selection;
+
+  if (sel.kind === 'character') {
+    const char = state.world.characters.find((c) => c.id === sel.id);
+    if (!char) { selectedContent.innerHTML = '<em>Click an object</em>'; return; }
+
+    const action = state.characterActions.get(char.id);
+    const actionText = action ? action.op : '-';
+    const maxDur = char.components.filter((c) => c === 'Frame').length * FRAME_DURABILITY;
+    const programName = char.program?.name ?? '(none)';
+    const invEntries = Object.entries(char.inventory).filter(([, v]) => v > 0);
+    const invText = invEntries.length > 0
+      ? invEntries.map(([k, v]) => `${k}: ${v}`).join(', ')
+      : 'empty';
+
+    selectedContent.innerHTML = `
+      <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
+      <div>Program: ${programName}</div>
+      <div>Pos: (${char.position.x}, ${char.position.y})</div>
+      <div>Durability: ${char.durability} / ${maxDur}</div>
+      <div>Energy: ${char.energy}</div>
+      <div>Action: ${actionText}</div>
+      <div>Components: ${char.components.join(', ')}</div>
+      <div>Inventory: ${invText}</div>
+    `;
     return;
   }
 
-  const action = state.characterActions.get(char.id);
-  const actionText = action ? action.op : '-';
-  const maxDur = char.components.filter((c) => c === 'Frame').length * FRAME_DURABILITY;
-  const programName = char.program?.name ?? '(none)';
+  if (sel.kind === 'resourceNode') {
+    const node = state.world.resourceNodes.find(
+      (n) => n.position.x === sel.pos.x && n.position.y === sel.pos.y,
+    );
+    if (!node) { selectedContent.innerHTML = '<em>Click an object</em>'; return; }
+    selectedContent.innerHTML = `
+      <div><strong>${node.type}</strong></div>
+      <div>Pos: (${node.position.x}, ${node.position.y})</div>
+      <div>Remaining: ${node.remaining}</div>
+    `;
+    return;
+  }
 
-  const invEntries = Object.entries(char.inventory).filter(([, v]) => v > 0);
-  const invText = invEntries.length > 0
-    ? invEntries.map(([k, v]) => `${k}: ${v}`).join(', ')
-    : 'empty';
+  if (sel.kind === 'energyNode') {
+    const node = state.world.energyNodes.find(
+      (n) => n.position.x === sel.pos.x && n.position.y === sel.pos.y,
+    );
+    if (!node) { selectedContent.innerHTML = '<em>Click an object</em>'; return; }
+    selectedContent.innerHTML = `
+      <div><strong>EnergyNode</strong></div>
+      <div>Pos: (${node.position.x}, ${node.position.y})</div>
+      <div>Stored: ${node.stored} / ${node.maxStored}</div>
+      <div>Production: ${node.productionRate}/tick</div>
+    `;
+    return;
+  }
 
-  selectedContent.innerHTML = `
-    <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
-    <div>Program: ${programName}</div>
-    <div>Pos: (${char.position.x}, ${char.position.y})</div>
-    <div>Durability: ${char.durability} / ${maxDur}</div>
-    <div>Energy: ${char.energy}</div>
-    <div>Action: ${actionText}</div>
-    <div>Components: ${char.components.join(', ')}</div>
-    <div>Inventory: ${invText}</div>
-  `;
+  if (sel.kind === 'remains') {
+    const rem = state.world.remains.find(
+      (r) => r.position.x === sel.pos.x && r.position.y === sel.pos.y,
+    );
+    if (!rem) { selectedContent.innerHTML = '<em>Click an object</em>'; return; }
+    const invEntries = Object.entries(rem.inventory).filter(([, v]) => v > 0);
+    const invText = invEntries.length > 0
+      ? invEntries.map(([k, v]) => `${k}: ${v}`).join(', ')
+      : 'empty';
+    selectedContent.innerHTML = `
+      <div><strong>Remains</strong></div>
+      <div>Pos: (${rem.position.x}, ${rem.position.y})</div>
+      <div>Components: ${rem.components.join(', ')}</div>
+      <div>Inventory: ${invText}</div>
+    `;
+    return;
+  }
 }
 
 function getProgramName(world: World, charId: string): string {
@@ -273,8 +356,8 @@ function appendEvents(events: readonly SimulationEvent[], tick: number, oldWorld
     const div = document.createElement('div');
     div.className = 'log-entry';
     if (event.type === 'character_spawned') {
-      const name = getProgramName(newWorld, event.childId);
-      div.textContent = `[tick ${tick}] ${event.parentId} spawned ${event.childId} (${name})`;
+      const name = getProgramName(oldWorld, event.parentId);
+      div.textContent = `[tick ${tick}] ${event.parentId} (${name}) spawned ${event.childId}`;
       div.classList.add('log-birth');
     } else {
       const name = getProgramName(oldWorld, event.id);
