@@ -40,6 +40,9 @@ v2のシミュレーション挙動は2種類のパラメータで制御され�
 | | `METABOLISM.Charger` | 2 | |
 | | `METABOLISM.MemoryCore` | 1 | |
 | | `INVENTORY_METABOLISM_PER_ITEM` | 1 | インベントリ内アイテム1個あたり/tick |
+| **エネルギー蓄積代謝** | | | |
+| | `ENERGY_METABOLISM_THRESHOLD` | 3000 | この値以下では追加代謝なし |
+| | `ENERGY_METABOLISM_SCALE` | 9,000,000 | floor(excess²/SCALE) で追加代謝を算出 |
 | **エネルギー回収・移転** | | | |
 | | `RECHARGE_AMOUNT` | 200 | RECHARGE 1回の回収量 |
 | | `ASSEMBLE_ENERGY_TRANSFER` | 500 | ASSEMBLE時の子への移転量 |
@@ -116,7 +119,7 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   crystalNodeCount: 12,
   nodeRemaining: 50,
   energyNodeCount: 8,
-  energyProductionRate: 200,
+  energyProductionRate: 100,
   energyMaxStored: 2000,
 };
 ```

@@ -38,6 +38,12 @@ export const METABOLISM: Readonly<Record<ComponentType, number>> = {
 export const INVENTORY_METABOLISM_PER_ITEM = 1;
 
 // ============================================================
+// Energy-based metabolism (excess energy tax)
+// ============================================================
+export const ENERGY_METABOLISM_THRESHOLD = 3000;
+export const ENERGY_METABOLISM_SCALE = 9_000_000;
+
+// ============================================================
 // Energy harvesting & transfer
 // ============================================================
 export const RECHARGE_AMOUNT = 200;

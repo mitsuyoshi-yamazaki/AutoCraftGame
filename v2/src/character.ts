@@ -1,5 +1,11 @@
 import type { Character, ComponentType, Program, Position, Inventory } from './types.js';
-import { FRAME_DURABILITY, METABOLISM, INVENTORY_METABOLISM_PER_ITEM } from './constants.js';
+import {
+  FRAME_DURABILITY,
+  METABOLISM,
+  INVENTORY_METABOLISM_PER_ITEM,
+  ENERGY_METABOLISM_THRESHOLD,
+  ENERGY_METABOLISM_SCALE,
+} from './constants.js';
 import { inventoryTotalCount } from './recipes.js';
 
 // ============================================================
@@ -64,6 +70,11 @@ export function isActive(character: Character): boolean {
 // ============================================================
 // Calculate basal metabolism from components + inventory
 // ============================================================
+export function calculateEnergyMetabolism(energy: number): number {
+  const excess = Math.max(0, energy - ENERGY_METABOLISM_THRESHOLD);
+  return Math.floor((excess * excess) / ENERGY_METABOLISM_SCALE);
+}
+
 export function calculateBasalMetabolism(character: Character): number {
   const componentCost = character.components.reduce(
     (sum, c) => sum + METABOLISM[c],
@@ -71,7 +82,8 @@ export function calculateBasalMetabolism(character: Character): number {
   );
   const itemCount = inventoryTotalCount(character.inventory);
   const inventoryCost = Math.ceil(itemCount * INVENTORY_METABOLISM_PER_ITEM);
-  return componentCost + inventoryCost;
+  const energyCost = calculateEnergyMetabolism(character.energy);
+  return componentCost + inventoryCost + energyCost;
 }
 
 // ============================================================
