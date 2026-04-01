@@ -6,37 +6,67 @@
 
 ## 1. ResourceNode（資源ノード）
 
-マップ上に固定配置された採取可能な資源源。キャラクターがHARVESTアクションで原料を取得する対象。
+マップ上に配置された採取可能な資源源。キャラクターが隣接タイルからHARVESTアクションで原料を取得する対象。v2では有限資源であり、枯渇すると消滅する。
 
 - **type** — ノード種別
-  - `OreNode`（鉱石ノード）: 左半分に配置、Oreを産出
-  - `CrystalNode`（結晶ノード）: 右半分に配置、Crystalを産出
-- **depleted** — 枯渇状態（boolean）
-  - `false`: 採取可能（通常表示）
-  - `true`: そのtick中にHARVESTされた（半透明表示、次tickで再生）
-- **position** — マップ上の座標 `{x, y}`
+  - `OreNode`（鉱石ノード）: Oreを産出
+  - `CrystalNode`（結晶ノード）: Crystalを産出
+- **remaining** — 残存資源量（整数）
+  - HARVESTで1ずつ減少する
+  - 0になるとノードがマップから除去される（再生なし）
+- **position** — マップ上の座標 `{x, y}`（タイルを占有する）
 
 ### 描画要件
 
-- 油田や鉱脈のような、資源を獲得/採掘/最終できるオブジェクトのメタファー
+- 油田や鉱脈のような、資源を獲得/採掘できるオブジェクトのメタファー
   - 資源であるため、Characterとは異なり、円ではなく直線で構成される見た目になるべき（角丸などはあって良い）
-- 枯渇状態は表現されるべき
+- remaining量に応じて濃淡が変化すべき（多い＝濃い、少ない＝薄い）
 - 資源の種類が、色で明確に表現されるべき
 
-## 2. Character（アクティブキャラクター）
+## 2. EnergyNode（エネルギーノード）
+
+v2で新規追加。マップ上に配置されたエネルギー供給源。毎tickエネルギーを生産し、上限まで蓄積する。キャラクターが隣接タイルからRECHARGEアクションで回収する。
+
+- **productionRate** — tickあたりのエネルギー生産量
+- **stored** — 現在の蓄積量
+- **maxStored** — 蓄積量の上限
+- **position** — マップ上の座標 `{x, y}`（タイルを占有する）
+
+### 描画要件
+
+- エネルギー源（太陽、泉、発電所など）のメタファー
+- stored量に応じて濃淡が変化すべき（多い＝明るい、少ない＝暗い）
+- ResourceNodeともCharacterとも視覚的に区別できるべき
+
+## 3. Remains（残骸）
+
+v2で新規追加。キャラクターが死亡した際にその位置に残されるオブジェクト。コンポーネントとインベントリを保持し、他のキャラクターがDISASSEMBLEで回収できる。
+
+- **components** — 死亡キャラクターのコンポーネント一覧
+- **inventory** — 死亡キャラクターのインベントリ
+- **position** — マップ上の座標 `{x, y}`（タイルを占有する）
+
+### 描画要件
+
+- 死骸や残骸のメタファー
+- キャラクターに似た形状だが、明らかに「死んでいる」ことが伝わる見た目
+- 内容物の多寡がおおまかにわかることが望ましい（完全に空になったら消滅する）
+
+## 4. Character（アクティブキャラクター）
 
 `program` が非nullの活性キャラクター。毎tick、Programに従って自律行動する。
 
 - **id** — 一意な識別子（例: `char-001`）
-- **position** — マップ上の座標 `{x, y}`
+- **position** — マップ上の座標 `{x, y}`（タイルを占有する）
 - **durability** — 現在の耐久値（毎tick -1、0以下で死亡）
+- **energy** — 現在のエネルギー量（v2で追加。行動の燃料）
 - **components** — 搭載コンポーネント一覧（Body構成）
-  - Frame, Actuator, Sensor, Processor, Harvester, Assembler, MemoryCore の任意組み合わせ
+  - Frame, Actuator, Sensor, Processor, Harvester, Assembler, Disassembler, Charger, MemoryCore の任意組み合わせ
   - コンポーネント数・種類はキャラクターごとに異なりうる
 - **inventory** — 所持アイテム（アイテム名 → 個数）
   - 原料（Ore, Crystal）、加工素材（Metal, Circuit）、コンポーネント類
-- **最大耐久値** — Frame数 × 100（componentsから導出）
-- **現在のAction** — そのtickで実行中のアクション（MOVE, HARVEST, CRAFT, ASSEMBLE 等）
+- **最大耐久値** — Frame数 × 200（componentsから導出）
+- **現在のAction** — そのtickで実行中のアクション（MOVE, HARVEST, RECHARGE, CRAFT, ASSEMBLE, DISASSEMBLE 等）
 
 ### 描画要件
 
@@ -46,14 +76,16 @@
 - 現在の耐久値が大体見た目から判断できる状態が理想
   - ゲームではなくシミュレーションなので、UIをくっつけて表現するのではなく、描画されるオブジェクトの描画自体が変更されて表現されるのが望ましい
 - インベントリがどの程度埋まっているかが確認できることが望ましい
+- エネルギー残量が視覚的に把握できることが望ましい
 
-## 3. InactiveCharacter（非アクティブキャラクター）
+## 5. InactiveCharacter（非アクティブキャラクター）
 
 `program` がnullの非活性キャラクター。ASSEMBLEで生成された直後の状態で、WRITE + ACTIVATEされるまで行動しない。
 
 - **id** — 一意な識別子
-- **position** — マップ上の座標（生成した親の隣接タイル）
-- **durability** — 初期耐久値（Frame数 × 100）
+- **position** — マップ上の座標（生成した親の隣接タイル、タイルを占有する）
+- **durability** — 初期耐久値（Frame数 × 200）
+- **energy** — 親から移転されたエネルギー（基礎代謝で減少し続ける）
 - **components** — 搭載コンポーネント一覧（親のASSEMBLE指示で決定）
 - **inventory** — 空（生成直後は常に空）
 
@@ -73,4 +105,4 @@
 - **Inventory内アイテム** — Ore, Crystal, Metal, Circuit, Frame, Actuator 等。キャラクターの所持品として表示
 - **Program** — キャラクターの行動ルール群。選択キャラクターの詳細パネルで表示
 - **SimulationEvent** — character_spawned / character_died。イベントログとして時系列表示
-- **World統計** — 現在tick、生存キャラクター数、累計誕生・死亡数。統計パネルで表示
+- **World統計** — 現在tick、生存キャラクター数、累計誕生・死亡数、ResourceNode残存数、EnergyNode総stored。統計パネルで表示
