@@ -11,6 +11,7 @@ import { Renderer } from './renderer.js';
 import selfReplicatorProgram from '../programs/self-replicator.json';
 import scavengerProgram from '../programs/scavenger.json';
 import explorerProgram from '../programs/explorer.json';
+import survivorProgram from '../programs/survivor.json';
 
 // ============================================================
 // Constants
@@ -60,6 +61,7 @@ const PROGRAM_DEFS: ProgramDef[] = [
   loadProgram(selfReplicatorProgram),
   loadProgram(scavengerProgram),
   loadProgram(explorerProgram),
+  loadProgram(survivorProgram),
 ];
 
 function createInitialState(seed?: number): UIState {
@@ -149,6 +151,7 @@ function step(): void {
     }
   }
 
+  const prevWorld = state.world;
   const result = executeTick(state.world);
 
   let births = 0;
@@ -174,7 +177,7 @@ function step(): void {
     state = { ...state, selectedCharacterId: null };
   }
 
-  appendEvents(result.events, result.world.tick);
+  appendEvents(result.events, result.world.tick, prevWorld, result.world);
   render();
 }
 
@@ -260,15 +263,22 @@ function updateSelected(): void {
   `;
 }
 
-function appendEvents(events: readonly SimulationEvent[], tick: number): void {
+function getProgramName(world: World, charId: string): string {
+  const char = world.characters.find((c) => c.id === charId);
+  return char?.program?.name ?? '?';
+}
+
+function appendEvents(events: readonly SimulationEvent[], tick: number, oldWorld: World, newWorld: World): void {
   for (const event of events) {
     const div = document.createElement('div');
     div.className = 'log-entry';
     if (event.type === 'character_spawned') {
-      div.textContent = `[tick ${tick}] ${event.parentId} spawned ${event.childId}`;
+      const name = getProgramName(newWorld, event.childId);
+      div.textContent = `[tick ${tick}] ${event.parentId} spawned ${event.childId} (${name})`;
       div.classList.add('log-birth');
     } else {
-      div.textContent = `[tick ${tick}] ${event.id} died`;
+      const name = getProgramName(oldWorld, event.id);
+      div.textContent = `[tick ${tick}] ${event.id} (${name}) died`;
       div.classList.add('log-death');
     }
     eventLogContent.appendChild(div);
