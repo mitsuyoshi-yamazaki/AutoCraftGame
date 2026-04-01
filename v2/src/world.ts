@@ -36,15 +36,26 @@ export function isInBounds(world: World, pos: Position): boolean {
 }
 
 // ============================================================
+// 8-neighbor adjacent positions (N, S, E, W, NE, NW, SE, SW)
+// ============================================================
+function adjacentPositions(pos: Position): Position[] {
+  return [
+    { x: pos.x,     y: pos.y - 1 }, // N
+    { x: pos.x,     y: pos.y + 1 }, // S
+    { x: pos.x + 1, y: pos.y },     // E
+    { x: pos.x - 1, y: pos.y },     // W
+    { x: pos.x + 1, y: pos.y - 1 }, // NE
+    { x: pos.x - 1, y: pos.y - 1 }, // NW
+    { x: pos.x + 1, y: pos.y + 1 }, // SE
+    { x: pos.x - 1, y: pos.y + 1 }, // SW
+  ];
+}
+
+// ============================================================
 // ResourceNode operations
 // ============================================================
 export function findAdjacentResourceNode(world: World, pos: Position): ResourceNode | undefined {
-  const dirs: Position[] = [
-    { x: pos.x, y: pos.y - 1 },
-    { x: pos.x, y: pos.y + 1 },
-    { x: pos.x + 1, y: pos.y },
-    { x: pos.x - 1, y: pos.y },
-  ];
+  const dirs = adjacentPositions(pos);
   for (const d of dirs) {
     const node = world.resourceNodes.find(
       (n) => n.position.x === d.x && n.position.y === d.y && n.remaining > 0,
@@ -76,12 +87,7 @@ export function removeDepletedNodes(world: World): World {
 // EnergyNode operations
 // ============================================================
 export function findAdjacentEnergyNode(world: World, pos: Position): EnergyNode | undefined {
-  const dirs: Position[] = [
-    { x: pos.x, y: pos.y - 1 },
-    { x: pos.x, y: pos.y + 1 },
-    { x: pos.x + 1, y: pos.y },
-    { x: pos.x - 1, y: pos.y },
-  ];
+  const dirs = adjacentPositions(pos);
   for (const d of dirs) {
     const node = world.energyNodes.find(
       (n) => n.position.x === d.x && n.position.y === d.y && n.stored > 0,
@@ -124,12 +130,7 @@ export function addRemains(world: World, remains: Remains): World {
 }
 
 export function findAdjacentRemains(world: World, pos: Position): Remains | undefined {
-  const dirs: Position[] = [
-    { x: pos.x, y: pos.y - 1 },
-    { x: pos.x, y: pos.y + 1 },
-    { x: pos.x + 1, y: pos.y },
-    { x: pos.x - 1, y: pos.y },
-  ];
+  const dirs = adjacentPositions(pos);
   for (const d of dirs) {
     const r = world.remains.find(
       (rem) => rem.position.x === d.x && rem.position.y === d.y,

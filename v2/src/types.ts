@@ -35,7 +35,7 @@ export type Inventory = Readonly<Record<string, number>>;
 // ============================================================
 // Direction
 // ============================================================
-export type Direction = 'N' | 'S' | 'E' | 'W';
+export type Direction = 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW';
 
 // ============================================================
 // Position

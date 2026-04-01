@@ -40,7 +40,7 @@ import {
   nextCharacterId,
   updateRemains,
 } from './world.js';
-import { findNearestDirection, findTargets, manhattanDistance, directionTo, movePosition } from './program.js';
+import { findNearestDirection, findTargets, chebyshevDistance, directionTo, movePosition } from './program.js';
 import type { EvalContext } from './program.js';
 
 const NEAREST_INACTIVE_TARGET = 'nearest_inactive';
@@ -136,12 +136,17 @@ function executeActionInner(
 // MOVE — v2: check tile occupation + slide
 // ============================================================
 
-// Counter-clockwise first, then clockwise
+// Slide fallback: for cardinals, perpendicular pair (counter-clockwise first)
+// For diagonals, the two cardinal components
 const SLIDE_DIRECTIONS: Readonly<Record<Direction, [Direction, Direction]>> = {
-  N: ['W', 'E'],
-  E: ['N', 'S'],
-  S: ['E', 'W'],
-  W: ['S', 'N'],
+  N:  ['W',  'E'],
+  E:  ['N',  'S'],
+  S:  ['E',  'W'],
+  W:  ['S',  'N'],
+  NE: ['N',  'E'],
+  NW: ['N',  'W'],
+  SE: ['S',  'E'],
+  SW: ['S',  'W'],
 };
 
 function findMoveTarget(
@@ -318,7 +323,7 @@ function executeAssemble(
 }
 
 function findAdjacentFreeTile(world: World, pos: import('./types.js').Position): import('./types.js').Position | null {
-  const directions: Direction[] = ['N', 'S', 'E', 'W'];
+  const directions: Direction[] = ['N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'];
   for (const d of directions) {
     const newPos = movePosition(pos, d);
     if (isInBounds(world, newPos) && !isOccupied(world, newPos)) {
@@ -386,9 +391,9 @@ function executeSense(world: World, character: Character): ActionResult {
     const targets = findTargets(type, character, world);
     if (targets.length > 0) {
       let nearest = targets[0];
-      let minDist = manhattanDistance(character.position, nearest);
+      let minDist = chebyshevDistance(character.position, nearest);
       for (const t of targets.slice(1)) {
-        const d = manhattanDistance(character.position, t);
+        const d = chebyshevDistance(character.position, t);
         if (d < minDist) {
           nearest = t;
           minDist = d;
@@ -500,7 +505,7 @@ function resolveTarget(targetId: string, character: Character, world: World): st
   if (targetId === NEAREST_INACTIVE_TARGET) {
     const inactive = world.characters.find(
       (c) => c.id !== character.id && !c.program &&
-        Math.abs(c.position.x - character.position.x) + Math.abs(c.position.y - character.position.y) <= 1,
+        Math.max(Math.abs(c.position.x - character.position.x), Math.abs(c.position.y - character.position.y)) <= 1,
     );
     return inactive?.id ?? null;
   }

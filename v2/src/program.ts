@@ -82,7 +82,7 @@ function isNearby(
   world: World,
 ): boolean {
   const targets = findTargets(type, character, world);
-  return targets.some((pos) => manhattanDistance(character.position, pos) <= radius);
+  return targets.some((pos) => chebyshevDistance(character.position, pos) <= radius);
 }
 
 // ============================================================
@@ -97,9 +97,9 @@ export function findNearestDirection(
   if (targets.length === 0) return null;
 
   let nearest = targets[0];
-  let minDist = manhattanDistance(character.position, nearest);
+  let minDist = chebyshevDistance(character.position, nearest);
   for (const t of targets.slice(1)) {
-    const d = manhattanDistance(character.position, t);
+    const d = chebyshevDistance(character.position, t);
     if (d < minDist) {
       nearest = t;
       minDist = d;
@@ -135,24 +135,35 @@ export function findTargets(type: NearbyTargetType, character: Character, world:
   }
 }
 
-export function manhattanDistance(a: Position, b: Position): number {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+export function chebyshevDistance(a: Position, b: Position): number {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
 export function directionTo(from: Position, to: Position): Direction {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx > 0 ? 'E' : 'W';
+  if (dx === 0 && dy === 0) return 'N';
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  // Diagonal when both components are significant (ratio < 2:1)
+  if (adx > 0 && ady > 0 && adx < ady * 2 && ady < adx * 2) {
+    if (dx > 0) return dy < 0 ? 'NE' : 'SE';
+    return dy < 0 ? 'NW' : 'SW';
   }
+  // Cardinal
+  if (adx >= ady) return dx > 0 ? 'E' : 'W';
   return dy > 0 ? 'S' : 'N';
 }
 
 export function movePosition(pos: Position, dir: Direction): Position {
   switch (dir) {
-    case 'N': return { x: pos.x, y: pos.y - 1 };
-    case 'S': return { x: pos.x, y: pos.y + 1 };
-    case 'E': return { x: pos.x + 1, y: pos.y };
-    case 'W': return { x: pos.x - 1, y: pos.y };
+    case 'N':  return { x: pos.x,     y: pos.y - 1 };
+    case 'S':  return { x: pos.x,     y: pos.y + 1 };
+    case 'E':  return { x: pos.x + 1, y: pos.y };
+    case 'W':  return { x: pos.x - 1, y: pos.y };
+    case 'NE': return { x: pos.x + 1, y: pos.y - 1 };
+    case 'NW': return { x: pos.x - 1, y: pos.y - 1 };
+    case 'SE': return { x: pos.x + 1, y: pos.y + 1 };
+    case 'SW': return { x: pos.x - 1, y: pos.y + 1 };
   }
 }
