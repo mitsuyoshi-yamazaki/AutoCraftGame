@@ -1,4 +1,4 @@
-import type { World, SimulationEvent, Action } from '@/types.js';
+import type { World, SimulationEvent, Action, Program, ComponentType } from '@/types.js';
 import { createWorld, addCharacter, findNearestUnoccupied, createRng } from '@/world.js';
 import type { WorldConfig } from '@/world.js';
 import { DEFAULT_WORLD_CONFIG } from '@/world.js';
@@ -9,6 +9,8 @@ import { executeTick } from '@/simulation.js';
 import { evaluateProgram } from '@/program.js';
 import { Renderer } from './renderer.js';
 import selfReplicatorProgram from '../programs/self-replicator.json';
+import scavengerProgram from '../programs/scavenger.json';
+import explorerProgram from '../programs/explorer.json';
 
 // ============================================================
 // Constants
@@ -33,31 +35,59 @@ interface UIState {
   characterActions: Map<string, Action>;
 }
 
+interface ProgramDef {
+  name: string;
+  components: ComponentType[];
+  program: Program;
+  count: number;
+}
+
+function loadProgram(json: any): ProgramDef {
+  const rules = json.rules.map((r: any) => ({
+    condition: r.condition,
+    action: r.action,
+  }));
+  const components: ComponentType[] = json.components ?? [...MIN_COMPONENTS];
+  return {
+    name: json.name ?? 'Unknown',
+    components,
+    program: { name: json.name, rules },
+    count: 2,
+  };
+}
+
+const PROGRAM_DEFS: ProgramDef[] = [
+  loadProgram(selfReplicatorProgram),
+  loadProgram(scavengerProgram),
+  loadProgram(explorerProgram),
+];
+
 function createInitialState(seed?: number): UIState {
   const rng = createRng(seed ?? DEFAULT_SEED);
   let world = createWorld(DEFAULT_WORLD_CONFIG, rng);
 
-  const rules = selfReplicatorProgram.rules.map((r: any) => ({
-    condition: r.condition,
-    action: r.action,
-  }));
-  const program = { rules };
+  let firstCharId: string | null = null;
 
-  const center = { x: Math.floor(world.width / 2), y: Math.floor(world.height / 2) };
-  const charPos = findNearestUnoccupied(world, center);
-
-  const id = `char-${String(world.nextCharacterId).padStart(3, '0')}`;
-  world = { ...world, nextCharacterId: world.nextCharacterId + 1 };
-
-  const character = createCharacter(id, charPos, [...MIN_COMPONENTS], program, INITIAL_ENERGY);
-  world = addCharacter(world, character);
+  for (const def of PROGRAM_DEFS) {
+    for (let i = 0; i < def.count; i++) {
+      const pos = findNearestUnoccupied(world, {
+        x: Math.floor(rng() * world.width),
+        y: Math.floor(rng() * world.height),
+      });
+      const id = `char-${String(world.nextCharacterId).padStart(3, '0')}`;
+      world = { ...world, nextCharacterId: world.nextCharacterId + 1 };
+      const character = createCharacter(id, pos, [...def.components], def.program, INITIAL_ENERGY);
+      world = addCharacter(world, character);
+      if (!firstCharId) firstCharId = id;
+    }
+  }
 
   return {
     world,
     allEvents: [],
     running: false,
     ticksPerSecond: DEFAULT_TPS,
-    selectedCharacterId: null,
+    selectedCharacterId: firstCharId,
     totalBirths: 0,
     totalDeaths: 0,
     characterActions: new Map(),
@@ -211,6 +241,7 @@ function updateSelected(): void {
   const action = state.characterActions.get(char.id);
   const actionText = action ? action.op : '-';
   const maxDur = char.components.filter((c) => c === 'Frame').length * FRAME_DURABILITY;
+  const programName = char.program?.name ?? '(none)';
 
   const invEntries = Object.entries(char.inventory).filter(([, v]) => v > 0);
   const invText = invEntries.length > 0
@@ -219,6 +250,7 @@ function updateSelected(): void {
 
   selectedContent.innerHTML = `
     <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
+    <div>Program: ${programName}</div>
     <div>Pos: (${char.position.x}, ${char.position.y})</div>
     <div>Durability: ${char.durability} / ${maxDur}</div>
     <div>Energy: ${char.energy}</div>

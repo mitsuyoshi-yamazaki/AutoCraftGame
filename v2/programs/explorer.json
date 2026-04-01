@@ -1,37 +1,31 @@
 {
-  "name": "Replicator",
-  "comment": "標準的な自己複製プログラム。資源を自力で採掘し、全コンポーネントを製造して複製する。バランス型。",
-  "components": ["Frame", "Actuator", "Sensor", "Processor", "Harvester", "Assembler", "Charger", "MemoryCore"],
+  "name": "Explorer",
+  "comment": "探索特化型。エネルギー閾値を低く設定し、修理を行わず短命だが素早く資源を採取・複製する。寿命よりも複製速度を優先。",
   "rules": [
     {
-      "comment": "Energy low and near EnergyNode → recharge",
+      "comment": "Energy critically low and near EnergyNode → recharge",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 3000 },
+          { "op": "energy_below", "threshold": 1500 },
           { "op": "nearby", "type": "EnergyNode", "radius": 1 }
         ]
       },
       "action": { "op": "RECHARGE" }
     },
     {
-      "comment": "Energy low → move toward EnergyNode",
+      "comment": "Energy critically low → move toward EnergyNode",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 3000 },
+          { "op": "energy_below", "threshold": 1500 },
           { "op": "nearby", "type": "EnergyNode", "radius": 100 }
         ]
       },
       "action": { "op": "MOVE", "direction": "toward_nearest" }
     },
     {
-      "comment": "Durability low → repair",
-      "condition": { "op": "durability_below", "threshold": 50 },
-      "action": { "op": "REPAIR" }
-    },
-    {
-      "comment": "Have all components → assemble child",
+      "comment": "Have all components → assemble child immediately",
       "condition": {
         "op": "and",
         "conditions": [

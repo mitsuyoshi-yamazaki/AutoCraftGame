@@ -122,6 +122,7 @@ export interface Rule {
 }
 
 export interface Program {
+  readonly name?: string;
   readonly rules: readonly Rule[];
 }
 
