@@ -51,10 +51,24 @@ describe('actions', () => {
       expect(after.position).toEqual({ x: 5, y: 4 });
     });
 
-    it('MOVE to occupied tile fails with penalty', () => {
+    it('MOVE slides to perpendicular tile when target is occupied', () => {
       const c = createCharacter('c1', { x: 5, y: 5 }, ['Frame', 'Actuator'], program, 1000);
       const c2 = createCharacter('c2', { x: 5, y: 4 }, ['Frame'], program, 1000);
       const world = { ...baseWorld(), characters: [c, c2] };
+      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 'N' });
+      expect(result.success).toBe(true);
+      const after = result.world.characters.find((ch) => ch.id === 'c1')!;
+      // N blocked → slide to W (counter-clockwise first)
+      expect(after.position).toEqual({ x: 4, y: 5 });
+      expect(after.energy).toBe(1000 - ENERGY_COST_MOVE);
+    });
+
+    it('MOVE fails when target and both slide directions are blocked', () => {
+      const c = createCharacter('c1', { x: 5, y: 5 }, ['Frame', 'Actuator'], program, 1000);
+      const cN = createCharacter('c2', { x: 5, y: 4 }, ['Frame'], program, 1000);
+      const cW = createCharacter('c3', { x: 4, y: 5 }, ['Frame'], program, 1000);
+      const cE = createCharacter('c4', { x: 6, y: 5 }, ['Frame'], program, 1000);
+      const world = { ...baseWorld(), characters: [c, cN, cW, cE] };
       const result = executeAction(world, 'c1', { op: 'MOVE', direction: 'N' });
       expect(result.success).toBe(false);
       const after = result.world.characters.find((ch) => ch.id === 'c1')!;

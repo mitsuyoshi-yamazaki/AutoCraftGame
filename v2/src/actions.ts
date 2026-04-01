@@ -4,6 +4,7 @@ import type {
   Character,
   ComponentType,
   Direction,
+  Position,
   Program,
   World,
 } from './types.js';
@@ -132,8 +133,38 @@ function executeActionInner(
 }
 
 // ============================================================
-// MOVE — v2: check tile occupation
+// MOVE — v2: check tile occupation + slide
 // ============================================================
+
+// Counter-clockwise first, then clockwise
+const SLIDE_DIRECTIONS: Readonly<Record<Direction, [Direction, Direction]>> = {
+  N: ['W', 'E'],
+  E: ['N', 'S'],
+  S: ['E', 'W'],
+  W: ['S', 'N'],
+};
+
+function findMoveTarget(
+  world: World,
+  from: Position,
+  dir: Direction,
+): Position | null {
+  const primary = movePosition(from, dir);
+  if (isInBounds(world, primary) && !isOccupied(world, primary)) {
+    return primary;
+  }
+  const [slide1, slide2] = SLIDE_DIRECTIONS[dir];
+  const alt1 = movePosition(from, slide1);
+  if (isInBounds(world, alt1) && !isOccupied(world, alt1)) {
+    return alt1;
+  }
+  const alt2 = movePosition(from, slide2);
+  if (isInBounds(world, alt2) && !isOccupied(world, alt2)) {
+    return alt2;
+  }
+  return null;
+}
+
 function executeMove(
   world: World,
   character: Character,
@@ -156,12 +187,12 @@ function executeMove(
     dir = direction;
   }
 
-  const newPos = movePosition(character.position, dir);
-  if (!isInBounds(world, newPos) || isOccupied(world, newPos)) {
+  const target = findMoveTarget(world, character.position, dir);
+  if (!target) {
     return fail(world, character, { op: 'MOVE', direction });
   }
 
-  const updated = setPosition(character, newPos);
+  const updated = setPosition(character, target);
   return ok(updateCharacter(world, updated), character, { op: 'MOVE', direction });
 }
 
