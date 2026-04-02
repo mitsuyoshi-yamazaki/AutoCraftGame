@@ -206,12 +206,12 @@ export interface WorldConfig {
 export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   width: 20,
   height: 20,
-  oreNodeCount: 12,
-  crystalNodeCount: 12,
-  nodeRemaining: 50,
-  energyNodeCount: 8,
-  energyProductionRate: 100,
-  energyMaxStored: 2000,
+  oreNodeCount: 15,
+  crystalNodeCount: 15,
+  nodeRemaining: 80,
+  energyNodeCount: 12,
+  energyProductionRate: 150,
+  energyMaxStored: 3000,
 };
 
 export function createWorld(config: WorldConfig, rng: Rng): World {

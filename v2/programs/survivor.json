@@ -1,33 +1,38 @@
 {
   "name": "Survivor",
-  "comment": "生存最優先型。durabilityとenergyを常に高く保つ。余裕がある場合にのみ複製を行う。",
-  "components": ["Frame", "Actuator", "Sensor", "Processor", "Harvester", "Assembler", "Charger", "MemoryCore"],
+  "comment": "生存最優先型。2 Frameで高耐久。durabilityとenergyを適切に保ちつつ、余裕がある場合に複製する。",
+  "components": ["Frame", "Frame", "Actuator", "Sensor", "Processor", "Harvester", "Assembler", "Charger", "MemoryCore"],
   "rules": [
     {
-      "comment": "Energy not full and near EnergyNode → recharge",
+      "comment": "Durability critically low → emergency repair (overrides energy seeking)",
+      "condition": { "op": "durability_below", "threshold": 100 },
+      "action": { "op": "REPAIR" }
+    },
+    {
+      "comment": "Energy moderate-low and near EnergyNode → recharge",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 4500 },
+          { "op": "energy_below", "threshold": 2500 },
           { "op": "nearby", "type": "EnergyNode", "radius": 1 }
         ]
       },
       "action": { "op": "RECHARGE" }
     },
     {
-      "comment": "Energy not full → move toward EnergyNode",
+      "comment": "Energy moderate-low → move toward EnergyNode",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 4500 },
+          { "op": "energy_below", "threshold": 2500 },
           { "op": "nearby", "type": "EnergyNode", "radius": 100 }
         ]
       },
       "action": { "op": "MOVE", "direction": "toward_nearest" }
     },
     {
-      "comment": "Durability not near max → repair",
-      "condition": { "op": "durability_below", "threshold": 150 },
+      "comment": "Durability getting low → repair",
+      "condition": { "op": "durability_below", "threshold": 200 },
       "action": { "op": "REPAIR" }
     },
     {
@@ -35,7 +40,7 @@
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "inventory_has", "item": "Frame", "count": 1 },
+          { "op": "inventory_has", "item": "Frame", "count": 2 },
           { "op": "inventory_has", "item": "Actuator", "count": 1 },
           { "op": "inventory_has", "item": "Sensor", "count": 1 },
           { "op": "inventory_has", "item": "Processor", "count": 1 },
@@ -47,7 +52,7 @@
       },
       "action": {
         "op": "ASSEMBLE",
-        "components": ["Frame", "Actuator", "Sensor", "Processor", "Harvester", "Assembler", "Charger", "MemoryCore"]
+        "components": ["Frame", "Frame", "Actuator", "Sensor", "Processor", "Harvester", "Assembler", "Charger", "MemoryCore"]
       }
     },
     {

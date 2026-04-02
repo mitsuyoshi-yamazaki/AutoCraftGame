@@ -1,13 +1,14 @@
 {
   "name": "Explorer",
-  "comment": "探索特化型。エネルギー閾値を低く設定し、修理を行わず短命だが素早く資源を採取・複製する。寿命よりも複製速度を優先。",
+  "comment": "探索特化型。1 Frameの軽量構成で素早く資源を採取・複製。修理は緊急時のみ。短命だが複製速度で勝負。",
+  "components": ["Frame", "Actuator", "Sensor", "Processor", "Harvester", "Assembler", "Charger", "MemoryCore"],
   "rules": [
     {
       "comment": "Energy critically low and near EnergyNode → recharge",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 1500 },
+          { "op": "energy_below", "threshold": 2000 },
           { "op": "nearby", "type": "EnergyNode", "radius": 1 }
         ]
       },
@@ -18,11 +19,16 @@
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 1500 },
+          { "op": "energy_below", "threshold": 2000 },
           { "op": "nearby", "type": "EnergyNode", "radius": 100 }
         ]
       },
       "action": { "op": "MOVE", "direction": "toward_nearest" }
+    },
+    {
+      "comment": "Durability critical → emergency repair",
+      "condition": { "op": "durability_below", "threshold": 40 },
+      "action": { "op": "REPAIR" }
     },
     {
       "comment": "Have all components → assemble child immediately",

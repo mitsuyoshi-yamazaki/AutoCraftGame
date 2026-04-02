@@ -61,7 +61,7 @@ function loadProgram(json: any): ProgramDef {
     name: json.name ?? 'Unknown',
     components,
     program: { name: json.name, rules },
-    count: 2,
+    count: 3,
   };
 }
 

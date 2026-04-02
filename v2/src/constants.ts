@@ -12,7 +12,7 @@ export const ENERGY_COST_ASSEMBLE = 50;
 export const ENERGY_COST_WRITE = 10;
 export const ENERGY_COST_ACTIVATE = 10;
 export const ENERGY_COST_SENSE = 5;
-export const ENERGY_COST_REPAIR = 100;
+export const ENERGY_COST_REPAIR = 200;
 export const ENERGY_COST_DISASSEMBLE = 15;
 
 // ============================================================
@@ -48,12 +48,12 @@ export const ENERGY_METABOLISM_SCALE = 9_000_000;
 // ============================================================
 export const RECHARGE_AMOUNT = 200;
 export const ASSEMBLE_ENERGY_TRANSFER = 500;
-export const REPAIR_AMOUNT = 200;
+export const REPAIR_AMOUNT = 100;
 
 // ============================================================
 // Durability
 // ============================================================
-export const FRAME_DURABILITY = 200;
+export const FRAME_DURABILITY = 300;
 
 // ============================================================
 // Action cost lookup

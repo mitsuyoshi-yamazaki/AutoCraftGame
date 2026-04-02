@@ -33,9 +33,9 @@ describe('world', () => {
       const world = createWorld(DEFAULT_WORLD_CONFIG, rng);
       const oreCount = world.resourceNodes.filter((n) => n.type === 'OreNode').length;
       const crystalCount = world.resourceNodes.filter((n) => n.type === 'CrystalNode').length;
-      expect(oreCount).toBe(12);
-      expect(crystalCount).toBe(12);
-      expect(world.energyNodes.length).toBe(8);
+      expect(oreCount).toBe(DEFAULT_WORLD_CONFIG.oreNodeCount);
+      expect(crystalCount).toBe(DEFAULT_WORLD_CONFIG.crystalNodeCount);
+      expect(world.energyNodes.length).toBe(DEFAULT_WORLD_CONFIG.energyNodeCount);
     });
 
     it('no two objects share the same tile', () => {
