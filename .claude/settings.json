@@ -8,5 +8,17 @@
       "Read",
       "Edit"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-version.sh"
+          }
+        ]
+      }
+    ]
   }
 }
