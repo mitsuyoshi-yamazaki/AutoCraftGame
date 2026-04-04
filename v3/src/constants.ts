@@ -76,6 +76,7 @@ export const REMAINS_RADIUS = 0.3;
 // ============================================================
 export const INTERACT_RANGE = 1.5;
 export const SPAWN_DISTANCE = 1.2;
+export const SENSE_RANGE = 10.0;
 
 // ============================================================
 // Action cost lookup

@@ -27,6 +27,7 @@ import {
   MOVE_FORCE,
   SPAWN_DISTANCE,
   INTERACT_RANGE,
+  SENSE_RANGE,
   getActionEnergyCost,
   getAssembleTotalCost,
   getFailurePenalty,
@@ -346,16 +347,17 @@ function executeSense(world: World, character: Character): ActionResult {
 
   for (const type of types) {
     const targets = findTargets(type, character, world);
-    if (targets.length > 0) {
-      let nearest = targets[0];
-      let minDist = distance(character.position, nearest);
-      for (const t of targets.slice(1)) {
-        const d = distance(character.position, t);
-        if (d < minDist) {
-          nearest = t;
-          minDist = d;
-        }
+    // Filter by SENSE_RANGE
+    let nearest: Position | null = null;
+    let minDist = Infinity;
+    for (const t of targets) {
+      const d = distance(character.position, t);
+      if (d <= SENSE_RANGE && d < minDist) {
+        nearest = t;
+        minDist = d;
       }
+    }
+    if (nearest) {
       nearestByType[type] = {
         relativePosition: {
           x: nearest.x - character.position.x,

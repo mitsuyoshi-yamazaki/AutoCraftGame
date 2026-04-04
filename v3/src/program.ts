@@ -9,6 +9,7 @@ import type {
 } from './types.js';
 import { isActive } from './character.js';
 import { distance } from './world.js';
+import { SENSE_RANGE } from './constants.js';
 
 // Evaluation context — tracks the last nearby match for toward_nearest
 export interface EvalContext {
@@ -110,29 +111,32 @@ export function findNearestAngle(
 }
 
 export function findTargets(type: NearbyTargetType, character: Character, world: World): Position[] {
+  const withinRange = (pos: Position) => distance(character.position, pos) <= SENSE_RANGE;
   switch (type) {
     case 'OreNode':
       return world.resourceNodes
-        .filter((n) => n.type === 'OreNode' && n.remaining > 0)
+        .filter((n) => n.type === 'OreNode' && n.remaining > 0 && withinRange(n.position))
         .map((n) => n.position);
     case 'CrystalNode':
       return world.resourceNodes
-        .filter((n) => n.type === 'CrystalNode' && n.remaining > 0)
+        .filter((n) => n.type === 'CrystalNode' && n.remaining > 0 && withinRange(n.position))
         .map((n) => n.position);
     case 'EnergyNode':
       return world.energyNodes
-        .filter((n) => n.stored > 0)
+        .filter((n) => n.stored > 0 && withinRange(n.position))
         .map((n) => n.position);
     case 'Character':
       return world.characters
-        .filter((c) => c.id !== character.id && isActive(c))
+        .filter((c) => c.id !== character.id && isActive(c) && withinRange(c.position))
         .map((c) => c.position);
     case 'InactiveCharacter':
       return world.characters
-        .filter((c) => c.id !== character.id && !isActive(c))
+        .filter((c) => c.id !== character.id && !isActive(c) && withinRange(c.position))
         .map((c) => c.position);
     case 'Remains':
-      return world.remains.map((r) => r.position);
+      return world.remains
+        .filter((r) => withinRange(r.position))
+        .map((r) => r.position);
   }
 }
 
