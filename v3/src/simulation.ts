@@ -35,9 +35,9 @@ export function executeTick(world: World): TickResult {
     decisions.push({ characterId: character.id, action, context });
   }
 
-  // Step 3: Execute all actions (MOVE accumulates forces; others execute immediately)
+  // Step 3: Execute all actions — newer characters first (younger = higher priority)
   const forces = createForceMap();
-  for (const { characterId, action, context } of decisions) {
+  for (const { characterId, action, context } of [...decisions].reverse()) {
     const result = executeAction(currentWorld, characterId, action, context, forces);
     currentWorld = result.world;
     allEvents.push(...result.events);

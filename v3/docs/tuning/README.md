@@ -191,4 +191,5 @@ CLIやチューニングスクリプトのオプションでも上書き可能�
 |------|------|
 | [001_baseline.md](001_baseline.md) | 初期パラメータでのベースライン分析（Replicator単種、20×20） |
 | [002_multi_species_baseline.md](002_multi_species_baseline.md) | 3種族ベースライン（20×20、高密度） |
+| [003_large_world_baseline.md](003_large_world_baseline.md) | 大規模ワールド(40×40) + SENSE_RANGE + wander |
 | [003_large_world_baseline.md](003_large_world_baseline.md) | 大規模ワールド・資源削減（40×40、低密度、エネルギー半減） |
