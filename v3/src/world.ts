@@ -333,12 +333,12 @@ export interface WorldConfig {
 export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   width: 60,
   height: 60,
-  oreNodeCount: 50,
-  crystalNodeCount: 50,
-  nodeRemaining: 80,
-  energyNodeCount: 40,
+  oreNodeCount: 80,
+  crystalNodeCount: 80,
+  nodeRemaining: 150,
+  energyNodeCount: 60,
   energyProductionRate: 75,
-  energyMaxStored: 3000,
+  energyMaxStored: 2000,
 };
 
 function randomPosition(rng: Rng, width: number, height: number, margin: number): Position {

@@ -192,4 +192,7 @@ CLIやチューニングスクリプトのオプションでも上書き可能�
 | [001_baseline.md](001_baseline.md) | 初期パラメータでのベースライン分析（Replicator単種、20×20） |
 | [002_multi_species_baseline.md](002_multi_species_baseline.md) | 3種族ベースライン（20×20、高密度） |
 | [003_large_world_baseline.md](003_large_world_baseline.md) | 大規模ワールド(40×40) + SENSE_RANGE + wander |
-| [003_large_world_baseline.md](003_large_world_baseline.md) | 大規模ワールド・資源削減（40×40、低密度、エネルギー半減） |
+| [004_state_machine.md](004_state_machine.md) | レジスタ状態機械の導入 |
+| [005_variant_competition.md](005_variant_competition.md) | 戦略バリアント間の競争（40×40） |
+| [006_large_world_variant_competition.md](006_large_world_variant_competition.md) | 大規模ワールド(60×60)バリアント競争 |
+| [007_10k_tick_stability.md](007_10k_tick_stability.md) | 10,000 tick安定共存の探索（ノード増・energyMaxStored低下） |
