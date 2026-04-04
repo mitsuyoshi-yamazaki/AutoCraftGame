@@ -82,7 +82,11 @@ function parseArgs(args: string[]) {
 
 function loadProgram(path: string, count: number): ProgramDef {
   const json = JSON.parse(readFileSync(path, 'utf-8'));
-  const rules = json.rules.map((r: any) => ({ condition: r.condition, action: r.action }));
+  const rules = json.rules.map((r: any) => ({
+    condition: r.condition,
+    action: r.action,
+    ...(r.set_registers ? { set_registers: r.set_registers } : {}),
+  }));
   const components: ComponentType[] = json.components ?? [
     'Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'Charger', 'MemoryCore',
   ];

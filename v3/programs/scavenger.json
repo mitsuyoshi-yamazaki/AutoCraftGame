@@ -1,7 +1,7 @@
 {
   "name": "Scavenger",
-  "comment": "死体漁り型。Harvesterを持たず、残骸を分解して資源を得る。EnergyNode付近で待機し、残骸が発生すると接近して分解・複製する。",
-  "components": ["Frame", "Actuator", "Sensor", "Processor", "Disassembler", "Assembler", "Charger", "MemoryCore"],
+  "comment": "分解者。Harvesterを持たず、残骸を分解して資源を得る。EnergyNode付近で待機し、残骸が発生すると接近して分解・複製する。",
+  "components": ["Frame", "Actuator", "Sensor", "Processor", "Disassembler", "Assembler", "Charger", "MemoryCore", "Register"],
   "rules": [
     {
       "comment": "Recharge when energy low and near EnergyNode",
@@ -23,7 +23,8 @@
           { "op": "nearby", "type": "EnergyNode", "radius": 100 }
         ]
       },
-      "action": { "op": "MOVE", "direction": "toward_nearest", "target": "EnergyNode" }
+      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
       "comment": "Repair when durability low",
@@ -42,12 +43,13 @@
           { "op": "inventory_has", "item": "Disassembler", "count": 1 },
           { "op": "inventory_has", "item": "Assembler", "count": 1 },
           { "op": "inventory_has", "item": "Charger", "count": 1 },
-          { "op": "inventory_has", "item": "MemoryCore", "count": 1 }
+          { "op": "inventory_has", "item": "MemoryCore", "count": 1 },
+          { "op": "inventory_has", "item": "Register", "count": 1 }
         ]
       },
       "action": {
         "op": "ASSEMBLE",
-        "components": ["Frame", "Actuator", "Sensor", "Processor", "Disassembler", "Assembler", "Charger", "MemoryCore"]
+        "components": ["Frame", "Actuator", "Sensor", "Processor", "Disassembler", "Assembler", "Charger", "MemoryCore", "Register"]
       }
     },
     {
@@ -110,6 +112,17 @@
       "action": { "op": "CRAFT", "component": "MemoryCore" }
     },
     {
+      "comment": "Craft Register",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Circuit", "count": 1 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Register", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Register" }
+    },
+    {
       "comment": "Craft Disassembler",
       "condition": {
         "op": "and",
@@ -165,7 +178,8 @@
     {
       "comment": "Remains detected → move toward it",
       "condition": { "op": "nearby", "type": "Remains", "radius": 100 },
-      "action": { "op": "MOVE", "direction": "toward_nearest", "target": "Remains" }
+      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "Remains" } }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
       "comment": "Default: recharge if near EnergyNode (wait for corpses)",
@@ -175,12 +189,14 @@
     {
       "comment": "Default: move toward EnergyNode to wait",
       "condition": { "op": "nearby", "type": "EnergyNode", "radius": 100 },
-      "action": { "op": "MOVE", "direction": "toward_nearest", "target": "EnergyNode" }
+      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
-      "comment": "Nothing in range — wander based on internal state",
+      "comment": "Nothing in range — wander",
       "condition": { "op": "true" },
-      "action": { "op": "MOVE", "direction": "wander" }
+      "set_registers": [{ "index": 0, "value": { "fn": "wander_angle" } }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
     }
   ]
 }

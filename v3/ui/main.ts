@@ -56,6 +56,7 @@ function loadProgram(json: any): ProgramDef {
   const rules = json.rules.map((r: any) => ({
     condition: r.condition,
     action: r.action,
+    ...(r.set_registers ? { set_registers: r.set_registers } : {}),
   }));
   const components: ComponentType[] = json.components ?? [...MIN_COMPONENTS];
   return {

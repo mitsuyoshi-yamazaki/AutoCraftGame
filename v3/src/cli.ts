@@ -53,7 +53,11 @@ function main() {
 
   const programJson = readFileSync(opts.programPath, 'utf-8');
   const parsed = JSON.parse(programJson);
-  const rules = parsed.rules.map((r: any) => ({ condition: r.condition, action: r.action }));
+  const rules = parsed.rules.map((r: any) => ({
+    condition: r.condition,
+    action: r.action,
+    ...(r.set_registers ? { set_registers: r.set_registers } : {}),
+  }));
   const components: ComponentType[] = parsed.components ?? [...MIN_COMPONENTS];
   const program: Program = { name: parsed.name, rules };
 
