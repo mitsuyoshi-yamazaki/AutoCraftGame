@@ -10,6 +10,7 @@ import { executeTick } from '@/simulation.js';
 import { evaluateProgram } from '@/program.js';
 import { Renderer } from './renderer.js';
 import type { HitResult } from './renderer.js';
+import { GAME_VERSION } from '@/version.js';
 import selfReplicatorProgram from '../programs/self-replicator.json';
 import selfReplicatorExplorerProgram from '../programs/self-replicator-explorer.json';
 import selfReplicatorWandererProgram from '../programs/self-replicator-wanderer.json';
@@ -146,6 +147,8 @@ const statRemains = document.getElementById('stat-remains')!;
 const statSpecies = document.getElementById('stat-species')!;
 const selectedContent = document.getElementById('selected-content')!;
 const eventLogContent = document.getElementById('event-log-content')!;
+const versionDisplay = document.getElementById('version-display')!;
+versionDisplay.textContent = `v${GAME_VERSION}`;
 
 // ============================================================
 // Initialize pixi.js and start

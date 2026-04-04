@@ -66,6 +66,11 @@ body {
   color: #aaa;
 }
 
+#version-display {
+  font-size: 13px;
+  color: #666;
+}
+
 #main {
   display: flex;
   flex: 1;
