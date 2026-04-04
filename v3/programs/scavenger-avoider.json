@@ -210,8 +210,14 @@
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
-      "comment": "Avoid nearby characters — move away",
-      "condition": { "op": "nearby", "type": "Character", "radius": 5 },
+      "comment": "Avoid nearby characters — move away (only when energy sufficient)",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "not", "condition": { "op": "energy_below", "threshold": 6000 } },
+          { "op": "nearby", "type": "Character", "radius": 5 }
+        ]
+      },
       "set_registers": [
         { "index": 0, "value": { "fn": "angle_away_from_nearest", "type": "Character" } },
         { "index": 2, "value": 2 }
