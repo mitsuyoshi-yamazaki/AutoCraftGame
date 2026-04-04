@@ -1,5 +1,7 @@
 import type { World, ResourceNode, EnergyNode, Remains, Position, Character, ComponentType, Inventory } from './types.js';
 import { INTERACT_RANGE, RESOURCE_NODE_RADIUS, ENERGY_NODE_RADIUS, CHARACTER_RADIUS, REMAINS_RADIUS } from './constants.js';
+import type { SpatialGrid } from './spatial-grid.js';
+import { queryRange } from './spatial-grid.js';
 
 // ============================================================
 // Seeded PRNG — mulberry32 (same as v2)
@@ -50,7 +52,20 @@ export function getObjectRadius(kind: 'character' | 'resourceNode' | 'energyNode
 // ============================================================
 // Check if a position collides with any existing object
 // ============================================================
-export function collidesWithAny(world: World, pos: Position, radius: number, excludeId?: string): boolean {
+export function collidesWithAny(
+  world: World, pos: Position, radius: number, excludeId?: string, grid?: SpatialGrid,
+): boolean {
+  if (grid) {
+    const maxObjRadius = Math.max(CHARACTER_RADIUS, RESOURCE_NODE_RADIUS, ENERGY_NODE_RADIUS, REMAINS_RADIUS);
+    const nearby = queryRange(grid, pos, radius + maxObjRadius);
+    for (const entry of nearby) {
+      if (entry.id === excludeId) continue;
+      const otherRadius = getObjectRadius(entry.kind);
+      if (circlesOverlap(pos, radius, entry.position, otherRadius)) return true;
+    }
+    return false;
+  }
+  // Fallback: linear scan (used during world creation when no grid exists)
   for (const c of world.characters) {
     if (c.id === excludeId) continue;
     if (circlesOverlap(pos, radius, c.position, CHARACTER_RADIUS)) return true;
@@ -71,64 +86,104 @@ export function collidesWithAny(world: World, pos: Position, radius: number, exc
 // Find nearest object within INTERACT_RANGE
 // ============================================================
 export function findNearestResourceNode(
-  world: World, pos: Position,
+  world: World, pos: Position, grid?: SpatialGrid,
 ): ResourceNode | null {
+  if (grid) {
+    const nearby = queryRange(grid, pos, INTERACT_RANGE);
+    let best: ResourceNode | null = null;
+    let bestDist = Infinity;
+    for (const entry of nearby) {
+      if (entry.kind !== 'resourceNode') continue;
+      const d = distance(pos, entry.position);
+      if (d > INTERACT_RANGE || d >= bestDist) continue;
+      const node = world.resourceNodes.find((n) => n.id === entry.id);
+      if (node && node.remaining > 0) { bestDist = d; best = node; }
+    }
+    return best;
+  }
   let best: ResourceNode | null = null;
   let bestDist = Infinity;
   for (const n of world.resourceNodes) {
     if (n.remaining <= 0) continue;
     const d = distance(pos, n.position);
-    if (d <= INTERACT_RANGE && d < bestDist) {
-      bestDist = d;
-      best = n;
-    }
+    if (d <= INTERACT_RANGE && d < bestDist) { bestDist = d; best = n; }
   }
   return best;
 }
 
 export function findNearestEnergyNode(
-  world: World, pos: Position,
+  world: World, pos: Position, grid?: SpatialGrid,
 ): EnergyNode | null {
+  if (grid) {
+    const nearby = queryRange(grid, pos, INTERACT_RANGE);
+    let best: EnergyNode | null = null;
+    let bestDist = Infinity;
+    for (const entry of nearby) {
+      if (entry.kind !== 'energyNode') continue;
+      const d = distance(pos, entry.position);
+      if (d > INTERACT_RANGE || d >= bestDist) continue;
+      const node = world.energyNodes.find((n) => n.id === entry.id);
+      if (node && node.stored > 0) { bestDist = d; best = node; }
+    }
+    return best;
+  }
   let best: EnergyNode | null = null;
   let bestDist = Infinity;
   for (const n of world.energyNodes) {
     if (n.stored <= 0) continue;
     const d = distance(pos, n.position);
-    if (d <= INTERACT_RANGE && d < bestDist) {
-      bestDist = d;
-      best = n;
-    }
+    if (d <= INTERACT_RANGE && d < bestDist) { bestDist = d; best = n; }
   }
   return best;
 }
 
 export function findNearestRemains(
-  world: World, pos: Position,
+  world: World, pos: Position, grid?: SpatialGrid,
 ): Remains | null {
+  if (grid) {
+    const nearby = queryRange(grid, pos, INTERACT_RANGE);
+    let best: Remains | null = null;
+    let bestDist = Infinity;
+    for (const entry of nearby) {
+      if (entry.kind !== 'remains') continue;
+      const d = distance(pos, entry.position);
+      if (d > INTERACT_RANGE || d >= bestDist) continue;
+      const r = world.remains.find((rm) => rm.id === entry.id);
+      if (r) { bestDist = d; best = r; }
+    }
+    return best;
+  }
   let best: Remains | null = null;
   let bestDist = Infinity;
   for (const r of world.remains) {
     const d = distance(pos, r.position);
-    if (d <= INTERACT_RANGE && d < bestDist) {
-      bestDist = d;
-      best = r;
-    }
+    if (d <= INTERACT_RANGE && d < bestDist) { bestDist = d; best = r; }
   }
   return best;
 }
 
 export function findNearestInactiveCharacter(
-  world: World, pos: Position, selfId: string,
+  world: World, pos: Position, selfId: string, grid?: SpatialGrid,
 ): Character | null {
+  if (grid) {
+    const nearby = queryRange(grid, pos, INTERACT_RANGE);
+    let best: Character | null = null;
+    let bestDist = Infinity;
+    for (const entry of nearby) {
+      if (entry.kind !== 'character' || entry.id === selfId) continue;
+      const d = distance(pos, entry.position);
+      if (d > INTERACT_RANGE || d >= bestDist) continue;
+      const c = world.characters.find((ch) => ch.id === entry.id);
+      if (c && c.program === null) { bestDist = d; best = c; }
+    }
+    return best;
+  }
   let best: Character | null = null;
   let bestDist = Infinity;
   for (const c of world.characters) {
     if (c.id === selfId || c.program !== null) continue;
     const d = distance(pos, c.position);
-    if (d <= INTERACT_RANGE && d < bestDist) {
-      bestDist = d;
-      best = c;
-    }
+    if (d <= INTERACT_RANGE && d < bestDist) { bestDist = d; best = c; }
   }
   return best;
 }
@@ -321,7 +376,7 @@ export function createWorld(config: WorldConfig, rng: Rng): World {
 // ============================================================
 export function findSpawnPosition(
   world: World, parentPos: Position, parentVelocity: { vx: number; vy: number },
-  spawnDistance: number,
+  spawnDistance: number, grid?: SpatialGrid,
 ): Position | null {
   // Try opposite of parent velocity first, then rotate 90 deg increments
   const speed = Math.sqrt(parentVelocity.vx ** 2 + parentVelocity.vy ** 2);
@@ -337,7 +392,7 @@ export function findSpawnPosition(
       y: parentPos.y + Math.sin(angle) * spawnDistance,
     };
     if (pos.x > 0 && pos.x < world.width && pos.y > 0 && pos.y < world.height) {
-      if (!collidesWithAny(world, pos, CHARACTER_RADIUS)) return pos;
+      if (!collidesWithAny(world, pos, CHARACTER_RADIUS, undefined, grid)) return pos;
     }
   }
   return null;

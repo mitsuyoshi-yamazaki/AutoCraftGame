@@ -16,6 +16,8 @@ import {
   computeCollisionForces,
   integratePhysics,
 } from './physics.js';
+import { buildGrid } from './spatial-grid.js';
+import { SENSE_RANGE } from './constants.js';
 
 // ============================================================
 // Single tick execution (v3: 10-step game loop)
@@ -27,11 +29,14 @@ export function executeTick(world: World): TickResult {
   // Step 1: EnergyNode production
   currentWorld = produceEnergy(currentWorld);
 
+  // Build spatial grid for this tick (used in steps 2-5)
+  const grid = buildGrid(currentWorld, SENSE_RANGE);
+
   // Step 2: Determine actions for all active characters (+ apply set_registers)
   const decisions: { characterId: string; action: Action }[] = [];
   for (const character of currentWorld.characters) {
     if (!isActive(character) || !character.program) continue;
-    const { action, character: updated } = evaluateProgram(character.program, character, currentWorld);
+    const { action, character: updated } = evaluateProgram(character.program, character, currentWorld, grid);
     currentWorld = updateCharacter(currentWorld, updated);
     decisions.push({ characterId: character.id, action });
   }
@@ -39,7 +44,7 @@ export function executeTick(world: World): TickResult {
   // Step 3: Execute all actions
   const forces = createForceMap();
   for (const { characterId, action } of decisions) {
-    const result = executeAction(currentWorld, characterId, action, forces);
+    const result = executeAction(currentWorld, characterId, action, forces, grid);
     currentWorld = result.world;
     allEvents.push(...result.events);
   }
@@ -48,7 +53,7 @@ export function executeTick(world: World): TickResult {
   computeFrictionForces(currentWorld, forces);
 
   // Step 5: Collision detection and response
-  computeCollisionForces(currentWorld, forces);
+  computeCollisionForces(currentWorld, forces, grid);
 
   // Step 6: Physics integration (velocity + position update)
   currentWorld = integratePhysics(currentWorld, forces);

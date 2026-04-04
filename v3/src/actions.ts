@@ -49,6 +49,7 @@ import {
 } from './world.js';
 import { findTargets } from './program.js';
 import type { ForceMap } from './physics.js';
+import type { SpatialGrid } from './spatial-grid.js';
 
 // ============================================================
 // Execute an Action with energy handling
@@ -58,6 +59,7 @@ export function executeAction(
   characterId: string,
   action: Action,
   forces: ForceMap,
+  grid?: SpatialGrid,
 ): ActionResult {
   const character = getCharacter(world, characterId);
   if (!character) {
@@ -74,7 +76,7 @@ export function executeAction(
     return { world, characterId, action, success: false, events: [] };
   }
 
-  const result = executeActionInner(world, character, action, forces);
+  const result = executeActionInner(world, character, action, forces, grid);
 
   if (result.success) {
     const updated = getCharacter(result.world, characterId);
@@ -102,30 +104,31 @@ function executeActionInner(
   character: Character,
   action: Action,
   forces: ForceMap,
+  grid?: SpatialGrid,
 ): ActionResult {
   switch (action.op) {
     case 'MOVE':
       return executeMove(world, character, action, forces);
     case 'HARVEST':
-      return executeHarvest(world, character);
+      return executeHarvest(world, character, grid);
     case 'RECHARGE':
-      return executeRecharge(world, character);
+      return executeRecharge(world, character, grid);
     case 'PROCESS':
       return executeProcess(world, character, action.recipe);
     case 'CRAFT':
       return executeCraft(world, character, action.component);
     case 'ASSEMBLE':
-      return executeAssemble(world, character, action.components);
+      return executeAssemble(world, character, action.components, grid);
     case 'WRITE':
-      return executeWrite(world, character, action.target);
+      return executeWrite(world, character, action.target, grid);
     case 'ACTIVATE':
-      return executeActivate(world, character, action.target);
+      return executeActivate(world, character, action.target, grid);
     case 'SENSE':
-      return executeSense(world, character);
+      return executeSense(world, character, grid);
     case 'REPAIR':
       return executeRepair(world, character);
     case 'DISASSEMBLE':
-      return executeDisassemble(world, character);
+      return executeDisassemble(world, character, grid);
     default:
       return fail(world, character, action);
   }
@@ -174,12 +177,12 @@ function executeMove(
 // ============================================================
 // HARVEST — v3: distance-based
 // ============================================================
-function executeHarvest(world: World, character: Character): ActionResult {
+function executeHarvest(world: World, character: Character, grid?: SpatialGrid): ActionResult {
   if (!hasComponent(character, 'Harvester')) {
     return fail(world, character, { op: 'HARVEST' });
   }
 
-  const node = findNearestResourceNode(world, character.position);
+  const node = findNearestResourceNode(world, character.position, grid);
   if (!node) return fail(world, character, { op: 'HARVEST' });
 
   const item = node.type === 'OreNode' ? 'Ore' : 'Crystal';
@@ -193,12 +196,12 @@ function executeHarvest(world: World, character: Character): ActionResult {
 // ============================================================
 // RECHARGE — v3: distance-based
 // ============================================================
-function executeRecharge(world: World, character: Character): ActionResult {
+function executeRecharge(world: World, character: Character, grid?: SpatialGrid): ActionResult {
   if (!hasComponent(character, 'Charger')) {
     return fail(world, character, { op: 'RECHARGE' });
   }
 
-  const node = findNearestEnergyNode(world, character.position);
+  const node = findNearestEnergyNode(world, character.position, grid);
   if (!node) return fail(world, character, { op: 'RECHARGE' });
 
   const amount = Math.min(RECHARGE_AMOUNT, node.stored);
@@ -256,6 +259,7 @@ function executeAssemble(
   world: World,
   character: Character,
   components: readonly ComponentType[],
+  grid?: SpatialGrid,
 ): ActionResult {
   if (!hasComponent(character, 'Assembler')) {
     return fail(world, character, { op: 'ASSEMBLE', components });
@@ -267,7 +271,7 @@ function executeAssemble(
     return fail(world, character, { op: 'ASSEMBLE', components });
   }
 
-  const spawnPos = findSpawnPosition(world, character.position, character.velocity, SPAWN_DISTANCE);
+  const spawnPos = findSpawnPosition(world, character.position, character.velocity, SPAWN_DISTANCE, grid);
   if (!spawnPos) return fail(world, character, { op: 'ASSEMBLE', components });
 
   const inv = removeItems(character.inventory, required);
@@ -291,7 +295,7 @@ function executeAssemble(
 // ============================================================
 // WRITE — v3: distance-based
 // ============================================================
-function executeWrite(world: World, character: Character, targetId: string): ActionResult {
+function executeWrite(world: World, character: Character, targetId: string, grid?: SpatialGrid): ActionResult {
   if (!hasComponent(character, 'Processor')) {
     return fail(world, character, { op: 'WRITE', target: targetId });
   }
@@ -299,7 +303,7 @@ function executeWrite(world: World, character: Character, targetId: string): Act
     return fail(world, character, { op: 'WRITE', target: targetId });
   }
 
-  const resolved = resolveTarget(targetId, character, world);
+  const resolved = resolveTarget(targetId, character, world, grid);
   const target = resolved ? getCharacter(world, resolved) : null;
   if (!target) return fail(world, character, { op: 'WRITE', target: targetId });
   if (!target.components.includes('MemoryCore')) {
@@ -315,12 +319,12 @@ function executeWrite(world: World, character: Character, targetId: string): Act
 // ============================================================
 // ACTIVATE — v3: distance-based
 // ============================================================
-function executeActivate(world: World, character: Character, targetId: string): ActionResult {
+function executeActivate(world: World, character: Character, targetId: string, grid?: SpatialGrid): ActionResult {
   if (!hasComponent(character, 'Processor')) {
     return fail(world, character, { op: 'ACTIVATE', target: targetId });
   }
 
-  const resolved = resolveTarget(targetId, character, world);
+  const resolved = resolveTarget(targetId, character, world, grid);
   const target = resolved ? getCharacter(world, resolved) : null;
   if (!target || !target.program) {
     return fail(world, character, { op: 'ACTIVATE', target: targetId });
@@ -332,7 +336,7 @@ function executeActivate(world: World, character: Character, targetId: string): 
 // ============================================================
 // SENSE — v3: returns relative position
 // ============================================================
-function executeSense(world: World, character: Character): ActionResult {
+function executeSense(world: World, character: Character, grid?: SpatialGrid): ActionResult {
   if (!hasComponent(character, 'Sensor')) {
     return fail(world, character, { op: 'SENSE' });
   }
@@ -343,7 +347,7 @@ function executeSense(world: World, character: Character): ActionResult {
   ];
 
   for (const type of types) {
-    const targets = findTargets(type, character, world);
+    const targets = findTargets(type, character, world, grid);
     // Filter by SENSE_RANGE
     let nearest: Position | null = null;
     let minDist = Infinity;
@@ -383,12 +387,12 @@ function executeRepair(world: World, character: Character): ActionResult {
 // ============================================================
 // DISASSEMBLE — v3: distance-based
 // ============================================================
-function executeDisassemble(world: World, character: Character): ActionResult {
+function executeDisassemble(world: World, character: Character, grid?: SpatialGrid): ActionResult {
   if (!hasComponent(character, 'Disassembler')) {
     return fail(world, character, { op: 'DISASSEMBLE' });
   }
 
-  const remains = findNearestRemains(world, character.position);
+  const remains = findNearestRemains(world, character.position, grid);
   if (!remains) return fail(world, character, { op: 'DISASSEMBLE' });
 
   const invEntries = Object.entries(remains.inventory)
@@ -451,9 +455,9 @@ function executeDisassemble(world: World, character: Character): ActionResult {
 // ============================================================
 // Resolve target: "nearest_inactive" → actual ID
 // ============================================================
-function resolveTarget(targetId: string, character: Character, world: World): string | null {
+function resolveTarget(targetId: string, character: Character, world: World, grid?: SpatialGrid): string | null {
   if (targetId === 'nearest_inactive') {
-    const target = findNearestInactiveCharacter(world, character.position, character.id);
+    const target = findNearestInactiveCharacter(world, character.position, character.id, grid);
     return target?.id ?? null;
   }
   // Direct ID reference: check distance

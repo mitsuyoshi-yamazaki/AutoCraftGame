@@ -9,7 +9,9 @@ import {
   REMAINS_RADIUS,
 } from './constants.js';
 import { calculateMass } from './recipes.js';
-import { updateCharacter } from './world.js';
+import { updateCharacter, getObjectRadius } from './world.js';
+import type { SpatialGrid } from './spatial-grid.js';
+import { queryRange } from './spatial-grid.js';
 
 // ============================================================
 // Accumulated forces per character (keyed by character id)
@@ -65,36 +67,34 @@ function computeCollisionForce(
   return { fx: -nx * magnitude, fy: -ny * magnitude };
 }
 
-export function computeCollisionForces(world: World, forces: ForceMap): void {
+export function computeCollisionForces(world: World, forces: ForceMap, grid: SpatialGrid): void {
   const chars = world.characters;
+  const maxCollisionDist = CHARACTER_RADIUS + Math.max(RESOURCE_NODE_RADIUS, ENERGY_NODE_RADIUS, REMAINS_RADIUS);
+  const processed = new Set<string>();
 
-  // Character vs Character
-  for (let i = 0; i < chars.length; i++) {
-    for (let j = i + 1; j < chars.length; j++) {
-      const f = computeCollisionForce(
-        chars[i].position, CHARACTER_RADIUS,
-        chars[j].position, CHARACTER_RADIUS,
-      );
-      if (f) {
-        addForce(forces, chars[i].id, f);
-        addForce(forces, chars[j].id, { fx: -f.fx, fy: -f.fy });
-      }
-    }
-  }
-
-  // Character vs fixed objects (ResourceNode, EnergyNode, Remains)
   for (const char of chars) {
-    for (const n of world.resourceNodes) {
-      const f = computeCollisionForce(char.position, CHARACTER_RADIUS, n.position, RESOURCE_NODE_RADIUS);
-      if (f) addForce(forces, char.id, f);
-    }
-    for (const n of world.energyNodes) {
-      const f = computeCollisionForce(char.position, CHARACTER_RADIUS, n.position, ENERGY_NODE_RADIUS);
-      if (f) addForce(forces, char.id, f);
-    }
-    for (const r of world.remains) {
-      const f = computeCollisionForce(char.position, CHARACTER_RADIUS, r.position, REMAINS_RADIUS);
-      if (f) addForce(forces, char.id, f);
+    processed.add(char.id);
+    const nearby = queryRange(grid, char.position, maxCollisionDist);
+
+    for (const entry of nearby) {
+      if (entry.id === char.id) continue;
+
+      if (entry.kind === 'character') {
+        // Avoid processing the same pair twice
+        if (processed.has(entry.id)) continue;
+        const f = computeCollisionForce(
+          char.position, CHARACTER_RADIUS,
+          entry.position, CHARACTER_RADIUS,
+        );
+        if (f) {
+          addForce(forces, char.id, f);
+          addForce(forces, entry.id, { fx: -f.fx, fy: -f.fy });
+        }
+      } else {
+        const otherRadius = getObjectRadius(entry.kind);
+        const f = computeCollisionForce(char.position, CHARACTER_RADIUS, entry.position, otherRadius);
+        if (f) addForce(forces, char.id, f);
+      }
     }
   }
 

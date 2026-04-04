@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { World, Character } from '../src/types.js';
 import { createForceMap, addForce, computeFrictionForces, computeCollisionForces, integratePhysics } from '../src/physics.js';
-import { FRICTION_COEFFICIENT, COLLISION_STIFFNESS, CHARACTER_RADIUS, VELOCITY_CLAMP_THRESHOLD } from '../src/constants.js';
+import { FRICTION_COEFFICIENT, COLLISION_STIFFNESS, CHARACTER_RADIUS, VELOCITY_CLAMP_THRESHOLD, SENSE_RANGE } from '../src/constants.js';
+import { buildGrid } from '../src/spatial-grid.js';
 
 function makeChar(id: string, x: number, y: number, vx = 0, vy = 0): Character {
   return {
@@ -64,8 +65,9 @@ describe('physics', () => {
       const c1 = makeChar('c1', 10, 10);
       const c2 = makeChar('c2', 10.5, 10); // distance = 0.5, overlap = 0.8 - 0.5 = 0.3
       const world = makeWorld([c1, c2]);
+      const grid = buildGrid(world, SENSE_RANGE);
       const forces = createForceMap();
-      computeCollisionForces(world, forces);
+      computeCollisionForces(world, forces, grid);
       const f1 = forces.get('c1')!;
       const f2 = forces.get('c2')!;
       // c1 should be pushed left (negative x), c2 pushed right (positive x)
@@ -79,8 +81,9 @@ describe('physics', () => {
       // Character near left wall
       const c = makeChar('c1', 0.2, 10); // x < CHARACTER_RADIUS(0.4)
       const world = makeWorld([c]);
+      const grid = buildGrid(world, SENSE_RANGE);
       const forces = createForceMap();
-      computeCollisionForces(world, forces);
+      computeCollisionForces(world, forces, grid);
       const f = forces.get('c1')!;
       expect(f.fx).toBeGreaterThan(0); // pushed away from wall
     });
@@ -89,8 +92,9 @@ describe('physics', () => {
       const c1 = makeChar('c1', 5, 5);
       const c2 = makeChar('c2', 10, 10);
       const world = makeWorld([c1, c2]);
+      const grid = buildGrid(world, SENSE_RANGE);
       const forces = createForceMap();
-      computeCollisionForces(world, forces);
+      computeCollisionForces(world, forces, grid);
       expect(forces.has('c1')).toBe(false);
     });
   });
