@@ -9,12 +9,13 @@ function makeChar(id: string, x: number, y: number, energy = 5000): Character {
     id,
     position: { x, y },
     velocity: { vx: 0, vy: 0 },
-    components: ['Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'Charger', 'MemoryCore'],
+    components: ['Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'Charger', 'MemoryCore', 'Register'],
     inventory: {},
     durability: 300,
     energy,
     program: { name: 'test', rules: [] },
     senseData: null,
+    registers: [null, null, null, null],
   };
 }
 
@@ -42,29 +43,37 @@ describe('actions', () => {
       const char = makeChar('c1', 10, 10);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 0 }, undefined, forces);
+      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 0 }, forces);
       expect(result.success).toBe(true);
       const f = forces.get('c1')!;
       expect(f.fx).toBeCloseTo(MOVE_FORCE); // 0 degrees = right
       expect(f.fy).toBeCloseTo(0);
     });
 
-    it('MOVE toward_nearest with target', () => {
-      // Character at (5, 6), OreNode at (5, 5) → angle ~270
-      const char = makeChar('c1', 5, 6);
+    it('MOVE with register-based direction', () => {
+      // Character at (5, 6), register[0] = 270 → move up
+      const char: Character = { ...makeChar('c1', 5, 6), registers: [270, null, null, null] };
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 'toward_nearest', target: 'OreNode' }, undefined, forces);
+      const result = executeAction(world, 'c1', { op: 'MOVE', direction: { register: 0 } }, forces);
       expect(result.success).toBe(true);
       const f = forces.get('c1')!;
       expect(f.fy).toBeLessThan(0); // moving up (negative y)
+    });
+
+    it('MOVE fails when register is null', () => {
+      const char = makeChar('c1', 5, 6); // registers all null
+      const world = makeWorld([char]);
+      const forces = createForceMap();
+      const result = executeAction(world, 'c1', { op: 'MOVE', direction: { register: 0 } }, forces);
+      expect(result.success).toBe(false);
     });
 
     it('MOVE costs energy', () => {
       const char = makeChar('c1', 10, 10, 5000);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 0 }, undefined, forces);
+      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 0 }, forces);
       const updated = result.world.characters.find((c) => c.id === 'c1')!;
       expect(updated.energy).toBe(5000 - ENERGY_COST_MOVE);
     });
@@ -73,17 +82,17 @@ describe('actions', () => {
       const char = makeChar('c1', 0.5, 0.5); // near wall
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 180 }, undefined, forces);
-      expect(result.success).toBe(true); // no failure, just force applied
+      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 180 }, forces);
+      expect(result.success).toBe(true);
     });
   });
 
   describe('HARVEST', () => {
     it('harvests when within INTERACT_RANGE', () => {
-      const char = makeChar('c1', 5, 5.5); // distance to OreNode at (5,5) = 0.5 < INTERACT_RANGE
+      const char = makeChar('c1', 5, 5.5);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'HARVEST' }, undefined, forces);
+      const result = executeAction(world, 'c1', { op: 'HARVEST' }, forces);
       expect(result.success).toBe(true);
       const c = result.world.characters.find((c) => c.id === 'c1')!;
       expect(c.inventory['Ore']).toBe(1);
@@ -92,10 +101,10 @@ describe('actions', () => {
     });
 
     it('fails when too far from resource node', () => {
-      const char = makeChar('c1', 10, 10); // far from OreNode at (5,5)
+      const char = makeChar('c1', 10, 10);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'HARVEST' }, undefined, forces);
+      const result = executeAction(world, 'c1', { op: 'HARVEST' }, forces);
       expect(result.success).toBe(false);
     });
   });
@@ -105,7 +114,7 @@ describe('actions', () => {
       const char = makeChar('c1', 10, 10.5, 1000);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'RECHARGE' }, undefined, forces);
+      const result = executeAction(world, 'c1', { op: 'RECHARGE' }, forces);
       expect(result.success).toBe(true);
       const c = result.world.characters.find((c) => c.id === 'c1')!;
       expect(c.energy).toBeGreaterThan(1000);
@@ -117,7 +126,7 @@ describe('actions', () => {
       const char = { ...makeChar('c1', 10, 10), inventory: { Ore: 5 } };
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'PROCESS', recipe: 'Metal' }, undefined, forces);
+      const result = executeAction(world, 'c1', { op: 'PROCESS', recipe: 'Metal' }, forces);
       expect(result.success).toBe(true);
       const c = result.world.characters.find((c) => c.id === 'c1')!;
       expect(c.inventory['Ore']).toBe(3);

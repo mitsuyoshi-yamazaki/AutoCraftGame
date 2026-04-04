@@ -27,18 +27,19 @@ export function executeTick(world: World): TickResult {
   // Step 1: EnergyNode production
   currentWorld = produceEnergy(currentWorld);
 
-  // Step 2: Determine actions for all active characters
-  const decisions: { characterId: string; action: Action; context: any }[] = [];
+  // Step 2: Determine actions for all active characters (+ apply set_registers)
+  const decisions: { characterId: string; action: Action }[] = [];
   for (const character of currentWorld.characters) {
     if (!isActive(character) || !character.program) continue;
-    const { action, context } = evaluateProgram(character.program, character, currentWorld);
-    decisions.push({ characterId: character.id, action, context });
+    const { action, character: updated } = evaluateProgram(character.program, character, currentWorld);
+    currentWorld = updateCharacter(currentWorld, updated);
+    decisions.push({ characterId: character.id, action });
   }
 
-  // Step 3: Execute all actions — newer characters first (younger = higher priority)
+  // Step 3: Execute all actions
   const forces = createForceMap();
-  for (const { characterId, action, context } of [...decisions].reverse()) {
-    const result = executeAction(currentWorld, characterId, action, context, forces);
+  for (const { characterId, action } of decisions) {
+    const result = executeAction(currentWorld, characterId, action, forces);
     currentWorld = result.world;
     allEvents.push(...result.events);
   }

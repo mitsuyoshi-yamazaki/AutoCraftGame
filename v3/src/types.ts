@@ -20,7 +20,8 @@ export type ComponentType =
   | 'Assembler'
   | 'Disassembler'
   | 'Charger'
-  | 'MemoryCore';
+  | 'MemoryCore'
+  | 'Register';
 
 // ============================================================
 // Items = all craftable/harvestable things
@@ -106,16 +107,21 @@ export type Condition =
   | { readonly op: 'nearby'; readonly type: NearbyTargetType; readonly radius: number }
   | { readonly op: 'durability_below'; readonly threshold: number }
   | { readonly op: 'energy_below'; readonly threshold: number }
+  | { readonly op: 'register_equals'; readonly index: number; readonly value: number | null }
+  | { readonly op: 'register_less_than'; readonly index: number; readonly value: number }
+  | { readonly op: 'register_greater_than'; readonly index: number; readonly value: number }
   | { readonly op: 'and'; readonly conditions: readonly Condition[] }
   | { readonly op: 'or'; readonly conditions: readonly Condition[] }
   | { readonly op: 'not'; readonly condition: Condition };
 
 // ============================================================
-// Action (Program DSL) — v3: MOVE uses degrees or toward_nearest
+// Action (Program DSL) — v3: MOVE uses degrees or register reference
 // ============================================================
+export type MoveDirection = number | { readonly register: number };
+
 export type Action =
   | { readonly op: 'NOOP' }
-  | { readonly op: 'MOVE'; readonly direction: number | 'toward_nearest' | 'wander'; readonly target?: NearbyTargetType }
+  | { readonly op: 'MOVE'; readonly direction: MoveDirection }
   | { readonly op: 'HARVEST' }
   | { readonly op: 'RECHARGE' }
   | { readonly op: 'PROCESS'; readonly recipe: ProcessedMaterial }
@@ -128,10 +134,25 @@ export type Action =
   | { readonly op: 'DISASSEMBLE' };
 
 // ============================================================
+// Register fn values (computed at rule evaluation time)
+// ============================================================
+export type FnValue =
+  | { readonly fn: 'angle_to_nearest'; readonly type: NearbyTargetType }
+  | { readonly fn: 'wander_angle' };
+
+export type RegisterValue = number | null | FnValue;
+
+export interface SetRegister {
+  readonly index: number;
+  readonly value: RegisterValue;
+}
+
+// ============================================================
 // Rule & Program
 // ============================================================
 export interface Rule {
   readonly condition: Condition;
+  readonly set_registers?: readonly SetRegister[];
   readonly action: Action;
 }
 
@@ -162,6 +183,7 @@ export interface Character {
   readonly energy: number;
   readonly program: Program | null;
   readonly senseData: SenseData | null;
+  readonly registers: readonly (number | null)[];
 }
 
 // ============================================================

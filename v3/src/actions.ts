@@ -3,13 +3,13 @@ import type {
   ActionResult,
   Character,
   ComponentType,
-  Force,
+  MoveDirection,
   NearbyTargetType,
   Position,
   Program,
   World,
 } from './types.js';
-import { hasComponent, createInactiveCharacter } from './character.js';
+import { hasComponent, createInactiveCharacter, readRegister } from './character.js';
 import {
   addItem,
   addItems,
@@ -47,8 +47,7 @@ import {
   updateRemains,
   distance,
 } from './world.js';
-import { findNearestAngle, findTargets } from './program.js';
-import type { EvalContext } from './program.js';
+import { findTargets } from './program.js';
 import type { ForceMap } from './physics.js';
 
 // ============================================================
@@ -58,7 +57,6 @@ export function executeAction(
   world: World,
   characterId: string,
   action: Action,
-  evalContext: EvalContext | undefined,
   forces: ForceMap,
 ): ActionResult {
   const character = getCharacter(world, characterId);
@@ -76,7 +74,7 @@ export function executeAction(
     return { world, characterId, action, success: false, events: [] };
   }
 
-  const result = executeActionInner(world, character, action, evalContext, forces);
+  const result = executeActionInner(world, character, action, forces);
 
   if (result.success) {
     const updated = getCharacter(result.world, characterId);
@@ -103,12 +101,11 @@ function executeActionInner(
   world: World,
   character: Character,
   action: Action,
-  evalContext: EvalContext | undefined,
   forces: ForceMap,
 ): ActionResult {
   switch (action.op) {
     case 'MOVE':
-      return executeMove(world, character, action, evalContext, forces);
+      return executeMove(world, character, action, forces);
     case 'HARVEST':
       return executeHarvest(world, character);
     case 'RECHARGE':
@@ -135,37 +132,35 @@ function executeActionInner(
 }
 
 // ============================================================
+// Resolve MOVE direction — number literal or register reference
+// ============================================================
+function resolveMoveDirection(direction: MoveDirection, character: Character): number | null {
+  if (typeof direction === 'number') return direction;
+  return readRegister(character, direction.register);
+}
+
+// ============================================================
 // MOVE — v3: apply force in direction
 // ============================================================
 function executeMove(
   world: World,
   character: Character,
-  action: { readonly op: 'MOVE'; readonly direction: number | 'toward_nearest' | 'wander'; readonly target?: NearbyTargetType },
-  evalContext: EvalContext | undefined,
+  action: { readonly op: 'MOVE'; readonly direction: MoveDirection },
   forces: ForceMap,
 ): ActionResult {
   if (!hasComponent(character, 'Actuator')) {
     return fail(world, character, action);
   }
 
-  let angleDeg: number;
-  if (action.direction === 'toward_nearest') {
-    const targetType = action.target ?? evalContext?.lastNearbyType ?? null;
-    if (!targetType) return fail(world, character, action);
-    const angle = findNearestAngle(targetType, character, world);
-    if (angle === null) return fail(world, character, action);
-    angleDeg = angle;
-  } else if (action.direction === 'wander') {
-    angleDeg = character.energy % 360;
-  } else {
-    angleDeg = action.direction;
+  const angleDeg = resolveMoveDirection(action.direction, character);
+  if (angleDeg === null) {
+    return fail(world, character, action);
   }
 
   const rad = (angleDeg * Math.PI) / 180;
   const fx = MOVE_FORCE * Math.cos(rad);
   const fy = MOVE_FORCE * Math.sin(rad);
 
-  // Accumulate force (applied during physics step)
   const existing = forces.get(character.id);
   if (existing) {
     forces.set(character.id, { fx: existing.fx + fx, fy: existing.fy + fy });

@@ -33,6 +33,7 @@ export const METABOLISM: Readonly<Record<ComponentType, number>> = {
   Disassembler: 2,
   Charger: 2,
   MemoryCore: 1,
+  Register: 0,
 };
 
 export const INVENTORY_METABOLISM_PER_ITEM = 1;
@@ -77,6 +78,7 @@ export const REMAINS_RADIUS = 0.3;
 export const INTERACT_RANGE = 1.5;
 export const SPAWN_DISTANCE = 1.2;
 export const SENSE_RANGE = 10.0;
+export const REGISTERS_PER_COMPONENT = 4;
 
 // ============================================================
 // Action cost lookup

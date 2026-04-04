@@ -34,6 +34,7 @@ export const COMPONENT_COLORS: Record<ComponentType, number> = {
   Disassembler: 0x7e57c2,
   Charger: 0xffa726,
   MemoryCore: 0xab47bc,
+  Register: 0x26c6da,
 };
 
 const INACTIVE_ALPHA = 0.65;

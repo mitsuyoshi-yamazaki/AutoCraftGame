@@ -26,6 +26,7 @@ export const CRAFT_RECIPES: readonly CraftRecipe[] = [
   { output: 'Disassembler', inputs: { Metal: 2, Circuit: 1 } },
   { output: 'Charger', inputs: { Metal: 1, Circuit: 2 } },
   { output: 'MemoryCore', inputs: { Circuit: 2 } },
+  { output: 'Register', inputs: { Circuit: 1 } },
 ];
 
 // ============================================================
@@ -62,6 +63,7 @@ const COMPONENT_MASS: Readonly<Record<ComponentType, number>> = {
   Disassembler: 6,
   Charger: 6,
   MemoryCore: 4,
+  Register: 2,
 };
 
 export function getItemMass(item: string): number {
@@ -86,7 +88,7 @@ export function calculateMass(
 // ============================================================
 const COMPONENT_TYPES: readonly string[] = [
   'Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester',
-  'Assembler', 'Disassembler', 'Charger', 'MemoryCore',
+  'Assembler', 'Disassembler', 'Charger', 'MemoryCore', 'Register',
 ];
 
 // ============================================================

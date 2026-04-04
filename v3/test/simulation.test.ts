@@ -13,6 +13,7 @@ function makeChar(id: string, x: number, y: number, program: Program | null = nu
     energy: 5000,
     program,
     senseData: null,
+    registers: [],
   };
 }
 

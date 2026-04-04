@@ -95,6 +95,7 @@ Character型に `velocity: Velocity` フィールドを追加する。初期値�
 | Disassembler | Metal ×2 + Circuit ×1 | 6 |
 | Charger | Metal ×1 + Circuit ×2 | 6 |
 | MemoryCore | Circuit ×2 | 4 |
+| Register | Circuit ×1 | 2 |
 
 #### 最小構成キャラクターの質量例
 
@@ -248,18 +249,15 @@ v2のMOVEは「指定方向に1タイル移動（瞬間移動）」であった�
 
 v2の `Direction = 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW'` は廃止する。
 
-`toward_nearest` は引き続きサポートする。実行時に対象との角度が自動計算される。
-
 ```
 Action:
   MOVE:
-    direction: number (0.0 - 360.0) | 'toward_nearest' | 'wander'
-    target?: NearbyTargetType  // toward_nearest の場合に対象種別を指定
+    direction: number (0.0 - 360.0) | { register: number }
 ```
 
-> **設計意図**: `toward_nearest` は自己複製プログラムの実装に必須である。現在のJSON rule形式には算術演算がないため、SENSEの相対座標から角度を計算してMOVEに渡す手段がない。`toward_nearest` + `target` により、プログラムは「最も近いOreNodeに向かって移動」等を宣言的に記述できる。
+`direction` が数値リテラルの場合、そのまま角度として使用する。`{ register: N }` の場合、レジスタindex Nの値を角度として使用する（セクション7-5参照）。レジスタ値がnullの場合、MOVEは失敗する。
 
-`wander` はキャラクターの内部状態（エネルギー残量）から移動方向を決定する。`energy % 360` を角度として使用する。SENSE_RANGE内にターゲットがない場合の探索行動に用いる。キャラクターが知り得る情報（自身のエネルギー値）のみに依存し、絶対座標やグローバル時刻を参照しない。
+> **設計意図**: v2および初期v3で使用していた `toward_nearest` キーワード（対象探索＋角度算出＋移動を一体化した構文）は廃止された。レジスタ機能（セクション7-5）により、`angle_to_nearest` fn でレジスタに角度を書き込み、MOVEでレジスタを参照するパターンで同じ動作を実現できる。分解することで、算出した角度をtick間で保持する（最後に見えた方向に移動し続ける）等の高度な行動が可能になった。
 
 ### 4-3. 力の適用
 
@@ -377,28 +375,123 @@ v2と同一。キャラクター死亡時にその位置に残骸が生成され
 
 v2の `Direction = 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW'` は廃止する。
 
-MOVEアクションの方向指定は360度の浮動小数点数、または `'toward_nearest'` とする。
-
 ### 7-2. MOVEアクション
 
 ```
 v2: { op: 'MOVE', direction: Direction | 'toward_nearest' }
-v3: { op: 'MOVE', direction: number | 'toward_nearest' | 'wander', target?: NearbyTargetType }
+v3: { op: 'MOVE', direction: number | { register: number } }
 ```
 
-`direction` が数値の場合、0.0 ～ 360.0 の角度（度数法）を指定する。
+`direction` が数値の場合、0.0 ～ 360.0 の角度（度数法）を指定する。`{ register: N }` の場合、レジスタindex Nの値を角度として使用する。レジスタ値がnullの場合、MOVEは失敗する（失敗ペナルティを支払う）。
 
-`toward_nearest` の場合、`target` フィールドで対象種別を指定する。
-
-`wander` の場合、`energy % 360` を移動角度として使用する。
+v2および初期v3の `toward_nearest`, `wander` キーワードは廃止。レジスタのfn（セクション7-5）で代替する。
 
 ### 7-3. Condition
 
-`nearby(type, radius)` の距離判定がユークリッド距離に変更される。形式自体は変更なし。
+`nearby(type, radius)` の距離判定がユークリッド距離に変更される。形式自体は変更なし。Sensorコンポーネントは不要。
+
+以下のレジスタ条件を追加する:
+
+| 条件 | 意味 |
+|------|------|
+| `{ op: 'register_equals', index: N, value: V }` | レジスタNの値がVと等しい。V はnumber \| null |
+| `{ op: 'register_less_than', index: N, value: V }` | レジスタNの値がV未満（Vはnumber）。レジスタがnullの場合false |
+| `{ op: 'register_greater_than', index: N, value: V }` | レジスタNの値がVより大きい（Vはnumber）。レジスタがnullの場合false |
 
 ### 7-4. SenseData
 
 セクション5-6を参照。
+
+### 7-5. レジスタ
+
+キャラクターはレジスタ（数値またはnullを格納する記憶領域）を持つことができる。レジスタはtick間で値が持続し、Programの条件判定やアクション引数に使用できる。
+
+#### コンポーネント要件
+
+Registerコンポーネント1つにつき4つのレジスタ（4index分）が使用可能になる。
+
+| Registerコンポーネント数 | 使用可能なindex |
+|------------------------|---------------|
+| 0 | なし |
+| 1 | 0 - 3 |
+| 2 | 0 - 7 |
+| N | 0 - (4N - 1) |
+
+Registerコンポーネントは任意であり、MIN_COMPONENTSには含まれない。
+
+#### 初期値
+
+キャラクター生成時（ASSEMBLE直後）、全レジスタの値はnullである。WRITEによるプログラム複製時にレジスタ値はコピーされない。
+
+#### レジスタの読み取り
+
+存在しないindex（Registerコンポーネントが不足）の読み取りはnullを返す。
+
+レジスタ値がnullの場合、nullを許容しないアクション引数（MOVEのdirectionなど）に渡すとアクションは失敗する（失敗ペナルティを支払う）。
+
+#### レジスタの書き込み（set_registers）
+
+Ruleに `set_registers` フィールドを追加する。ルール発火時の副作用としてレジスタに書き込む。エネルギーコストはかからない。コンポーネント要件もない（ただし対象indexのRegisterコンポーネントがない場合、書き込みは無視される）。
+
+```
+Rule = {
+  condition: Condition,
+  set_registers?: SetRegister[],  // 任意
+  action: Action,
+}
+
+SetRegister = {
+  index: number,
+  value: number | null | FnValue,
+}
+```
+
+`set_registers` はアクション実行前に順次処理される。同一ルール内のアクションからは書き込み後の値が参照できる。
+
+#### fn（算出値）
+
+`set_registers` の `value` にfnオブジェクトを指定すると、実行時に値が算出される。
+
+| fn | 形式 | 戻り値 | 要件 |
+|----|------|--------|------|
+| `angle_to_nearest` | `{ fn: 'angle_to_nearest', type: NearbyTargetType }` | SENSE_RANGE内の最寄り対象への角度（度数法）。対象不在ならnull | Sensorコンポーネント必須。Sensor未保持時はnullを返す |
+| `wander_angle` | `{ fn: 'wander_angle' }` | `energy % 360`。キャラクターの内部状態に基づく擬似ランダム方向 | なし（常に数値を返す） |
+
+fnがnullを返した場合、nullがレジスタに書き込まれる（前の値は上書きされる）。プログラムで「前の値を保持」したい場合は、条件でガードしてnull書き込みを避ける:
+
+```json
+{
+  "condition": { "op": "nearby", "type": "OreNode", "radius": 10 },
+  "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "OreNode" } }],
+  "action": { "op": "MOVE", "direction": { "register": 0 } }
+}
+```
+
+#### toward_nearest の代替パターン
+
+旧 `toward_nearest` は以下のパターンで代替する:
+
+```json
+// 旧: { "op": "MOVE", "direction": "toward_nearest", "target": "OreNode" }
+// 新:
+{
+  "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "OreNode" } }],
+  "action": { "op": "MOVE", "direction": { "register": 0 } }
+}
+```
+
+#### wander の代替パターン
+
+旧 `wander` は以下のパターンで代替する:
+
+```json
+// 旧: { "op": "MOVE", "direction": "wander" }
+// 新:
+{
+  "set_registers": [{ "index": 0, "value": { "fn": "wander_angle" } }],
+  "action": { "op": "MOVE", "direction": { "register": 0 } }
+}
+```
 
 ---
 
@@ -410,7 +503,7 @@ v2の8ステップを以下の10ステップに変更する。
 v3 ゲームループ:
 
 1. EnergyNodeのエネルギー生産
-2. 全キャラクターがアクションを決定（Programの評価）
+2. 全キャラクターがアクションを決定（Programの評価 + set_registersの適用）
 3. アクションの順次実行
    - MOVE: 力の蓄積（物理更新で適用される）
    - HARVEST/RECHARGE/DISASSEMBLE/WRITE/ACTIVATE: 距離判定で実行
@@ -427,7 +520,7 @@ v3 ゲームループ:
 
 ### 8-1. v2からの変更点
 
-- Step 2: **アクション決定はワールド更新より先に行う**。前tickの結果が確定した状態でProgramが評価される
+- Step 2: **アクション決定はワールド更新より先に行う**。前tickの結果が確定した状態でProgramが評価される。ルール発火時にset_registersがあれば、アクション実行前にレジスタへ書き込む
 - Step 3: MOVEは即座に位置を変更せず、力をキャラクターに蓄積する
 - Step 4-6: **新規**。物理シミュレーションステップ
 - Step 7: v2のStep 4に相当。位置番号が変更
@@ -493,7 +586,8 @@ v2の定数に加えて、以下の物理関連定数を追加する。
 
 | 定数名 | 理由 |
 |--------|------|
-| (なし) | v2のアクションコスト、代謝定数等は全て維持 |
+| `'toward_nearest'` | レジスタfn `angle_to_nearest` で代替 |
+| `'wander'` | レジスタfn `wander_angle` で代替 |
 
 ### v2から意味が変更される定数
 
@@ -514,6 +608,7 @@ Velocity = { vx: number, vy: number }
 Character = {
   ...v2のフィールド,
   velocity: Velocity,     // 新規: 速度ベクトル
+  registers: (number | null)[],  // 新規: レジスタ（初期値は全てnull）
   // position: Position は型はv2と同一だが、値は浮動小数点数
 }
 
@@ -530,7 +625,8 @@ SenseData = {
 Direction = 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW'  // 廃止
 ```
 
-MOVEアクションの `direction` フィールドは `number | 'toward_nearest'` に変更。
+MOVEアクションの `direction` フィールドは `number | { register: number }` に変更。
+`'toward_nearest'`, `'wander'` キーワードは廃止（レジスタfnで代替）。
 
 ---
 

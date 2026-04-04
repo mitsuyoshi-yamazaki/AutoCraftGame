@@ -162,8 +162,8 @@ function step(): void {
   const actions = new Map<string, Action>();
   for (const char of state.world.characters) {
     if (isActive(char) && char.program) {
-      const { action } = evaluateProgram(char.program, char, state.world);
-      actions.set(char.id, action);
+      const result = evaluateProgram(char.program, char, state.world);
+      actions.set(char.id, result.action);
     }
   }
 

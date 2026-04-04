@@ -5,6 +5,7 @@ import {
   INVENTORY_METABOLISM_PER_ITEM,
   ENERGY_METABOLISM_THRESHOLD,
   ENERGY_METABOLISM_SCALE,
+  REGISTERS_PER_COMPONENT,
 } from './constants.js';
 import { inventoryTotalCount } from './recipes.js';
 
@@ -19,6 +20,7 @@ export function createCharacter(
   energy: number,
 ): Character {
   const frameCount = components.filter((c) => c === 'Frame').length;
+  const registerCount = components.filter((c) => c === 'Register').length * REGISTERS_PER_COMPONENT;
   return {
     id,
     position,
@@ -29,6 +31,7 @@ export function createCharacter(
     energy,
     program,
     senseData: null,
+    registers: Array.from({ length: registerCount }, () => null),
   };
 }
 
@@ -42,6 +45,7 @@ export function createInactiveCharacter(
   energy: number,
 ): Character {
   const frameCount = components.filter((c) => c === 'Frame').length;
+  const registerCount = components.filter((c) => c === 'Register').length * REGISTERS_PER_COMPONENT;
   return {
     id,
     position,
@@ -52,6 +56,7 @@ export function createInactiveCharacter(
     energy,
     program: null,
     senseData: null,
+    registers: Array.from({ length: registerCount }, () => null),
   };
 }
 
@@ -101,6 +106,21 @@ export function canPayMetabolism(character: Character): boolean {
 export function decayDurability(character: Character, starvation: boolean): Character {
   const decay = starvation ? 2 : 1;
   return { ...character, durability: character.durability - decay };
+}
+
+// ============================================================
+// Register access
+// ============================================================
+export function readRegister(character: Character, index: number): number | null {
+  if (index < 0 || index >= character.registers.length) return null;
+  return character.registers[index];
+}
+
+export function writeRegister(character: Character, index: number, value: number | null): Character {
+  if (index < 0 || index >= character.registers.length) return character;
+  const registers = [...character.registers];
+  registers[index] = value;
+  return { ...character, registers };
 }
 
 // ============================================================

@@ -2,35 +2,32 @@ import type {
   Action,
   Character,
   Condition,
+  FnValue,
   NearbyTargetType,
   Position,
   Program,
+  SetRegister,
   World,
 } from './types.js';
-import { isActive } from './character.js';
+import { isActive, hasComponent, readRegister, writeRegister } from './character.js';
 import { distance } from './world.js';
 import { SENSE_RANGE } from './constants.js';
 
-// Evaluation context — tracks the last nearby match for toward_nearest
-export interface EvalContext {
-  lastNearbyType: NearbyTargetType | null;
-}
-
 // ============================================================
-// Evaluate a Program — returns the Action and context
+// Evaluate a Program — returns the Action and updated character
 // ============================================================
 export function evaluateProgram(
   program: Program,
   character: Character,
   world: World,
-): { action: Action; context: EvalContext } {
+): { action: Action; character: Character } {
   for (const rule of program.rules) {
-    const ctx: EvalContext = { lastNearbyType: null };
-    if (evaluateConditionWithCtx(rule.condition, character, world, ctx)) {
-      return { action: rule.action, context: ctx };
+    if (evaluateCondition(rule.condition, character, world)) {
+      const updatedChar = applySetRegisters(rule.set_registers, character, world);
+      return { action: rule.action, character: updatedChar };
     }
   }
-  return { action: { op: 'NOOP' }, context: { lastNearbyType: null } };
+  return { action: { op: 'NOOP' }, character };
 }
 
 // ============================================================
@@ -41,15 +38,6 @@ export function evaluateCondition(
   character: Character,
   world: World,
 ): boolean {
-  return evaluateConditionWithCtx(condition, character, world, { lastNearbyType: null });
-}
-
-function evaluateConditionWithCtx(
-  condition: Condition,
-  character: Character,
-  world: World,
-  ctx: EvalContext,
-): boolean {
   switch (condition.op) {
     case 'true':
       return true;
@@ -59,17 +47,26 @@ function evaluateConditionWithCtx(
       return character.durability < condition.threshold;
     case 'energy_below':
       return character.energy < condition.threshold;
-    case 'nearby': {
-      const result = isNearby(condition.type, condition.radius, character, world);
-      if (result) ctx.lastNearbyType = condition.type;
-      return result;
+    case 'nearby':
+      return isNearby(condition.type, condition.radius, character, world);
+    case 'register_equals': {
+      const val = readRegister(character, condition.index);
+      return val === condition.value;
+    }
+    case 'register_less_than': {
+      const val = readRegister(character, condition.index);
+      return val !== null && val < condition.value;
+    }
+    case 'register_greater_than': {
+      const val = readRegister(character, condition.index);
+      return val !== null && val > condition.value;
     }
     case 'and':
-      return condition.conditions.every((c) => evaluateConditionWithCtx(c, character, world, ctx));
+      return condition.conditions.every((c) => evaluateCondition(c, character, world));
     case 'or':
-      return condition.conditions.some((c) => evaluateConditionWithCtx(c, character, world, ctx));
+      return condition.conditions.some((c) => evaluateCondition(c, character, world));
     case 'not':
-      return !evaluateConditionWithCtx(condition.condition, character, world, ctx);
+      return !evaluateCondition(condition.condition, character, world);
   }
 }
 
@@ -87,13 +84,15 @@ function isNearby(
 }
 
 // ============================================================
-// Find nearest target and return angle in degrees (v3)
+// Find nearest target and return angle in degrees
 // ============================================================
 export function findNearestAngle(
   type: NearbyTargetType,
   character: Character,
   world: World,
 ): number | null {
+  if (!hasComponent(character, 'Sensor')) return null;
+
   const targets = findTargets(type, character, world);
   if (targets.length === 0) return null;
 
@@ -110,6 +109,42 @@ export function findNearestAngle(
   return angleTo(character.position, nearest);
 }
 
+// ============================================================
+// set_registers processing
+// ============================================================
+function applySetRegisters(
+  setRegisters: readonly SetRegister[] | undefined,
+  character: Character,
+  world: World,
+): Character {
+  if (!setRegisters || setRegisters.length === 0) return character;
+
+  let updated = character;
+  for (const sr of setRegisters) {
+    const value = resolveRegisterValue(sr.value, updated, world);
+    updated = writeRegister(updated, sr.index, value);
+  }
+  return updated;
+}
+
+function resolveRegisterValue(
+  value: number | null | FnValue,
+  character: Character,
+  world: World,
+): number | null {
+  if (value === null || typeof value === 'number') return value;
+
+  switch (value.fn) {
+    case 'angle_to_nearest':
+      return findNearestAngle(value.type, character, world);
+    case 'wander_angle':
+      return character.energy % 360;
+  }
+}
+
+// ============================================================
+// Find targets within SENSE_RANGE
+// ============================================================
 export function findTargets(type: NearbyTargetType, character: Character, world: World): Position[] {
   const withinRange = (pos: Position) => distance(character.position, pos) <= SENSE_RANGE;
   switch (type) {
