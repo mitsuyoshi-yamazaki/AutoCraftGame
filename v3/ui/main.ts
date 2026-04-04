@@ -31,7 +31,7 @@ const MAX_TPS = 60;
 const DEFAULT_TPS = 5;
 const INITIAL_ENERGY = 5000;
 const DEFAULT_SEED = 42;
-const INITIAL_COUNT = 1;
+const INITIAL_COUNT = 3;
 
 // ============================================================
 // State

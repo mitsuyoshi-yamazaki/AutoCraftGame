@@ -43,7 +43,6 @@ const INACTIVE_ALPHA = 0.65;
 const LOD_THRESHOLD_PX = 8;
 
 // Zoom limits
-const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 20;
 const ZOOM_FACTOR = 1.15;
 
@@ -348,7 +347,9 @@ export class Renderer {
 
       const worldBefore = screenToWorld(mouseX, mouseY, this.transform);
       const zoomDir = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
-      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, this.transform.zoom * zoomDir));
+      const world = getWorld();
+      const fitZoom = this.computeFitZoom(world.width, world.height);
+      const newZoom = Math.max(fitZoom, Math.min(MAX_ZOOM, this.transform.zoom * zoomDir));
       this.transform = { ...this.transform, zoom: newZoom };
 
       // Adjust offset so that worldBefore stays at mouseX/mouseY
@@ -400,6 +401,15 @@ export class Renderer {
         onSelect(hit);
       }
     });
+  }
+
+  /** Compute the zoom level at which the world exactly fits the canvas. */
+  private computeFitZoom(worldW: number, worldH: number): number {
+    const canvasW = this.app.canvas.clientWidth || 1;
+    const canvasH = this.app.canvas.clientHeight || 1;
+    const bs = this.transform.baseScale;
+    if (bs <= 0) return 1;
+    return Math.min(canvasW / (bs * worldW), canvasH / (bs * worldH));
   }
 
   /** Reset zoom/pan to fit world. */
