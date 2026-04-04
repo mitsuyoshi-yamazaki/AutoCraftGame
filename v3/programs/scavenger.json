@@ -1,29 +1,54 @@
 {
   "name": "Scavenger",
-  "comment": "分解者。Harvesterを持たず、残骸を分解して資源を得る。EnergyNode付近で待機し、残骸が発生すると接近して分解・複製する。",
+  "comment": "分解者。Harvesterを持たず、残骸を分解して資源を得る。reg0=方向、reg1=充電モード（ヒステリシス4000-6000）、reg2=方向持続カウンタ",
   "components": ["Frame", "Actuator", "Sensor", "Processor", "Disassembler", "Assembler", "Charger", "MemoryCore", "Register"],
   "rules": [
     {
-      "comment": "Recharge when energy low and near EnergyNode",
+      "comment": "Recharge at EnergyNode (hysteresis: enter at 4000, exit at 6000)",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 4000 },
+          { "op": "or", "conditions": [
+            { "op": "energy_below", "threshold": 4000 },
+            { "op": "and", "conditions": [
+              { "op": "register_equals", "index": 1, "value": 1 },
+              { "op": "energy_below", "threshold": 6000 }
+            ]}
+          ]},
           { "op": "nearby", "type": "EnergyNode", "radius": 1.5 }
         ]
       },
+      "set_registers": [{ "index": 1, "value": 1 }],
       "action": { "op": "RECHARGE" }
     },
     {
-      "comment": "Move toward EnergyNode when energy low",
+      "comment": "Move toward EnergyNode (hysteresis recharge mode)",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 4000 },
+          { "op": "or", "conditions": [
+            { "op": "energy_below", "threshold": 4000 },
+            { "op": "and", "conditions": [
+              { "op": "register_equals", "index": 1, "value": 1 },
+              { "op": "energy_below", "threshold": 6000 }
+            ]}
+          ]},
           { "op": "nearby", "type": "EnergyNode", "radius": 100 }
         ]
       },
-      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } }],
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } },
+        { "index": 1, "value": 1 }
+      ],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Exit recharge mode — disperse from EnergyNode",
+      "condition": { "op": "register_equals", "index": 1, "value": 1 },
+      "set_registers": [
+        { "index": 0, "value": { "fn": "wander_angle" } },
+        { "index": 1, "value": 0 }
+      ],
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
@@ -171,14 +196,17 @@
       "action": { "op": "CRAFT", "component": "Actuator" }
     },
     {
-      "comment": "Near Remains → disassemble",
+      "comment": "Near Remains — disassemble",
       "condition": { "op": "nearby", "type": "Remains", "radius": 1.5 },
       "action": { "op": "DISASSEMBLE" }
     },
     {
-      "comment": "Remains detected → move toward it",
+      "comment": "Remains detected — move toward it (set direction persistence)",
       "condition": { "op": "nearby", "type": "Remains", "radius": 100 },
-      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "Remains" } }],
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "Remains" } },
+        { "index": 2, "value": 2 }
+      ],
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
@@ -187,9 +215,24 @@
       "action": { "op": "RECHARGE" }
     },
     {
-      "comment": "Default: move toward EnergyNode to wait",
+      "comment": "Default: move toward EnergyNode to wait (set direction persistence)",
       "condition": { "op": "nearby", "type": "EnergyNode", "radius": 100 },
-      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } }],
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } },
+        { "index": 2, "value": 2 }
+      ],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Direction persistence (2 ticks remaining)",
+      "condition": { "op": "register_equals", "index": 2, "value": 2 },
+      "set_registers": [{ "index": 2, "value": 1 }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Direction persistence (1 tick remaining)",
+      "condition": { "op": "register_equals", "index": 2, "value": 1 },
+      "set_registers": [{ "index": 2, "value": 0 }],
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {

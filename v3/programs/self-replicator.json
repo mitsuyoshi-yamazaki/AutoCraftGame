@@ -1,29 +1,54 @@
 {
   "name": "Replicator",
-  "comment": "一次生産者。リソースノードからOre/Crystalを採取し自己複製する。",
+  "comment": "一次生産者。リソースノードからOre/Crystalを採取し自己複製する。reg0=方向、reg1=充電モード（ヒステリシス4000-6000）、reg2=方向持続カウンタ",
   "components": ["Frame", "Actuator", "Sensor", "Processor", "Harvester", "Assembler", "Charger", "MemoryCore", "Register"],
   "rules": [
     {
-      "comment": "Recharge when energy low and near EnergyNode",
+      "comment": "Recharge at EnergyNode (hysteresis: enter at 4000, exit at 6000)",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 4000 },
+          { "op": "or", "conditions": [
+            { "op": "energy_below", "threshold": 4000 },
+            { "op": "and", "conditions": [
+              { "op": "register_equals", "index": 1, "value": 1 },
+              { "op": "energy_below", "threshold": 6000 }
+            ]}
+          ]},
           { "op": "nearby", "type": "EnergyNode", "radius": 1.5 }
         ]
       },
+      "set_registers": [{ "index": 1, "value": 1 }],
       "action": { "op": "RECHARGE" }
     },
     {
-      "comment": "Move toward EnergyNode when energy low",
+      "comment": "Move toward EnergyNode (hysteresis recharge mode)",
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 4000 },
+          { "op": "or", "conditions": [
+            { "op": "energy_below", "threshold": 4000 },
+            { "op": "and", "conditions": [
+              { "op": "register_equals", "index": 1, "value": 1 },
+              { "op": "energy_below", "threshold": 6000 }
+            ]}
+          ]},
           { "op": "nearby", "type": "EnergyNode", "radius": 100 }
         ]
       },
-      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } }],
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } },
+        { "index": 1, "value": 1 }
+      ],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Exit recharge mode — disperse from EnergyNode",
+      "condition": { "op": "register_equals", "index": 1, "value": 1 },
+      "set_registers": [
+        { "index": 0, "value": { "fn": "wander_angle" } },
+        { "index": 1, "value": 0 }
+      ],
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
@@ -201,7 +226,10 @@
           { "op": "nearby", "type": "CrystalNode", "radius": 100 }
         ]
       },
-      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "CrystalNode" } }],
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "CrystalNode" } },
+        { "index": 2, "value": 2 }
+      ],
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
@@ -214,19 +242,40 @@
           { "op": "nearby", "type": "OreNode", "radius": 100 }
         ]
       },
-      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "OreNode" } }],
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "OreNode" } },
+        { "index": 2, "value": 2 }
+      ],
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
       "comment": "Default: move toward nearest OreNode",
       "condition": { "op": "nearby", "type": "OreNode", "radius": 100 },
-      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "OreNode" } }],
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "OreNode" } },
+        { "index": 2, "value": 2 }
+      ],
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
       "comment": "Default: move toward nearest CrystalNode",
       "condition": { "op": "nearby", "type": "CrystalNode", "radius": 100 },
-      "set_registers": [{ "index": 0, "value": { "fn": "angle_to_nearest", "type": "CrystalNode" } }],
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "CrystalNode" } },
+        { "index": 2, "value": 2 }
+      ],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Direction persistence (2 ticks remaining)",
+      "condition": { "op": "register_equals", "index": 2, "value": 2 },
+      "set_registers": [{ "index": 2, "value": 1 }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Direction persistence (1 tick remaining)",
+      "condition": { "op": "register_equals", "index": 2, "value": 1 },
+      "set_registers": [{ "index": 2, "value": 0 }],
       "action": { "op": "MOVE", "direction": { "register": 0 } }
     },
     {
