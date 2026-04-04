@@ -485,7 +485,10 @@ export class Renderer {
     this.clampOffset();
     const t = this.transform;
 
-    this.worldContainer.removeChildren();
+    const oldChildren = this.worldContainer.removeChildren();
+    for (const child of oldChildren) {
+      child.destroy();
+    }
 
     // Background + wall border
     const bg = new Graphics();
