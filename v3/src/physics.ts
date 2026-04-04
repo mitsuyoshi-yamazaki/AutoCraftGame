@@ -1,15 +1,8 @@
 import type { World, Character, Position, Force } from './types.js';
-import {
-  FRICTION_COEFFICIENT,
-  COLLISION_STIFFNESS,
-  VELOCITY_CLAMP_THRESHOLD,
-  CHARACTER_RADIUS,
-  RESOURCE_NODE_RADIUS,
-  ENERGY_NODE_RADIUS,
-  REMAINS_RADIUS,
-} from './constants.js';
-import { calculateMass } from './recipes.js';
-import { updateCharacter, getObjectRadius } from './world.js';
+import type { GameParams } from './params.js';
+import type { RecipeEngine } from './recipes.js';
+import type { WorldEngine } from './world.js';
+import { updateCharacter } from './world.js';
 import type { SpatialGrid } from './spatial-grid.js';
 import { queryRange } from './spatial-grid.js';
 
@@ -32,131 +25,134 @@ export function addForce(map: ForceMap, charId: string, force: Force): void {
 }
 
 // ============================================================
-// Friction forces (Step 4)
+// PhysicsEngine — param-dependent functions (maker pattern)
 // ============================================================
-export function computeFrictionForces(world: World, forces: ForceMap): void {
-  for (const char of world.characters) {
-    const mass = calculateMass(char.components, char.inventory);
-    const fx = -char.velocity.vx * FRICTION_COEFFICIENT * mass;
-    const fy = -char.velocity.vy * FRICTION_COEFFICIENT * mass;
-    addForce(forces, char.id, { fx, fy });
-  }
+export interface PhysicsEngine {
+  computeFrictionForces(world: World, forces: ForceMap): void;
+  computeCollisionForces(world: World, forces: ForceMap, grid: SpatialGrid): void;
+  integratePhysics(world: World, forces: ForceMap): World;
 }
 
-// ============================================================
-// Collision detection and response (Step 5)
-// ============================================================
-function computeCollisionForce(
-  posA: Position, radiusA: number,
-  posB: Position, radiusB: number,
-): Force | null {
-  const dx = posB.x - posA.x;
-  const dy = posB.y - posA.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const overlap = radiusA + radiusB - dist;
-  if (overlap <= 0) return null;
+export function createPhysicsEngine(
+  params: GameParams,
+  recipeEngine: RecipeEngine,
+  worldEngine: WorldEngine,
+): PhysicsEngine {
 
-  if (dist < 0.001) {
-    // Nearly coincident — push in arbitrary direction
-    return { fx: -overlap * COLLISION_STIFFNESS, fy: 0 };
+  function computeFrictionForces(world: World, forces: ForceMap): void {
+    for (const char of world.characters) {
+      const mass = recipeEngine.calculateMass(char.components, char.inventory);
+      const fx = -char.velocity.vx * params.frictionCoefficient * mass;
+      const fy = -char.velocity.vy * params.frictionCoefficient * mass;
+      addForce(forces, char.id, { fx, fy });
+    }
   }
 
-  const nx = dx / dist;
-  const ny = dy / dist;
-  const magnitude = overlap * COLLISION_STIFFNESS;
-  return { fx: -nx * magnitude, fy: -ny * magnitude };
-}
+  function computeCollisionForce(
+    posA: Position, radiusA: number,
+    posB: Position, radiusB: number,
+  ): Force | null {
+    const dx = posB.x - posA.x;
+    const dy = posB.y - posA.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const overlap = radiusA + radiusB - dist;
+    if (overlap <= 0) return null;
 
-export function computeCollisionForces(world: World, forces: ForceMap, grid: SpatialGrid): void {
-  const chars = world.characters;
-  const maxCollisionDist = CHARACTER_RADIUS + Math.max(RESOURCE_NODE_RADIUS, ENERGY_NODE_RADIUS, REMAINS_RADIUS);
-  const processed = new Set<string>();
+    if (dist < 0.001) {
+      return { fx: -overlap * params.collisionStiffness, fy: 0 };
+    }
 
-  for (const char of chars) {
-    processed.add(char.id);
-    const nearby = queryRange(grid, char.position, maxCollisionDist);
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const magnitude = overlap * params.collisionStiffness;
+    return { fx: -nx * magnitude, fy: -ny * magnitude };
+  }
 
-    for (const entry of nearby) {
-      if (entry.id === char.id) continue;
+  function computeCollisionForces(world: World, forces: ForceMap, grid: SpatialGrid): void {
+    const chars = world.characters;
+    const maxCollisionDist = params.characterRadius + Math.max(
+      params.resourceNodeRadius, params.energyNodeRadius, params.remainsRadius,
+    );
+    const processed = new Set<string>();
 
-      if (entry.kind === 'character') {
-        // Avoid processing the same pair twice
-        if (processed.has(entry.id)) continue;
-        const f = computeCollisionForce(
-          char.position, CHARACTER_RADIUS,
-          entry.position, CHARACTER_RADIUS,
-        );
-        if (f) {
-          addForce(forces, char.id, f);
-          addForce(forces, entry.id, { fx: -f.fx, fy: -f.fy });
+    for (const char of chars) {
+      processed.add(char.id);
+      const nearby = queryRange(grid, char.position, maxCollisionDist);
+
+      for (const entry of nearby) {
+        if (entry.id === char.id) continue;
+
+        if (entry.kind === 'character') {
+          if (processed.has(entry.id)) continue;
+          const f = computeCollisionForce(
+            char.position, params.characterRadius,
+            entry.position, params.characterRadius,
+          );
+          if (f) {
+            addForce(forces, char.id, f);
+            addForce(forces, entry.id, { fx: -f.fx, fy: -f.fy });
+          }
+        } else {
+          const otherRadius = worldEngine.getObjectRadius(entry.kind);
+          const f = computeCollisionForce(char.position, params.characterRadius, entry.position, otherRadius);
+          if (f) addForce(forces, char.id, f);
         }
-      } else {
-        const otherRadius = getObjectRadius(entry.kind);
-        const f = computeCollisionForce(char.position, CHARACTER_RADIUS, entry.position, otherRadius);
-        if (f) addForce(forces, char.id, f);
+      }
+    }
+
+    // Character vs walls
+    for (const char of chars) {
+      if (char.position.x < params.characterRadius) {
+        const overlap = params.characterRadius - char.position.x;
+        addForce(forces, char.id, { fx: overlap * params.collisionStiffness, fy: 0 });
+      }
+      if (char.position.x > world.width - params.characterRadius) {
+        const overlap = char.position.x - (world.width - params.characterRadius);
+        addForce(forces, char.id, { fx: -overlap * params.collisionStiffness, fy: 0 });
+      }
+      if (char.position.y < params.characterRadius) {
+        const overlap = params.characterRadius - char.position.y;
+        addForce(forces, char.id, { fx: 0, fy: overlap * params.collisionStiffness });
+      }
+      if (char.position.y > world.height - params.characterRadius) {
+        const overlap = char.position.y - (world.height - params.characterRadius);
+        addForce(forces, char.id, { fx: 0, fy: -overlap * params.collisionStiffness });
       }
     }
   }
 
-  // Character vs walls
-  for (const char of chars) {
-    // Left wall (x = 0)
-    if (char.position.x < CHARACTER_RADIUS) {
-      const overlap = CHARACTER_RADIUS - char.position.x;
-      addForce(forces, char.id, { fx: overlap * COLLISION_STIFFNESS, fy: 0 });
+  function integratePhysics(world: World, forces: ForceMap): World {
+    let w = world;
+    for (const char of world.characters) {
+      const mass = recipeEngine.calculateMass(char.components, char.inventory);
+      const f = forces.get(char.id) ?? { fx: 0, fy: 0 };
+
+      const ax = f.fx / mass;
+      const ay = f.fy / mass;
+
+      let nvx = char.velocity.vx + ax;
+      let nvy = char.velocity.vy + ay;
+
+      if (nvx * nvx + nvy * nvy < params.velocityClampThreshold * params.velocityClampThreshold) {
+        nvx = 0;
+        nvy = 0;
+      }
+
+      const nx = char.position.x + nvx;
+      const ny = char.position.y + nvy;
+
+      const cx = Math.max(params.characterRadius, Math.min(world.width - params.characterRadius, nx));
+      const cy = Math.max(params.characterRadius, Math.min(world.height - params.characterRadius, ny));
+
+      const updated: Character = {
+        ...char,
+        position: { x: cx, y: cy },
+        velocity: { vx: nvx, vy: nvy },
+      };
+      w = updateCharacter(w, updated);
     }
-    // Right wall (x = width)
-    if (char.position.x > world.width - CHARACTER_RADIUS) {
-      const overlap = char.position.x - (world.width - CHARACTER_RADIUS);
-      addForce(forces, char.id, { fx: -overlap * COLLISION_STIFFNESS, fy: 0 });
-    }
-    // Top wall (y = 0)
-    if (char.position.y < CHARACTER_RADIUS) {
-      const overlap = CHARACTER_RADIUS - char.position.y;
-      addForce(forces, char.id, { fx: 0, fy: overlap * COLLISION_STIFFNESS });
-    }
-    // Bottom wall (y = height)
-    if (char.position.y > world.height - CHARACTER_RADIUS) {
-      const overlap = char.position.y - (world.height - CHARACTER_RADIUS);
-      addForce(forces, char.id, { fx: 0, fy: -overlap * COLLISION_STIFFNESS });
-    }
+    return w;
   }
-}
 
-// ============================================================
-// Physics integration (Step 6): Semi-implicit Euler
-// ============================================================
-export function integratePhysics(world: World, forces: ForceMap): World {
-  let w = world;
-  for (const char of world.characters) {
-    const mass = calculateMass(char.components, char.inventory);
-    const f = forces.get(char.id) ?? { fx: 0, fy: 0 };
-
-    const ax = f.fx / mass;
-    const ay = f.fy / mass;
-
-    let nvx = char.velocity.vx + ax;
-    let nvy = char.velocity.vy + ay;
-
-    // Velocity clamp
-    if (nvx * nvx + nvy * nvy < VELOCITY_CLAMP_THRESHOLD * VELOCITY_CLAMP_THRESHOLD) {
-      nvx = 0;
-      nvy = 0;
-    }
-
-    const nx = char.position.x + nvx;
-    const ny = char.position.y + nvy;
-
-    // Clamp position to world bounds
-    const cx = Math.max(CHARACTER_RADIUS, Math.min(world.width - CHARACTER_RADIUS, nx));
-    const cy = Math.max(CHARACTER_RADIUS, Math.min(world.height - CHARACTER_RADIUS, ny));
-
-    const updated: Character = {
-      ...char,
-      position: { x: cx, y: cy },
-      velocity: { vx: nvx, vy: nvy },
-    };
-    w = updateCharacter(w, updated);
-  }
-  return w;
+  return { computeFrictionForces, computeCollisionForces, integratePhysics };
 }

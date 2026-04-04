@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { calculateMass, getItemMass, addItem, removeItems, hasItems, inventoryTotalCount } from '../src/recipes.js';
+import { createRecipeEngine, addItem, removeItems, hasItems, inventoryTotalCount } from '../src/recipes.js';
+import { DEFAULT_GAME_PARAMS } from '../src/params.js';
 import type { ComponentType, Inventory } from '../src/types.js';
+
+const { calculateMass, getItemMass } = createRecipeEngine(DEFAULT_GAME_PARAMS);
 
 describe('recipes', () => {
   describe('calculateMass', () => {

@@ -18,11 +18,11 @@
  */
 import { readFileSync } from 'fs';
 import type { Program, ComponentType, World } from '../src/types.js';
-import { createCharacter } from '../src/character.js';
-import { createWorld, createRng, addCharacter } from '../src/world.js';
+import { createRng, addCharacter } from '../src/world.js';
 import type { WorldConfig } from '../src/world.js';
 import { DEFAULT_WORLD_CONFIG } from '../src/world.js';
-import { executeTick } from '../src/simulation.js';
+import { createEngine } from '../src/engine.js';
+import { DEFAULT_GAME_PARAMS } from '../src/params.js';
 
 // ============================================================
 // Types
@@ -117,9 +117,10 @@ function main() {
     loadProgram(path, opts.counts[i] ?? 3),
   );
 
+  const engine = createEngine(DEFAULT_GAME_PARAMS);
   const worldConfig: WorldConfig = { ...DEFAULT_WORLD_CONFIG, ...opts.configOverrides };
   const rng = createRng(opts.seed);
-  let world = createWorld(worldConfig, rng);
+  let world = engine.createWorld(worldConfig, rng);
 
   // Place initial characters at random non-colliding positions
   for (const def of programs) {
@@ -130,7 +131,7 @@ function main() {
       };
       const id = `char-${String(world.nextCharacterId).padStart(3, '0')}`;
       world = { ...world, nextCharacterId: world.nextCharacterId + 1 };
-      const character = createCharacter(id, pos, [...def.components], def.program, opts.initialEnergy, def.name);
+      const character = engine.createCharacter(id, pos, [...def.components], def.program, opts.initialEnergy, def.name);
       world = addCharacter(world, character);
     }
   }
@@ -171,7 +172,7 @@ function main() {
   snapshots.push(takeSnapshot(world, 0));
 
   for (let t = 1; t <= opts.ticks; t++) {
-    const result = executeTick(world);
+    const result = engine.executeTick(world);
     world = result.world;
 
     for (const event of result.events) {

@@ -1,8 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import type { Character, World } from '../src/types.js';
-import { executeAction } from '../src/actions.js';
+import { createEngine } from '../src/engine.js';
 import { createForceMap } from '../src/physics.js';
-import { ENERGY_COST_MOVE, ENERGY_COST_HARVEST, MOVE_FORCE, INTERACT_RANGE } from '../src/constants.js';
+import { DEFAULT_GAME_PARAMS } from '../src/params.js';
+
+const engine = createEngine(DEFAULT_GAME_PARAMS);
+const { executeAction } = engine.simulation;
+
+// Re-create the action engine's executeAction via the simulation engine is not directly exposed.
+// Instead, use the engine's internal action engine. Let's access it through a dedicated test helper.
+// Actually, looking at the engine, simulation.executeTick is exposed but not executeAction directly.
+// We need to use createActionEngine directly for unit tests.
+
+import { createActionEngine } from '../src/actions.js';
+import { createRecipeEngine } from '../src/recipes.js';
+import { createWorldEngine } from '../src/world.js';
+import { createCharacterEngine } from '../src/character.js';
+import { createProgramEngine } from '../src/program.js';
+
+const recipeEngine = createRecipeEngine(DEFAULT_GAME_PARAMS);
+const worldEngine = createWorldEngine(DEFAULT_GAME_PARAMS);
+const characterEngine = createCharacterEngine(DEFAULT_GAME_PARAMS);
+const programEngine = createProgramEngine(DEFAULT_GAME_PARAMS);
+const actionEngine = createActionEngine(DEFAULT_GAME_PARAMS, { recipeEngine, worldEngine, characterEngine, programEngine });
 
 function makeChar(id: string, x: number, y: number, energy = 5000): Character {
   return {
@@ -44,29 +64,28 @@ describe('actions', () => {
       const char = makeChar('c1', 10, 10);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 0 }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'MOVE', direction: 0 }, forces);
       expect(result.success).toBe(true);
       const f = forces.get('c1')!;
-      expect(f.fx).toBeCloseTo(MOVE_FORCE); // 0 degrees = right
+      expect(f.fx).toBeCloseTo(DEFAULT_GAME_PARAMS.moveForce); // 0 degrees = right
       expect(f.fy).toBeCloseTo(0);
     });
 
     it('MOVE with register-based direction', () => {
-      // Character at (5, 6), register[0] = 270 → move up
       const char: Character = { ...makeChar('c1', 5, 6), registers: [270, null, null, null] };
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: { register: 0 } }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'MOVE', direction: { register: 0 } }, forces);
       expect(result.success).toBe(true);
       const f = forces.get('c1')!;
-      expect(f.fy).toBeLessThan(0); // moving up (negative y)
+      expect(f.fy).toBeLessThan(0);
     });
 
     it('MOVE fails when register is null', () => {
-      const char = makeChar('c1', 5, 6); // registers all null
+      const char = makeChar('c1', 5, 6);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: { register: 0 } }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'MOVE', direction: { register: 0 } }, forces);
       expect(result.success).toBe(false);
     });
 
@@ -74,16 +93,16 @@ describe('actions', () => {
       const char = makeChar('c1', 10, 10, 5000);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 0 }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'MOVE', direction: 0 }, forces);
       const updated = result.world.characters.find((c) => c.id === 'c1')!;
-      expect(updated.energy).toBe(5000 - ENERGY_COST_MOVE);
+      expect(updated.energy).toBe(5000 - DEFAULT_GAME_PARAMS.energyCosts['MOVE']);
     });
 
     it('MOVE always succeeds if energy sufficient', () => {
-      const char = makeChar('c1', 0.5, 0.5); // near wall
+      const char = makeChar('c1', 0.5, 0.5);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'MOVE', direction: 180 }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'MOVE', direction: 180 }, forces);
       expect(result.success).toBe(true);
     });
   });
@@ -93,7 +112,7 @@ describe('actions', () => {
       const char = makeChar('c1', 5, 5.5);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'HARVEST' }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'HARVEST' }, forces);
       expect(result.success).toBe(true);
       const c = result.world.characters.find((c) => c.id === 'c1')!;
       expect(c.inventory['Ore']).toBe(1);
@@ -105,7 +124,7 @@ describe('actions', () => {
       const char = makeChar('c1', 10, 10);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'HARVEST' }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'HARVEST' }, forces);
       expect(result.success).toBe(false);
     });
   });
@@ -115,7 +134,7 @@ describe('actions', () => {
       const char = makeChar('c1', 10, 10.5, 1000);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'RECHARGE' }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'RECHARGE' }, forces);
       expect(result.success).toBe(true);
       const c = result.world.characters.find((c) => c.id === 'c1')!;
       expect(c.energy).toBeGreaterThan(1000);
@@ -127,7 +146,7 @@ describe('actions', () => {
       const char = { ...makeChar('c1', 10, 10), inventory: { Ore: 5 } };
       const world = makeWorld([char]);
       const forces = createForceMap();
-      const result = executeAction(world, 'c1', { op: 'PROCESS', recipe: 'Metal' }, forces);
+      const result = actionEngine.executeAction(world, 'c1', { op: 'PROCESS', recipe: 'Metal' }, forces);
       expect(result.success).toBe(true);
       const c = result.world.characters.find((c) => c.id === 'c1')!;
       expect(c.inventory['Ore']).toBe(3);

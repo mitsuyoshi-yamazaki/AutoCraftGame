@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import type { Character, World, Program } from '../src/types.js';
-import { executeTick, runSimulation } from '../src/simulation.js';
+import { createEngine } from '../src/engine.js';
+import { DEFAULT_GAME_PARAMS } from '../src/params.js';
+
+const engine = createEngine(DEFAULT_GAME_PARAMS);
+const { executeTick, runSimulation } = engine;
 
 function makeChar(id: string, x: number, y: number, program: Program | null = null): Character {
   return {
@@ -81,7 +85,6 @@ describe('simulation', () => {
     const world = { ...makeWorld([char]), energyNodes: [] };
     const result = executeTick(world);
     const c = result.world.characters.find((c) => c.id === 'c1')!;
-    // After MOVE (force right) + friction + integration, position should increase
     expect(c.position.x).toBeGreaterThan(5);
   });
 

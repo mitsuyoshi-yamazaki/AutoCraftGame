@@ -1,8 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import type { World, Character } from '../src/types.js';
-import { createForceMap, addForce, computeFrictionForces, computeCollisionForces, integratePhysics } from '../src/physics.js';
-import { FRICTION_COEFFICIENT, COLLISION_STIFFNESS, CHARACTER_RADIUS, VELOCITY_CLAMP_THRESHOLD, SENSE_RANGE } from '../src/constants.js';
+import { createForceMap, addForce, createPhysicsEngine } from '../src/physics.js';
+import { createRecipeEngine } from '../src/recipes.js';
+import { createWorldEngine } from '../src/world.js';
+import { DEFAULT_GAME_PARAMS } from '../src/params.js';
 import { buildGrid } from '../src/spatial-grid.js';
+
+const recipeEngine = createRecipeEngine(DEFAULT_GAME_PARAMS);
+const worldEngine = createWorldEngine(DEFAULT_GAME_PARAMS);
+const { computeFrictionForces, computeCollisionForces, integratePhysics } = createPhysicsEngine(DEFAULT_GAME_PARAMS, recipeEngine, worldEngine);
 
 function makeChar(id: string, x: number, y: number, vx = 0, vy = 0): Character {
   return {
@@ -55,45 +61,41 @@ describe('physics', () => {
       const f = forces.get('c1')!;
       // friction = -vx * FRICTION_COEFFICIENT * mass
       // mass = 40, vx = 2, friction_coeff = 0.8 → fx = -2 * 0.8 * 40 = -64
-      expect(f.fx).toBeCloseTo(-2.0 * FRICTION_COEFFICIENT * 40);
+      expect(f.fx).toBeCloseTo(-2.0 * DEFAULT_GAME_PARAMS.frictionCoefficient * 40);
       expect(f.fy).toBeCloseTo(0);
     });
   });
 
   describe('collision', () => {
     it('generates repulsion force when characters overlap', () => {
-      // Two characters at distance < 2*CHARACTER_RADIUS
       const c1 = makeChar('c1', 10, 10);
-      const c2 = makeChar('c2', 10.5, 10); // distance = 0.5, overlap = 0.8 - 0.5 = 0.3
+      const c2 = makeChar('c2', 10.5, 10);
       const world = makeWorld([c1, c2]);
-      const grid = buildGrid(world, SENSE_RANGE);
+      const grid = buildGrid(world, DEFAULT_GAME_PARAMS.senseRange);
       const forces = createForceMap();
       computeCollisionForces(world, forces, grid);
       const f1 = forces.get('c1')!;
       const f2 = forces.get('c2')!;
-      // c1 should be pushed left (negative x), c2 pushed right (positive x)
       expect(f1.fx).toBeLessThan(0);
       expect(f2.fx).toBeGreaterThan(0);
-      // Equal and opposite
       expect(f1.fx).toBeCloseTo(-f2.fx);
     });
 
     it('generates wall repulsion force', () => {
-      // Character near left wall
-      const c = makeChar('c1', 0.2, 10); // x < CHARACTER_RADIUS(0.4)
+      const c = makeChar('c1', 0.2, 10);
       const world = makeWorld([c]);
-      const grid = buildGrid(world, SENSE_RANGE);
+      const grid = buildGrid(world, DEFAULT_GAME_PARAMS.senseRange);
       const forces = createForceMap();
       computeCollisionForces(world, forces, grid);
       const f = forces.get('c1')!;
-      expect(f.fx).toBeGreaterThan(0); // pushed away from wall
+      expect(f.fx).toBeGreaterThan(0);
     });
 
     it('no force when characters are far apart', () => {
       const c1 = makeChar('c1', 5, 5);
       const c2 = makeChar('c2', 10, 10);
       const world = makeWorld([c1, c2]);
-      const grid = buildGrid(world, SENSE_RANGE);
+      const grid = buildGrid(world, DEFAULT_GAME_PARAMS.senseRange);
       const forces = createForceMap();
       computeCollisionForces(world, forces, grid);
       expect(forces.has('c1')).toBe(false);
@@ -105,7 +107,6 @@ describe('physics', () => {
       const char = makeChar('c1', 10, 10, 1.0, 0.5);
       const world = makeWorld([char]);
       const forces = createForceMap();
-      // No forces — just velocity carries forward
       const updated = integratePhysics(world, forces);
       const c = updated.characters[0];
       expect(c.position.x).toBeCloseTo(11.0);
@@ -124,7 +125,7 @@ describe('physics', () => {
     });
 
     it('clamps small velocities to zero', () => {
-      const tiny = VELOCITY_CLAMP_THRESHOLD / 2;
+      const tiny = DEFAULT_GAME_PARAMS.velocityClampThreshold / 2;
       const char = makeChar('c1', 10, 10, tiny, 0);
       const world = makeWorld([char]);
       const forces = createForceMap();
@@ -140,7 +141,7 @@ describe('physics', () => {
       const forces = createForceMap();
       const updated = integratePhysics(world, forces);
       const c = updated.characters[0];
-      expect(c.position.x).toBeLessThanOrEqual(world.width - CHARACTER_RADIUS);
+      expect(c.position.x).toBeLessThanOrEqual(world.width - DEFAULT_GAME_PARAMS.characterRadius);
     });
   });
 });

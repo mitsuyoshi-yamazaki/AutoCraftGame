@@ -1,6 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateProgram, evaluateCondition, angleTo, findNearestAngle } from '../src/program.js';
+import { angleTo, createProgramEngine } from '../src/program.js';
+import { DEFAULT_GAME_PARAMS } from '../src/params.js';
 import type { Character, World, Program, Condition } from '../src/types.js';
+
+const { evaluateProgram, findNearestAngle } = createProgramEngine(DEFAULT_GAME_PARAMS);
+
+// evaluateCondition is internal to the engine; test via evaluateProgram or inline conditions
+function evaluateCondition(cond: Condition, char: Character, world: World): boolean {
+  // Use a program with this condition to test
+  const program: Program = {
+    rules: [{ condition: cond, action: { op: 'HARVEST' } }],
+  };
+  const { action } = evaluateProgram(program, char, world);
+  return action.op === 'HARVEST';
+}
 
 function makeChar(x: number, y: number): Character {
   return {

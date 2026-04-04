@@ -1,71 +1,9 @@
 import type { Character, ComponentType, Program, Position, Inventory, Velocity } from './types.js';
-import {
-  FRAME_DURABILITY,
-  METABOLISM,
-  INVENTORY_METABOLISM_PER_ITEM,
-  ENERGY_METABOLISM_THRESHOLD,
-  ENERGY_METABOLISM_SCALE,
-  REGISTERS_PER_COMPONENT,
-} from './constants.js';
+import type { GameParams } from './params.js';
 import { inventoryTotalCount } from './recipes.js';
 
 // ============================================================
-// Create a new active character (with program)
-// ============================================================
-export function createCharacter(
-  id: string,
-  position: Position,
-  components: readonly ComponentType[],
-  program: Program,
-  energy: number,
-  species: string,
-): Character {
-  const frameCount = components.filter((c) => c === 'Frame').length;
-  const registerCount = components.filter((c) => c === 'Register').length * REGISTERS_PER_COMPONENT;
-  return {
-    id,
-    species,
-    position,
-    velocity: { vx: 0, vy: 0 },
-    components,
-    inventory: {},
-    durability: frameCount * FRAME_DURABILITY,
-    energy,
-    program,
-    senseData: null,
-    registers: Array.from({ length: registerCount }, () => null),
-  };
-}
-
-// ============================================================
-// Create an inactive character (no program — needs WRITE + ACTIVATE)
-// ============================================================
-export function createInactiveCharacter(
-  id: string,
-  position: Position,
-  components: readonly ComponentType[],
-  energy: number,
-  species: string,
-): Character {
-  const frameCount = components.filter((c) => c === 'Frame').length;
-  const registerCount = components.filter((c) => c === 'Register').length * REGISTERS_PER_COMPONENT;
-  return {
-    id,
-    species,
-    position,
-    velocity: { vx: 0, vy: 0 },
-    components,
-    inventory: {},
-    durability: frameCount * FRAME_DURABILITY,
-    energy,
-    program: null,
-    senseData: null,
-    registers: Array.from({ length: registerCount }, () => null),
-  };
-}
-
-// ============================================================
-// Component checks
+// Component checks (param-independent)
 // ============================================================
 export function hasComponent(character: Character, component: ComponentType): boolean {
   return character.components.includes(component);
@@ -80,36 +18,113 @@ export function isDead(character: Character): boolean {
 }
 
 // ============================================================
-// Metabolism (same as v2)
+// CharacterEngine — param-dependent functions (maker pattern)
 // ============================================================
-export function calculateEnergyMetabolism(energy: number): number {
-  const excess = Math.max(0, energy - ENERGY_METABOLISM_THRESHOLD);
-  return Math.floor((excess * excess) / ENERGY_METABOLISM_SCALE);
+export interface CharacterEngine {
+  createCharacter(
+    id: string, position: Position, components: readonly ComponentType[],
+    program: Program, energy: number, species: string,
+  ): Character;
+  createInactiveCharacter(
+    id: string, position: Position, components: readonly ComponentType[],
+    energy: number, species: string,
+  ): Character;
+  calculateEnergyMetabolism(energy: number): number;
+  calculateBasalMetabolism(character: Character): number;
+  applyBasalMetabolism(character: Character): Character;
+  canPayMetabolism(character: Character): boolean;
+  decayDurability(character: Character, starvation: boolean): Character;
 }
 
-export function calculateBasalMetabolism(character: Character): number {
-  const componentCost = character.components.reduce(
-    (sum, c) => sum + METABOLISM[c],
-    0,
-  );
-  const itemCount = inventoryTotalCount(character.inventory);
-  const inventoryCost = Math.ceil(itemCount * INVENTORY_METABOLISM_PER_ITEM);
-  const energyCost = calculateEnergyMetabolism(character.energy);
-  return componentCost + inventoryCost + energyCost;
-}
+export function createCharacterEngine(params: GameParams): CharacterEngine {
+  function createCharacterFn(
+    id: string,
+    position: Position,
+    components: readonly ComponentType[],
+    program: Program,
+    energy: number,
+    species: string,
+  ): Character {
+    const frameCount = components.filter((c) => c === 'Frame').length;
+    const registerCount = components.filter((c) => c === 'Register').length * params.registersPerComponent;
+    return {
+      id,
+      species,
+      position,
+      velocity: { vx: 0, vy: 0 },
+      components,
+      inventory: {},
+      durability: frameCount * params.frameDurability,
+      energy,
+      program,
+      senseData: null,
+      registers: Array.from({ length: registerCount }, () => null),
+    };
+  }
 
-export function applyBasalMetabolism(character: Character): Character {
-  const cost = calculateBasalMetabolism(character);
-  return { ...character, energy: Math.max(0, character.energy - cost) };
-}
+  function createInactiveCharacterFn(
+    id: string,
+    position: Position,
+    components: readonly ComponentType[],
+    energy: number,
+    species: string,
+  ): Character {
+    const frameCount = components.filter((c) => c === 'Frame').length;
+    const registerCount = components.filter((c) => c === 'Register').length * params.registersPerComponent;
+    return {
+      id,
+      species,
+      position,
+      velocity: { vx: 0, vy: 0 },
+      components,
+      inventory: {},
+      durability: frameCount * params.frameDurability,
+      energy,
+      program: null,
+      senseData: null,
+      registers: Array.from({ length: registerCount }, () => null),
+    };
+  }
 
-export function canPayMetabolism(character: Character): boolean {
-  return character.energy >= calculateBasalMetabolism(character);
-}
+  function calculateEnergyMetabolism(energy: number): number {
+    const excess = Math.max(0, energy - params.energyMetabolismThreshold);
+    return Math.floor((excess * excess) / params.energyMetabolismScale);
+  }
 
-export function decayDurability(character: Character, starvation: boolean): Character {
-  const decay = starvation ? 2 : 1;
-  return { ...character, durability: character.durability - decay };
+  function calculateBasalMetabolism(character: Character): number {
+    const componentCost = character.components.reduce(
+      (sum, c) => sum + params.metabolism[c],
+      0,
+    );
+    const itemCount = inventoryTotalCount(character.inventory);
+    const inventoryCost = Math.ceil(itemCount * params.inventoryMetabolismPerItem);
+    const energyCost = calculateEnergyMetabolism(character.energy);
+    return componentCost + inventoryCost + energyCost;
+  }
+
+  function applyBasalMetabolism(character: Character): Character {
+    const cost = calculateBasalMetabolism(character);
+    return { ...character, energy: Math.max(0, character.energy - cost) };
+  }
+
+  function canPayMetabolism(character: Character): boolean {
+    return character.energy >= calculateBasalMetabolism(character);
+  }
+
+  function decayDurability(character: Character, starvation: boolean): Character {
+    const decay = starvation ? params.durabilityDecayStarving : params.durabilityDecayNormal;
+    return { ...character, durability: character.durability - decay };
+  }
+
+  return {
+    createCharacter: createCharacterFn,
+    createInactiveCharacter: createInactiveCharacterFn,
+    calculateEnergyMetabolism,
+    calculateBasalMetabolism,
+    applyBasalMetabolism,
+    canPayMetabolism,
+    decayDurability,
+  };
 }
 
 // ============================================================
