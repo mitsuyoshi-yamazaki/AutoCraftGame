@@ -90,7 +90,8 @@ function loadProgram(path: string, count: number): ProgramDef {
   const components: ComponentType[] = json.components ?? [
     'Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'Charger', 'MemoryCore',
   ];
-  return { name: json.name ?? 'Unknown', components, program: { name: json.name, rules }, count };
+  const name = json.name ?? 'Unknown';
+  return { name, components, program: { name, rules }, count };
 }
 
 // ============================================================
@@ -129,7 +130,7 @@ function main() {
       };
       const id = `char-${String(world.nextCharacterId).padStart(3, '0')}`;
       world = { ...world, nextCharacterId: world.nextCharacterId + 1 };
-      const character = createCharacter(id, pos, [...def.components], def.program, opts.initialEnergy);
+      const character = createCharacter(id, pos, [...def.components], def.program, opts.initialEnergy, def.name);
       world = addCharacter(world, character);
     }
   }
@@ -152,8 +153,7 @@ function main() {
   const takeSnapshot = (w: World, tick: number): Snapshot => {
     const species: Record<string, number> = {};
     for (const c of w.characters) {
-      const name = c.program?.name ?? '(inactive)';
-      species[name] = (species[name] ?? 0) + 1;
+      species[c.species] = (species[c.species] ?? 0) + 1;
     }
     const totalEnergy = w.energyNodes.reduce((s, n) => s + n.stored, 0);
     return {
@@ -180,9 +180,8 @@ function main() {
     }
 
     for (const c of world.characters) {
-      const name = c.program?.name ?? '(inactive)';
-      if (!speciesFirstSeen.has(name)) speciesFirstSeen.set(name, t);
-      speciesLastSeen.set(name, t);
+      if (!speciesFirstSeen.has(c.species)) speciesFirstSeen.set(c.species, t);
+      speciesLastSeen.set(c.species, t);
     }
 
     if (t % opts.snapshotInterval === 0) {

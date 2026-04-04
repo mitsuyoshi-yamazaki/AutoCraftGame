@@ -5,6 +5,7 @@ import type { Character, World, Program, Condition } from '../src/types.js';
 function makeChar(x: number, y: number): Character {
   return {
     id: 'c1',
+    species: 'test',
     position: { x, y },
     velocity: { vx: 0, vy: 0 },
     components: ['Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'Charger', 'MemoryCore'],

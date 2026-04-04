@@ -176,6 +176,7 @@ export interface SenseData {
 // ============================================================
 export interface Character {
   readonly id: string;
+  readonly species: string;
   readonly position: Position;
   readonly velocity: Velocity;
   readonly components: readonly ComponentType[];

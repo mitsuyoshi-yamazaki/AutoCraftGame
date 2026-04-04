@@ -5,6 +5,7 @@ import { executeTick, runSimulation } from '../src/simulation.js';
 function makeChar(id: string, x: number, y: number, program: Program | null = null): Character {
   return {
     id,
+    species: 'test',
     position: { x, y },
     velocity: { vx: 0, vy: 0 },
     components: ['Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'Charger', 'MemoryCore'],

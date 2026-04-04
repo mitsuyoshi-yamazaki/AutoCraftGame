@@ -18,11 +18,13 @@ export function createCharacter(
   components: readonly ComponentType[],
   program: Program,
   energy: number,
+  species: string,
 ): Character {
   const frameCount = components.filter((c) => c === 'Frame').length;
   const registerCount = components.filter((c) => c === 'Register').length * REGISTERS_PER_COMPONENT;
   return {
     id,
+    species,
     position,
     velocity: { vx: 0, vy: 0 },
     components,
@@ -43,11 +45,13 @@ export function createInactiveCharacter(
   position: Position,
   components: readonly ComponentType[],
   energy: number,
+  species: string,
 ): Character {
   const frameCount = components.filter((c) => c === 'Frame').length;
   const registerCount = components.filter((c) => c === 'Register').length * REGISTERS_PER_COMPONENT;
   return {
     id,
+    species,
     position,
     velocity: { vx: 0, vy: 0 },
     components,

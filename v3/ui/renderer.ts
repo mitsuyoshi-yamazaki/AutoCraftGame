@@ -446,6 +446,23 @@ export class Renderer {
     this.transform = { ...this.transform, offsetX, offsetY };
   }
 
+  /** Pan to center on a world position if it is currently off-screen. */
+  panToIfOffscreen(pos: Position): void {
+    const { sx, sy } = worldToScreen(pos, this.transform);
+    const canvasW = this.app.canvas.clientWidth;
+    const canvasH = this.app.canvas.clientHeight;
+
+    if (sx >= 0 && sx <= canvasW && sy >= 0 && sy <= canvasH) return;
+
+    const s = effectiveScale(this.transform);
+    this.transform = {
+      ...this.transform,
+      offsetX: canvasW / 2 - pos.x * s,
+      offsetY: canvasH / 2 - pos.y * s,
+    };
+    this.clampOffset();
+  }
+
   /** Reset zoom/pan to fit world. */
   resetView(worldW: number, worldH: number): void {
     const canvasW = this.app.canvas.clientWidth;

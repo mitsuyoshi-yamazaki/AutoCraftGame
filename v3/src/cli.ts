@@ -59,7 +59,8 @@ function main() {
     ...(r.set_registers ? { set_registers: r.set_registers } : {}),
   }));
   const components: ComponentType[] = parsed.components ?? [...MIN_COMPONENTS];
-  const program: Program = { name: parsed.name, rules };
+  const species = parsed.name ?? 'Unknown';
+  const program: Program = { name: species, rules };
 
   const config: WorldConfig = { ...DEFAULT_WORLD_CONFIG, ...opts.configOverrides };
   const rng = createRng(opts.seed);
@@ -69,7 +70,7 @@ function main() {
   const centerPos = { x: config.width / 2, y: config.height / 2 };
   const { id, world: worldWithId } = getNextCharId(world);
   world = worldWithId;
-  const initialChar = createCharacter(id, centerPos, components, program, opts.initialEnergy);
+  const initialChar = createCharacter(id, centerPos, components, program, opts.initialEnergy, species);
   world = { ...world, characters: [...world.characters, initialChar] };
 
   const { world: finalWorld, allEvents } = runSimulation(world, opts.ticks, (result) => {

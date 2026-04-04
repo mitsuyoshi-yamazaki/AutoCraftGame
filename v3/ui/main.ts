@@ -68,10 +68,11 @@ function loadProgram(json: any): ProgramDef {
     ...(r.set_registers ? { set_registers: r.set_registers } : {}),
   }));
   const components: ComponentType[] = json.components ?? [...MIN_COMPONENTS];
+  const name = json.name ?? 'Unknown';
   return {
-    name: json.name ?? 'Unknown',
+    name,
     components,
-    program: { name: json.name, rules },
+    program: { name, rules },
     count: INITIAL_COUNT,
   };
 }
@@ -105,7 +106,7 @@ function createInitialState(seed?: number): UIState {
       };
       const id = `char-${String(world.nextCharacterId).padStart(3, '0')}`;
       world = { ...world, nextCharacterId: world.nextCharacterId + 1 };
-      const character = createCharacter(id, pos, [...def.components], def.program, INITIAL_ENERGY);
+      const character = createCharacter(id, pos, [...def.components], def.program, INITIAL_ENERGY, def.name);
       world = addCharacter(world, character);
       if (!firstCharId) firstCharId = id;
     }
@@ -256,6 +257,33 @@ function getSelectedCharacterId(): string | null {
   return state.selection?.kind === 'character' ? state.selection.id : null;
 }
 
+function getSelectedPosition(): Position | null {
+  if (!state.selection) return null;
+  const sel = state.selection;
+  if (sel.kind === 'character') {
+    const c = state.world.characters.find((ch) => ch.id === sel.id);
+    return c?.position ?? null;
+  }
+  if (sel.kind === 'resourceNode') {
+    const n = state.world.resourceNodes.find((rn) => rn.id === sel.id);
+    return n?.position ?? null;
+  }
+  if (sel.kind === 'energyNode') {
+    const n = state.world.energyNodes.find((en) => en.id === sel.id);
+    return n?.position ?? null;
+  }
+  if (sel.kind === 'remains') {
+    const r = state.world.remains.find((rm) => rm.id === sel.id);
+    return r?.position ?? null;
+  }
+  return null;
+}
+
+function panToSelection(): void {
+  const pos = getSelectedPosition();
+  if (pos) renderer.panToIfOffscreen(pos);
+}
+
 function render(): void {
   renderer.draw(state.world, getSelectedCharacterId());
   updateStats();
@@ -274,8 +302,7 @@ function updateStats(): void {
 
   const counts = new Map<string, number>();
   for (const c of state.world.characters) {
-    const name = c.program?.name ?? '(inactive)';
-    counts.set(name, (counts.get(name) ?? 0) + 1);
+    counts.set(c.species, (counts.get(c.species) ?? 0) + 1);
   }
   statSpecies.innerHTML = '';
   for (const [name, count] of [...counts.entries()].sort((a, b) => b[1] - a[1])) {
@@ -302,7 +329,6 @@ function updateSelected(): void {
     const action = state.characterActions.get(char.id);
     const actionText = action ? action.op : '-';
     const maxDur = char.components.filter((c) => c === 'Frame').length * FRAME_DURABILITY;
-    const programName = char.program?.name ?? '(none)';
     const mass = calculateMass(char.components, char.inventory);
     const invEntries = Object.entries(char.inventory).filter(([, v]) => v > 0);
     const invText = invEntries.length > 0
@@ -311,7 +337,7 @@ function updateSelected(): void {
 
     selectedContent.innerHTML = `
       <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
-      <div>Program: ${programName}</div>
+      <div>Species: ${char.species}</div>
       <div>Pos: (${char.position.x.toFixed(1)}, ${char.position.y.toFixed(1)})</div>
       <div>Mass: ${mass}</div>
       <div>Durability: ${char.durability} / ${maxDur}</div>
@@ -363,23 +389,36 @@ function updateSelected(): void {
   }
 }
 
-function getProgramName(world: World, charId: string): string {
+function getSpecies(world: World, charId: string): string {
   const char = world.characters.find((c) => c.id === charId);
-  return char?.program?.name ?? '?';
+  return char?.species ?? '?';
 }
 
 function appendEvents(events: readonly SimulationEvent[], tick: number, oldWorld: World, newWorld: World): void {
+  const loggedExtinctions = new Set<string>();
+
   for (const event of events) {
     const div = document.createElement('div');
     div.className = 'log-entry';
     if (event.type === 'character_spawned') {
-      const name = getProgramName(oldWorld, event.parentId);
-      div.textContent = `[tick ${tick}] ${event.parentId} (${name}) spawned ${event.childId}`;
+      const species = getSpecies(newWorld, event.childId);
+      div.textContent = `[tick ${tick}] ${event.parentId} spawned ${event.childId} (${species})`;
       div.classList.add('log-birth');
     } else {
-      const name = getProgramName(oldWorld, event.id);
-      div.textContent = `[tick ${tick}] ${event.id} (${name}) died`;
+      const species = getSpecies(oldWorld, event.id);
+      div.textContent = `[tick ${tick}] ${event.id} (${species}) died`;
       div.classList.add('log-death');
+
+      // Extinction check: no survivors of this species in newWorld
+      if (!loggedExtinctions.has(species) && !newWorld.characters.some((c) => c.species === species)) {
+        loggedExtinctions.add(species);
+        const extinctDiv = document.createElement('div');
+        extinctDiv.className = 'log-entry log-extinction';
+        extinctDiv.textContent = `[tick ${tick}] *** ${species} is now EXTINCT ***`;
+        eventLogContent.appendChild(div);
+        eventLogContent.appendChild(extinctDiv);
+        continue;
+      }
     }
     eventLogContent.appendChild(div);
   }
@@ -416,12 +455,13 @@ statSpecies.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
   const species = target.dataset?.species;
   if (!species) return;
-  const members = state.world.characters.filter((c) => (c.program?.name ?? '(inactive)') === species);
+  const members = state.world.characters.filter((c) => c.species === species);
   if (members.length === 0) return;
   const currentId = state.selection?.kind === 'character' ? state.selection.id : null;
   const currentIdx = currentId ? members.findIndex((c) => c.id === currentId) : -1;
   const next = currentIdx >= 0 ? members[(currentIdx + 1) % members.length] : members[0];
   state = { ...state, selection: { kind: 'character', id: next.id } };
+  panToSelection();
   render();
 });
 

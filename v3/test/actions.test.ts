@@ -7,6 +7,7 @@ import { ENERGY_COST_MOVE, ENERGY_COST_HARVEST, MOVE_FORCE, INTERACT_RANGE } fro
 function makeChar(id: string, x: number, y: number, energy = 5000): Character {
   return {
     id,
+    species: 'test',
     position: { x, y },
     velocity: { vx: 0, vy: 0 },
     components: ['Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'Charger', 'MemoryCore', 'Register'],

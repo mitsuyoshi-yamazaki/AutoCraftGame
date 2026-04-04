@@ -7,6 +7,7 @@ import { buildGrid } from '../src/spatial-grid.js';
 function makeChar(id: string, x: number, y: number, vx = 0, vy = 0): Character {
   return {
     id,
+    species: 'test',
     position: { x, y },
     velocity: { vx, vy },
     components: ['Frame', 'Actuator', 'Sensor', 'Processor', 'Harvester', 'Assembler', 'Charger', 'MemoryCore'],

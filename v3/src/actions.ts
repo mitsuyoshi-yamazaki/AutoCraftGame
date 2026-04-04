@@ -278,7 +278,7 @@ function executeAssemble(
   const updatedParent = { ...character, inventory: inv };
 
   const { id: childId, world: worldWithId } = nextCharacterId(world);
-  const child = createInactiveCharacter(childId, spawnPos, components, ASSEMBLE_ENERGY_TRANSFER);
+  const child = createInactiveCharacter(childId, spawnPos, components, ASSEMBLE_ENERGY_TRANSFER, character.species);
 
   let newWorld = updateCharacter(worldWithId, updatedParent);
   newWorld = addCharacter(newWorld, child);

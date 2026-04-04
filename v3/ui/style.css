@@ -143,3 +143,8 @@ body {
 .log-death {
   color: #F44336;
 }
+
+.log-extinction {
+  color: #FF9800;
+  font-weight: bold;
+}
