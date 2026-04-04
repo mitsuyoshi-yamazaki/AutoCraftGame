@@ -115,7 +115,7 @@ export type Condition =
 // ============================================================
 export type Action =
   | { readonly op: 'NOOP' }
-  | { readonly op: 'MOVE'; readonly direction: number | 'toward_nearest'; readonly target?: NearbyTargetType }
+  | { readonly op: 'MOVE'; readonly direction: number | 'toward_nearest' | 'wander'; readonly target?: NearbyTargetType }
   | { readonly op: 'HARVEST' }
   | { readonly op: 'RECHARGE' }
   | { readonly op: 'PROCESS'; readonly recipe: ProcessedMaterial }

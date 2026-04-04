@@ -140,7 +140,7 @@ function executeActionInner(
 function executeMove(
   world: World,
   character: Character,
-  action: { readonly op: 'MOVE'; readonly direction: number | 'toward_nearest'; readonly target?: NearbyTargetType },
+  action: { readonly op: 'MOVE'; readonly direction: number | 'toward_nearest' | 'wander'; readonly target?: NearbyTargetType },
   evalContext: EvalContext | undefined,
   forces: ForceMap,
 ): ActionResult {
@@ -155,6 +155,8 @@ function executeMove(
     const angle = findNearestAngle(targetType, character, world);
     if (angle === null) return fail(world, character, action);
     angleDeg = angle;
+  } else if (action.direction === 'wander') {
+    angleDeg = character.energy % 360;
   } else {
     angleDeg = action.direction;
   }

@@ -253,11 +253,13 @@ v2の `Direction = 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW'` は廃止�
 ```
 Action:
   MOVE:
-    direction: number (0.0 - 360.0) | 'toward_nearest'
+    direction: number (0.0 - 360.0) | 'toward_nearest' | 'wander'
     target?: NearbyTargetType  // toward_nearest の場合に対象種別を指定
 ```
 
 > **設計意図**: `toward_nearest` は自己複製プログラムの実装に必須である。現在のJSON rule形式には算術演算がないため、SENSEの相対座標から角度を計算してMOVEに渡す手段がない。`toward_nearest` + `target` により、プログラムは「最も近いOreNodeに向かって移動」等を宣言的に記述できる。
+
+`wander` はキャラクターの内部状態（エネルギー残量）から移動方向を決定する。`energy % 360` を角度として使用する。SENSE_RANGE内にターゲットがない場合の探索行動に用いる。キャラクターが知り得る情報（自身のエネルギー値）のみに依存し、絶対座標やグローバル時刻を参照しない。
 
 ### 4-3. 力の適用
 
@@ -381,12 +383,14 @@ MOVEアクションの方向指定は360度の浮動小数点数、または `'t
 
 ```
 v2: { op: 'MOVE', direction: Direction | 'toward_nearest' }
-v3: { op: 'MOVE', direction: number | 'toward_nearest', target?: NearbyTargetType }
+v3: { op: 'MOVE', direction: number | 'toward_nearest' | 'wander', target?: NearbyTargetType }
 ```
 
 `direction` が数値の場合、0.0 ～ 360.0 の角度（度数法）を指定する。
 
 `toward_nearest` の場合、`target` フィールドで対象種別を指定する。
+
+`wander` の場合、`energy % 360` を移動角度として使用する。
 
 ### 7-3. Condition
 

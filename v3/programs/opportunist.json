@@ -8,7 +8,7 @@
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 3000 },
+          { "op": "energy_below", "threshold": 4000 },
           { "op": "nearby", "type": "EnergyNode", "radius": 1.5 }
         ]
       },
@@ -19,7 +19,7 @@
       "condition": {
         "op": "and",
         "conditions": [
-          { "op": "energy_below", "threshold": 3000 },
+          { "op": "energy_below", "threshold": 4000 },
           { "op": "nearby", "type": "EnergyNode", "radius": 100 }
         ]
       },
@@ -241,8 +241,9 @@
       "action": { "op": "MOVE", "direction": "toward_nearest", "target": "Remains" }
     },
     {
+      "comment": "Nothing in range — wander based on internal state",
       "condition": { "op": "true" },
-      "action": { "op": "NOOP" }
+      "action": { "op": "MOVE", "direction": "wander" }
     }
   ]
 }
