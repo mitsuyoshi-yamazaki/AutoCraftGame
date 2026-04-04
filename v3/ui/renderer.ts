@@ -49,6 +49,9 @@ const ZOOM_FACTOR = 1.15;
 // Drag threshold: movement above this = pan, not click
 const DRAG_THRESHOLD = 4;
 
+// Margin (in pixels) allowed beyond map edge when panning
+const PAN_MARGIN = 0;
+
 // ============================================================
 // HitResult — what was clicked
 // ============================================================
@@ -311,6 +314,8 @@ export class Renderer {
   readonly app: Application;
   private worldContainer = new Container();
   private transform: Transform = { baseScale: 1, zoom: 1, offsetX: 0, offsetY: 0 };
+  private worldWidth = 0;
+  private worldHeight = 0;
 
   // Interaction state
   private dragging = false;
@@ -348,6 +353,8 @@ export class Renderer {
       const worldBefore = screenToWorld(mouseX, mouseY, this.transform);
       const zoomDir = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
       const world = getWorld();
+      this.worldWidth = world.width;
+      this.worldHeight = world.height;
       const fitZoom = this.computeFitZoom(world.width, world.height);
       const newZoom = Math.max(fitZoom, Math.min(MAX_ZOOM, this.transform.zoom * zoomDir));
       this.transform = { ...this.transform, zoom: newZoom };
@@ -359,6 +366,7 @@ export class Renderer {
         offsetX: mouseX - worldBefore.x * s,
         offsetY: mouseY - worldBefore.y * s,
       };
+      this.clampOffset();
     }, { passive: false });
 
     // Mouse drag for pan
@@ -382,6 +390,7 @@ export class Renderer {
           offsetX: this.transform.offsetX + dx,
           offsetY: this.transform.offsetY + dy,
         };
+        this.clampOffset();
         this.dragStartX = e.clientX;
         this.dragStartY = e.clientY;
       }
@@ -412,6 +421,31 @@ export class Renderer {
     return Math.min(canvasW / (bs * worldW), canvasH / (bs * worldH));
   }
 
+  /** Clamp offset so the view stays within map boundaries. */
+  private clampOffset(): void {
+    const canvasW = this.app.canvas.clientWidth;
+    const canvasH = this.app.canvas.clientHeight;
+    const s = effectiveScale(this.transform);
+    const worldScreenW = this.worldWidth * s;
+    const worldScreenH = this.worldHeight * s;
+
+    let { offsetX, offsetY } = this.transform;
+
+    if (worldScreenW >= canvasW) {
+      offsetX = Math.min(PAN_MARGIN, Math.max(canvasW - worldScreenW - PAN_MARGIN, offsetX));
+    } else {
+      offsetX = (canvasW - worldScreenW) / 2;
+    }
+
+    if (worldScreenH >= canvasH) {
+      offsetY = Math.min(PAN_MARGIN, Math.max(canvasH - worldScreenH - PAN_MARGIN, offsetY));
+    } else {
+      offsetY = (canvasH - worldScreenH) / 2;
+    }
+
+    this.transform = { ...this.transform, offsetX, offsetY };
+  }
+
   /** Reset zoom/pan to fit world. */
   resetView(worldW: number, worldH: number): void {
     const canvasW = this.app.canvas.clientWidth;
@@ -424,13 +458,14 @@ export class Renderer {
   }
 
   draw(world: World, selectedId: string | null): void {
-    // Update baseScale on canvas resize (keeps zoom and offset stable)
-    const canvasW = this.app.canvas.clientWidth;
-    const canvasH = this.app.canvas.clientHeight;
+    this.worldWidth = world.width;
+    this.worldHeight = world.height;
+
     if (this.transform.baseScale <= 0) {
       this.resetView(world.width, world.height);
     }
 
+    this.clampOffset();
     const t = this.transform;
 
     this.worldContainer.removeChildren();
