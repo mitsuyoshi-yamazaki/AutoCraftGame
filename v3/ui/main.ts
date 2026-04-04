@@ -56,7 +56,7 @@ interface UIState {
   selection: Selection;
   totalBirths: number;
   totalDeaths: number;
-  characterActions: Map<string, Action>;
+  characterActions: ReadonlyMap<string, Action>;
   sessionStartedAt: string;
   resumedAt: string | null;
   recentSavedEvents: SavedEvent[];
@@ -207,16 +207,6 @@ async function main(): Promise<void> {
 // Simulation step
 // ============================================================
 function step(): void {
-  const actions = new Map<string, Action>();
-  const programEngine = engine.simulation;
-  for (const char of state.world.characters) {
-    if (isActive(char) && char.program) {
-      // Use the program engine from the current engine for evaluateProgram
-      // Note: evaluateProgram is part of the program engine, not directly accessible
-      // We use a lightweight approach: just record actions from the previous tick result
-    }
-  }
-
   const prevWorld = state.world;
   const result = engine.executeTick(state.world);
 
@@ -241,7 +231,7 @@ function step(): void {
     allEvents: [...state.allEvents, ...result.events],
     totalBirths: state.totalBirths + births,
     totalDeaths: state.totalDeaths + deaths,
-    characterActions: actions,
+    characterActions: result.actions,
     recentSavedEvents,
   };
 

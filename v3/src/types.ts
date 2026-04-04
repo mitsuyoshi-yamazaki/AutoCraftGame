@@ -216,6 +216,7 @@ export type SimulationEvent =
 export interface TickResult {
   readonly world: World;
   readonly events: readonly SimulationEvent[];
+  readonly actions: ReadonlyMap<string, Action>;
 }
 
 // ============================================================

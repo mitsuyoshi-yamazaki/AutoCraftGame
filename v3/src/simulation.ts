@@ -102,7 +102,8 @@ export function createSimulationEngine(
     // Step 10: Increment tick
     currentWorld = { ...currentWorld, tick: currentWorld.tick + 1 };
 
-    return { world: currentWorld, events: allEvents };
+    const actions = new Map<string, Action>(decisions.map((d) => [d.characterId, d.action]));
+    return { world: currentWorld, events: allEvents, actions };
   }
 
   function runSimulation(
