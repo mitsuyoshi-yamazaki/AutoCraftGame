@@ -11,8 +11,17 @@ import { evaluateProgram } from '@/program.js';
 import { Renderer } from './renderer.js';
 import type { HitResult } from './renderer.js';
 import selfReplicatorProgram from '../programs/self-replicator.json';
+import selfReplicatorExplorerProgram from '../programs/self-replicator-explorer.json';
+import selfReplicatorWandererProgram from '../programs/self-replicator-wanderer.json';
+import selfReplicatorAvoiderProgram from '../programs/self-replicator-avoider.json';
 import scavengerProgram from '../programs/scavenger.json';
+import scavengerExplorerProgram from '../programs/scavenger-explorer.json';
+import scavengerWandererProgram from '../programs/scavenger-wanderer.json';
+import scavengerAvoiderProgram from '../programs/scavenger-avoider.json';
 import opportunistProgram from '../programs/opportunist.json';
+import opportunistExplorerProgram from '../programs/opportunist-explorer.json';
+import opportunistWandererProgram from '../programs/opportunist-wanderer.json';
+import opportunistAvoiderProgram from '../programs/opportunist-avoider.json';
 
 // ============================================================
 // Constants
@@ -22,7 +31,7 @@ const MAX_TPS = 60;
 const DEFAULT_TPS = 5;
 const INITIAL_ENERGY = 5000;
 const DEFAULT_SEED = 42;
-const INITIAL_COUNT = 5;
+const INITIAL_COUNT = 1;
 
 // ============================================================
 // State
@@ -69,8 +78,17 @@ function loadProgram(json: any): ProgramDef {
 
 const PROGRAM_DEFS: ProgramDef[] = [
   loadProgram(selfReplicatorProgram),
+  loadProgram(selfReplicatorExplorerProgram),
+  loadProgram(selfReplicatorWandererProgram),
+  loadProgram(selfReplicatorAvoiderProgram),
   loadProgram(scavengerProgram),
+  loadProgram(scavengerExplorerProgram),
+  loadProgram(scavengerWandererProgram),
+  loadProgram(scavengerAvoiderProgram),
   loadProgram(opportunistProgram),
+  loadProgram(opportunistExplorerProgram),
+  loadProgram(opportunistWandererProgram),
+  loadProgram(opportunistAvoiderProgram),
 ];
 
 function createInitialState(seed?: number): UIState {

@@ -53,7 +53,7 @@ function parseArgs(args: string[]) {
   let seed = 42;
   let snapshotInterval = 100;
   let initialEnergy = 5000;
-  let counts = [5, 5, 5];
+  let counts = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
   const configOverrides: Partial<WorldConfig> = {};
 
   for (let i = 0; i < args.length; i++) {
@@ -100,8 +100,17 @@ function main() {
   const opts = parseArgs(process.argv.slice(2));
   const programFiles = [
     'programs/self-replicator.json',
+    'programs/self-replicator-explorer.json',
+    'programs/self-replicator-wanderer.json',
+    'programs/self-replicator-avoider.json',
     'programs/scavenger.json',
+    'programs/scavenger-explorer.json',
+    'programs/scavenger-wanderer.json',
+    'programs/scavenger-avoider.json',
     'programs/opportunist.json',
+    'programs/opportunist-explorer.json',
+    'programs/opportunist-wanderer.json',
+    'programs/opportunist-avoider.json',
   ];
   const programs: ProgramDef[] = programFiles.map((path, i) =>
     loadProgram(path, opts.counts[i] ?? 3),

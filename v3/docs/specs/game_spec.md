@@ -455,6 +455,7 @@ SetRegister = {
 | fn | 形式 | 戻り値 | 要件 |
 |----|------|--------|------|
 | `angle_to_nearest` | `{ fn: 'angle_to_nearest', type: NearbyTargetType }` | SENSE_RANGE内の最寄り対象への角度（度数法）。対象不在ならnull | Sensorコンポーネント必須。Sensor未保持時はnullを返す |
+| `angle_away_from_nearest` | `{ fn: 'angle_away_from_nearest', type: NearbyTargetType }` | SENSE_RANGE内の最寄り対象から離れる角度（`(angle_to_nearest + 180) % 360`）。対象不在ならnull | Sensorコンポーネント必須。Sensor未保持時はnullを返す |
 | `wander_angle` | `{ fn: 'wander_angle' }` | `energy % 360`。キャラクターの内部状態に基づく擬似ランダム方向 | なし（常に数値を返す） |
 
 fnがnullを返した場合、nullがレジスタに書き込まれる（前の値は上書きされる）。プログラムで「前の値を保持」したい場合は、条件でガードしてnull書き込みを避ける:

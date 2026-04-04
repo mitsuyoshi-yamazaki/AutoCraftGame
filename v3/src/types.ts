@@ -138,6 +138,7 @@ export type Action =
 // ============================================================
 export type FnValue =
   | { readonly fn: 'angle_to_nearest'; readonly type: NearbyTargetType }
+  | { readonly fn: 'angle_away_from_nearest'; readonly type: NearbyTargetType }
   | { readonly fn: 'wander_angle' };
 
 export type RegisterValue = number | null | FnValue;

@@ -137,6 +137,10 @@ function resolveRegisterValue(
   switch (value.fn) {
     case 'angle_to_nearest':
       return findNearestAngle(value.type, character, world);
+    case 'angle_away_from_nearest': {
+      const angle = findNearestAngle(value.type, character, world);
+      return angle !== null ? (angle + 180) % 360 : null;
+    }
     case 'wander_angle':
       return character.energy % 360;
   }
