@@ -17,8 +17,8 @@ import { FRAME_DURABILITY, CHARACTER_RADIUS, RESOURCE_NODE_RADIUS, ENERGY_NODE_R
 export const COLORS = {
   background: 0x1a2a1a,
   wall: 0x333333,
-  ore: 0xe8b84b,
-  crystal: 0x67d4e2,
+  ore: 0x8899aa,
+  crystal: 0x99cc88,
   energy: 0xffd700,
   remains: 0x555555,
   selected: 0xffd700,
@@ -96,7 +96,9 @@ function drawResourceNodeLOD(node: ResourceNode, t: Transform, maxRemaining: num
   const r = Math.max(2, RESOURCE_NODE_RADIUS * effectiveScale(t));
   const color = node.type === 'OreNode' ? COLORS.ore : COLORS.crystal;
   const ratio = Math.max(0.15, node.remaining / Math.max(1, maxRemaining));
-  g.circle(sx, sy, r);
+  const bodySize = r * 1.6;
+  const cornerR = bodySize * 0.2;
+  g.roundRect(sx - bodySize / 2, sy - bodySize / 2, bodySize, bodySize, cornerR);
   g.fill({ color, alpha: ratio });
   return g;
 }
@@ -106,7 +108,12 @@ function drawEnergyNodeLOD(node: EnergyNode, t: Transform): Graphics {
   const { sx, sy } = worldToScreen(node.position, t);
   const r = Math.max(2, ENERGY_NODE_RADIUS * effectiveScale(t));
   const ratio = Math.max(0.1, node.stored / Math.max(1, node.maxStored));
-  g.circle(sx, sy, r);
+  const s = r * 0.9;
+  g.moveTo(sx, sy - s);
+  g.lineTo(sx + s, sy);
+  g.lineTo(sx, sy + s);
+  g.lineTo(sx - s, sy);
+  g.closePath();
   g.fill({ color: COLORS.energy, alpha: ratio * 0.9 });
   return g;
 }

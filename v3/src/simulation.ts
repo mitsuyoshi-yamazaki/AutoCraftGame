@@ -1,5 +1,5 @@
 import type { Action, Character, SimulationEvent, TickResult, World } from './types.js';
-import { applyBasalMetabolism, decayDurability, isDead, isActive } from './character.js';
+import { applyBasalMetabolism, canPayMetabolism, decayDurability, isDead, isActive } from './character.js';
 import { evaluateProgram } from './program.js';
 import { executeAction } from './actions.js';
 import {
@@ -52,16 +52,15 @@ export function executeTick(world: World): TickResult {
   // Step 6: Physics integration (velocity + position update)
   currentWorld = integratePhysics(currentWorld, forces);
 
-  // Step 7: Basal metabolism for all characters
+  // Step 7+8: Basal metabolism and durability decay
+  // Check starvation BEFORE applying metabolism, then apply both
   currentWorld = {
     ...currentWorld,
-    characters: currentWorld.characters.map(applyBasalMetabolism),
-  };
-
-  // Step 8: Durability decay for all characters
-  currentWorld = {
-    ...currentWorld,
-    characters: currentWorld.characters.map(decayDurability),
+    characters: currentWorld.characters.map((c) => {
+      const starving = !canPayMetabolism(c);
+      const afterMetabolism = applyBasalMetabolism(c);
+      return decayDurability(afterMetabolism, starving);
+    }),
   };
 
   // Step 9: Death check — create remains and remove dead characters

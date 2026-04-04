@@ -81,7 +81,7 @@ export function executeAction(
   if (result.success) {
     const updated = getCharacter(result.world, characterId);
     if (updated) {
-      const newWorld = updateCharacter(result.world, { ...updated, energy: updated.energy - baseCost });
+      const newWorld = updateCharacter(result.world, { ...updated, energy: Math.max(0, updated.energy - baseCost) });
       return { ...result, world: newWorld };
     }
     return result;
@@ -90,7 +90,7 @@ export function executeAction(
   const penalty = getFailurePenalty(baseCost);
   const updatedChar = getCharacter(result.world, characterId);
   if (updatedChar) {
-    const newWorld = updateCharacter(result.world, { ...updatedChar, energy: updatedChar.energy - penalty });
+    const newWorld = updateCharacter(result.world, { ...updatedChar, energy: Math.max(0, updatedChar.energy - penalty) });
     return { ...result, world: newWorld };
   }
   return result;

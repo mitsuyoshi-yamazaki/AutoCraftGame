@@ -91,11 +91,16 @@ export function calculateBasalMetabolism(character: Character): number {
 
 export function applyBasalMetabolism(character: Character): Character {
   const cost = calculateBasalMetabolism(character);
-  return { ...character, energy: character.energy - cost };
+  return { ...character, energy: Math.max(0, character.energy - cost) };
 }
 
-export function decayDurability(character: Character): Character {
-  return { ...character, durability: character.durability - 1 };
+export function canPayMetabolism(character: Character): boolean {
+  return character.energy >= calculateBasalMetabolism(character);
+}
+
+export function decayDurability(character: Character, starvation: boolean): Character {
+  const decay = starvation ? 2 : 1;
+  return { ...character, durability: character.durability - decay };
 }
 
 // ============================================================
