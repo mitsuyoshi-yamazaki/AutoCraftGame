@@ -258,10 +258,20 @@ function updateStats(): void {
     const name = c.program?.name ?? '(inactive)';
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }
-  const lines = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, count]) => `<div>${name}: ${count}</div>`);
-  statSpecies.innerHTML = lines.length > 0 ? lines.join('') : '';
+  statSpecies.innerHTML = '';
+  for (const [name, count] of [...counts.entries()].sort((a, b) => b[1] - a[1])) {
+    const div = document.createElement('div');
+    div.textContent = `${name}: ${count}`;
+    div.style.cursor = 'pointer';
+    div.addEventListener('click', () => {
+      const char = state.world.characters.find((c) => (c.program?.name ?? '(inactive)') === name);
+      if (char) {
+        state = { ...state, selection: { kind: 'character', id: char.id } };
+        render();
+      }
+    });
+    statSpecies.appendChild(div);
+  }
 }
 
 function updateSelected(): void {
