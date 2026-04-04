@@ -335,12 +335,13 @@ export class Renderer {
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
     });
+    this.app.ticker.stop();
     container.appendChild(this.app.canvas);
     this.app.stage.addChild(this.worldContainer);
   }
 
   /** Set up zoom/pan/click interaction. Call once after init. */
-  setupInteraction(onSelect: (hit: HitResult | null) => void, getWorld: () => World): void {
+  setupInteraction(onSelect: (hit: HitResult | null) => void, getWorld: () => World, onViewChange: () => void): void {
     const canvas = this.app.canvas;
 
     // Wheel zoom — centered on cursor
@@ -367,6 +368,7 @@ export class Renderer {
         offsetY: mouseY - worldBefore.y * s,
       };
       this.clampOffset();
+      onViewChange();
     }, { passive: false });
 
     // Mouse drag for pan
@@ -393,6 +395,7 @@ export class Renderer {
         this.clampOffset();
         this.dragStartX = e.clientX;
         this.dragStartY = e.clientY;
+        onViewChange();
       }
     });
 
@@ -541,6 +544,8 @@ export class Renderer {
         this.worldContainer.addChild(rangeG);
       }
     }
+
+    this.app.render();
   }
 
   hitTest(world: World, screenX: number, screenY: number): HitResult | null {

@@ -50,7 +50,6 @@ type Selection =
 
 interface UIState {
   world: World;
-  allEvents: SimulationEvent[];
   running: boolean;
   ticksPerSecond: number;
   selection: Selection;
@@ -127,7 +126,6 @@ function createInitialState(seed?: number): UIState {
 
   return {
     world,
-    allEvents: [],
     running: false,
     ticksPerSecond: DEFAULT_TPS,
     selection: firstCharId ? { kind: 'character', id: firstCharId } : null,
@@ -197,6 +195,7 @@ async function main(): Promise<void> {
       render();
     },
     () => state.world,
+    () => render(),
   );
 
   speedDisplay.textContent = String(state.ticksPerSecond);
@@ -228,7 +227,6 @@ function step(): void {
   state = {
     ...state,
     world: result.world,
-    allEvents: [...state.allEvents, ...result.events],
     totalBirths: state.totalBirths + births,
     totalDeaths: state.totalDeaths + deaths,
     characterActions: result.actions,
@@ -506,7 +504,6 @@ fileInput.addEventListener('change', () => {
 
       state = {
         world: data.world,
-        allEvents: [],
         running: false,
         ticksPerSecond: state.ticksPerSecond,
         selection: null,
