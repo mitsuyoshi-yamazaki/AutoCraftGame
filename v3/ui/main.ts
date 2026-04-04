@@ -11,6 +11,8 @@ import { evaluateProgram } from '@/program.js';
 import { Renderer } from './renderer.js';
 import type { HitResult } from './renderer.js';
 import selfReplicatorProgram from '../programs/self-replicator.json';
+import scavengerProgram from '../programs/scavenger.json';
+import opportunistProgram from '../programs/opportunist.json';
 
 // ============================================================
 // Constants
@@ -66,6 +68,8 @@ function loadProgram(json: any): ProgramDef {
 
 const PROGRAM_DEFS: ProgramDef[] = [
   loadProgram(selfReplicatorProgram),
+  loadProgram(scavengerProgram),
+  loadProgram(opportunistProgram),
 ];
 
 function createInitialState(seed?: number): UIState {

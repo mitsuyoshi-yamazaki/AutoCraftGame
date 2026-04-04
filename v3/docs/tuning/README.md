@@ -179,6 +179,8 @@ CLIやチューニングスクリプトのオプションでも上書き可能�
 ファイル: `programs/` ディレクトリのJSONファイル
 
 - `programs/self-replicator.json` — バランス型自己複製（Replicator）
+- `programs/scavenger.json` — 残骸漁り型（Scavenger, Disassemblerで残骸から資源回収）
+- `programs/opportunist.json` — 日和見型（Opportunist, Harvester+Disassemblerの9コンポーネント構成）
 - 新しいProgramを作成して使用可能
 
 ## 調整記録
@@ -187,4 +189,5 @@ CLIやチューニングスクリプトのオプションでも上書き可能�
 
 | 記録 | 内容 |
 |------|------|
-| [001_baseline.md](001_baseline.md) | 初期パラメータでのベースライン分析 |
+| [001_baseline.md](001_baseline.md) | 初期パラメータでのベースライン分析（Replicator単種） |
+| [002_multi_species_baseline.md](002_multi_species_baseline.md) | 3種族（Replicator, Scavenger, Opportunist）ベースライン |
