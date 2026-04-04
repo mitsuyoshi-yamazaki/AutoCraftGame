@@ -9,7 +9,7 @@ import type {
   ComponentType,
 } from '@/types.js';
 import { isActive } from '@/character.js';
-import { FRAME_DURABILITY, CHARACTER_RADIUS, RESOURCE_NODE_RADIUS, ENERGY_NODE_RADIUS, REMAINS_RADIUS } from '@/constants.js';
+import { FRAME_DURABILITY, CHARACTER_RADIUS, RESOURCE_NODE_RADIUS, ENERGY_NODE_RADIUS, REMAINS_RADIUS, SENSE_RANGE } from '@/constants.js';
 
 // ============================================================
 // Color constants
@@ -461,6 +461,19 @@ export class Renderer {
       const sel = char.id === selectedId;
       const draw = useLODChar ? drawCharacterLOD : drawCharacter;
       this.worldContainer.addChild(draw(char, t, sel));
+    }
+
+    // SENSE_RANGE circle for selected character
+    if (selectedId) {
+      const selChar = world.characters.find((c: Character) => c.id === selectedId);
+      if (selChar) {
+        const rangeG = new Graphics();
+        const { sx, sy } = worldToScreen(selChar.position, t);
+        const screenR = SENSE_RANGE * effectiveScale(t);
+        rangeG.circle(sx, sy, screenR);
+        rangeG.stroke({ color: 0x888888, width: 1, alpha: 0.35 });
+        this.worldContainer.addChild(rangeG);
+      }
     }
   }
 
