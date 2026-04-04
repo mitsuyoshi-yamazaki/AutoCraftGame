@@ -53,7 +53,7 @@ function parseArgs(args: string[]) {
   let seed = 42;
   let snapshotInterval = 100;
   let initialEnergy = 5000;
-  let counts = [3, 3, 3];
+  let counts = [5, 5, 5];
   const configOverrides: Partial<WorldConfig> = {};
 
   for (let i = 0; i < args.length; i++) {

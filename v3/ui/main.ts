@@ -22,7 +22,7 @@ const MAX_TPS = 60;
 const DEFAULT_TPS = 5;
 const INITIAL_ENERGY = 5000;
 const DEFAULT_SEED = 42;
-const INITIAL_COUNT = 3;
+const INITIAL_COUNT = 5;
 
 // ============================================================
 // State
@@ -134,22 +134,22 @@ const renderer = new Renderer();
 
 async function main(): Promise<void> {
   await renderer.init(canvasContainer);
+  renderer.resetView(state.world.width, state.world.height);
 
-  renderer.app.canvas.addEventListener('click', (e: MouseEvent) => {
-    const rect = renderer.app.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const hit = renderer.hitTest(state.world, x, y);
-    let selection: Selection = null;
-    if (hit) {
-      if (hit.kind === 'character') selection = { kind: 'character', id: hit.character.id };
-      else if (hit.kind === 'resourceNode') selection = { kind: 'resourceNode', id: hit.resourceNode.id };
-      else if (hit.kind === 'energyNode') selection = { kind: 'energyNode', id: hit.energyNode.id };
-      else if (hit.kind === 'remains') selection = { kind: 'remains', id: hit.remains.id };
-    }
-    state = { ...state, selection };
-    render();
-  });
+  renderer.setupInteraction(
+    (hit) => {
+      let selection: Selection = null;
+      if (hit) {
+        if (hit.kind === 'character') selection = { kind: 'character', id: hit.character.id };
+        else if (hit.kind === 'resourceNode') selection = { kind: 'resourceNode', id: hit.resourceNode.id };
+        else if (hit.kind === 'energyNode') selection = { kind: 'energyNode', id: hit.energyNode.id };
+        else if (hit.kind === 'remains') selection = { kind: 'remains', id: hit.remains.id };
+      }
+      state = { ...state, selection };
+      render();
+    },
+    () => state.world,
+  );
 
   speedDisplay.textContent = String(state.ticksPerSecond);
   render();
@@ -370,6 +370,7 @@ function resetWithRandomSeed(): void {
   stopTimer();
   const seed = Date.now() ^ (Math.random() * 0xffffffff);
   state = createInitialState(seed);
+  renderer.resetView(state.world.width, state.world.height);
   btnPlayPause.textContent = '▶';
   eventLogContent.innerHTML = '';
   render();
@@ -378,7 +379,13 @@ function resetWithRandomSeed(): void {
 // ============================================================
 // Event listeners
 // ============================================================
+const btnFit = document.getElementById('btn-fit')!;
+
 btnReset.addEventListener('click', resetWithRandomSeed);
+btnFit.addEventListener('click', () => {
+  renderer.resetView(state.world.width, state.world.height);
+  render();
+});
 btnPlayPause.addEventListener('click', toggleRunning);
 btnSpeedDown.addEventListener('click', () => setSpeed(state.ticksPerSecond - 1));
 btnSpeedUp.addEventListener('click', () => setSpeed(state.ticksPerSecond + 1));

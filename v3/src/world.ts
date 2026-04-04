@@ -238,13 +238,13 @@ export interface WorldConfig {
 }
 
 export const DEFAULT_WORLD_CONFIG: WorldConfig = {
-  width: 20,
-  height: 20,
-  oreNodeCount: 15,
-  crystalNodeCount: 15,
+  width: 40,
+  height: 40,
+  oreNodeCount: 22,
+  crystalNodeCount: 22,
   nodeRemaining: 80,
-  energyNodeCount: 12,
-  energyProductionRate: 150,
+  energyNodeCount: 18,
+  energyProductionRate: 75,
   energyMaxStored: 3000,
 };
 

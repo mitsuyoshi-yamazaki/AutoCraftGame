@@ -118,15 +118,38 @@ v2からの変更:
 
 ### ワールド座標 → スクリーン座標
 
-v2ではセル単位の描画（cellSize × gridX）だったが、v3ではワールド座標系を直接スクリーン座標にマッピングする。
+v2ではセル単位の描画（cellSize × gridX）だったが、v3ではワールド座標系をズーム・パン付きでスクリーン座標にマッピングする。
 
 ```
-スケール = min(canvasWidth, canvasHeight) / max(world.width, world.height)
-screenX = worldX × スケール + offsetX
-screenY = worldY × スケール + offsetY
+screenX = worldX × zoom × baseScale + offsetX
+screenY = worldY × zoom × baseScale + offsetY
 ```
 
-`offsetX/Y` はCanvasの中央にワールドが来るよう調整する。
+- `baseScale`: ズーム1.0でワールド全体が画面に収まるスケール = `min(canvasWidth, canvasHeight) / max(world.width, world.height)`
+- `zoom`: ユーザ操作によるズーム倍率（初期値 1.0）
+- `offsetX/Y`: パン操作によるオフセット（初期値はワールド中央がCanvas中央に来る値）
+
+### ズーム操作
+
+- マウスホイールでズームイン・アウト
+- ズーム中心はマウスカーソル位置（カーソル直下のワールド座標が固定されるようoffsetを調整）
+- ズーム範囲: ワールド全体表示 〜 十分な拡大率まで
+
+### パン操作
+
+- マウスドラッグ（左ボタン押下+移動）でoffsetX/Yを変更
+- オブジェクトクリック（選択）とドラッグ（パン）を区別する（一定距離以上動いた場合のみパンとする）
+
+### LOD（Level of Detail）
+
+ズームアウト時、各オブジェクトの画面上の描画サイズ（`radius × zoom × baseScale`）が閾値以下になった場合、詳細描画から簡略描画に切り替える。
+
+- **簡略描画（LODモード）**:
+  - ResourceNode: 単色の円（OreNode=金茶色、CrystalNode=水色）
+  - EnergyNode: 単色の円（金色）
+  - Remains: 単色の円（灰色）
+  - Character: 黒円の中にdurability比率に応じたサイズの赤円。非アクティブは灰色
+- **通常描画**: 既存のv2踏襲の詳細形状（角丸矩形、ダイヤモンド形、コンポーネントリング等）
 
 ### ヒットテスト
 
@@ -158,7 +181,7 @@ screenY = worldY × スケール + offsetY
 
 キャラクターの色はv2の実装を踏襲する（コンポーネントリング、エネルギーリング、核など）。
 
-ズーム機能は不要。オブジェクトのサイズがスケールに対して小さくなる場合でも、そのまま描画する。
+ズームアウト時はLODにより簡略描画に切り替わる（上記「LOD」セクション参照）。
 
 キャラクターの速度・加速度ベクトルの描画は行わない。
 

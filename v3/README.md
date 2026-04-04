@@ -50,8 +50,8 @@ CLIオプション:
 | `--seed N` | 42 | 乱数シード |
 | `--output <mode>` | final | 出力モード: `tick` / `final` / `events` |
 | `--initial-energy N` | 5000 | 初期キャラクターのエネルギー |
-| `--world-size WxH` | 20x20 | ワールドサイズ |
-| `--energy-nodes N` | 12 | EnergyNodeの数 |
+| `--world-size WxH` | 40x40 | ワールドサイズ |
+| `--energy-nodes N` | 24 | EnergyNodeの数 |
 | `--node-remaining N` | 80 | ResourceNodeの初期残量 |
 
 ### GUIアプリケーション
@@ -68,6 +68,8 @@ npm run ui
 - **◀ / ▶**: tick/s の増減（1〜60）
 - **Reset**: ランダムシードでワールドを再生成
 - **クリック**: マップ上のオブジェクトを選択し、詳細パネルに情報表示
+- **マウスホイール**: ズームイン/アウト（カーソル位置中心）
+- **ドラッグ**: マップのパン（スクロール）
 
 ## プロジェクト構造
 
@@ -106,7 +108,9 @@ v3/
 │   └── simulation.test.ts
 │
 ├── programs/               ... キャラクタープログラム（JSON）
-│   └── self-replicator.json
+│   ├── self-replicator.json
+│   ├── scavenger.json
+│   └── opportunist.json
 │
 └── docs/
     ├── specs/              ... ゲーム仕様書
