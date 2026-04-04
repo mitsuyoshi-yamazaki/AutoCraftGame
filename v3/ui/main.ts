@@ -263,13 +263,7 @@ function updateStats(): void {
     const div = document.createElement('div');
     div.textContent = `${name}: ${count}`;
     div.style.cursor = 'pointer';
-    div.addEventListener('click', () => {
-      const char = state.world.characters.find((c) => (c.program?.name ?? '(inactive)') === name);
-      if (char) {
-        state = { ...state, selection: { kind: 'character', id: char.id } };
-        render();
-      }
-    });
+    div.dataset.species = name;
     statSpecies.appendChild(div);
   }
 }
@@ -399,6 +393,18 @@ btnFit.addEventListener('click', () => {
 btnPlayPause.addEventListener('click', toggleRunning);
 btnSpeedDown.addEventListener('click', () => setSpeed(state.ticksPerSecond - 1));
 btnSpeedUp.addEventListener('click', () => setSpeed(state.ticksPerSecond + 1));
+statSpecies.addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const species = target.dataset?.species;
+  if (!species) return;
+  const members = state.world.characters.filter((c) => (c.program?.name ?? '(inactive)') === species);
+  if (members.length === 0) return;
+  const currentId = state.selection?.kind === 'character' ? state.selection.id : null;
+  const currentIdx = currentId ? members.findIndex((c) => c.id === currentId) : -1;
+  const next = currentIdx >= 0 ? members[(currentIdx + 1) % members.length] : members[0];
+  state = { ...state, selection: { kind: 'character', id: next.id } };
+  render();
+});
 
 document.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && e.target === document.body) {
