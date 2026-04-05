@@ -5,6 +5,7 @@
       "Bash(npm run sim *)",
       "Bash(git *)",
       "Bash(npx *)",
+      "Bash(*)",
       "Read",
       "Edit"
     ]
