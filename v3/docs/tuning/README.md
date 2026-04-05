@@ -196,3 +196,4 @@ CLIやチューニングスクリプトのオプションでも上書き可能�
 | [005_variant_competition.md](005_variant_competition.md) | 戦略バリアント間の競争（40×40） |
 | [006_large_world_variant_competition.md](006_large_world_variant_competition.md) | 大規模ワールド(60×60)バリアント競争 |
 | [007_10k_tick_stability.md](007_10k_tick_stability.md) | 10,000 tick安定共存の探索（ノード増・energyMaxStored低下） |
+| [008_resource_regeneration.md](008_resource_regeneration.md) | リソースノード再生システム(v3.13.0)の影響分析 |
