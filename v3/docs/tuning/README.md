@@ -198,3 +198,4 @@ CLIやチューニングスクリプトのオプションでも上書き可能�
 | [007_10k_tick_stability.md](007_10k_tick_stability.md) | 10,000 tick安定共存の探索（ノード増・energyMaxStored低下） |
 | [008_resource_regeneration.md](008_resource_regeneration.md) | リソースノード再生システム(v3.13.0)の影響分析 |
 | [009_regeneration_tuning.md](009_regeneration_tuning.md) | リソースノード再生パラメータの最適化（最良設定: abs=600, thr=50, nodeRem=225） |
+| [010_new_species.md](010_new_species.md) | 新種族（Settler/Recycler）の投入と生態系への影響 |

@@ -53,7 +53,7 @@ function parseArgs(args: string[]) {
   let seed = 42;
   let snapshotInterval = 100;
   let initialEnergy = 5000;
-  let counts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3];
+  let counts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6, 3];
   const configOverrides: Partial<WorldConfig> = {};
   const paramsOverrides: Record<string, number> = {};
 
@@ -115,6 +115,8 @@ function main() {
     'programs/opportunist-explorer.json',
     'programs/opportunist-wanderer.json',
     'programs/opportunist-avoider.json',
+    'programs/minimalist.json',
+    'programs/recycler.json',
   ];
   const programs: ProgramDef[] = programFiles.map((path, i) =>
     loadProgram(path, opts.counts[i] ?? 3),

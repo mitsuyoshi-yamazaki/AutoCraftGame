@@ -27,6 +27,8 @@ import opportunistProgram from '../programs/opportunist.json';
 import opportunistExplorerProgram from '../programs/opportunist-explorer.json';
 import opportunistWandererProgram from '../programs/opportunist-wanderer.json';
 import opportunistAvoiderProgram from '../programs/opportunist-avoider.json';
+import minimalistProgram from '../programs/minimalist.json';
+import recyclerProgram from '../programs/recycler.json';
 
 // ============================================================
 // Constants (UI only)
@@ -86,6 +88,10 @@ function loadProgram(json: any): ProgramDef {
   };
 }
 
+function loadProgramWithCount(json: any, count: number): ProgramDef {
+  return { ...loadProgram(json), count };
+}
+
 const PROGRAM_DEFS: ProgramDef[] = [
   loadProgram(selfReplicatorProgram),
   loadProgram(selfReplicatorExplorerProgram),
@@ -99,6 +105,8 @@ const PROGRAM_DEFS: ProgramDef[] = [
   loadProgram(opportunistExplorerProgram),
   loadProgram(opportunistWandererProgram),
   loadProgram(opportunistAvoiderProgram),
+  loadProgramWithCount(minimalistProgram, 6),
+  loadProgramWithCount(recyclerProgram, 3),
 ];
 
 // ============================================================
