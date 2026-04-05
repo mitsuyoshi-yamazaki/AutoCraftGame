@@ -209,16 +209,22 @@ _site/                        ← GitHub Pages にデプロイされるディレ
 
 GitHub リポジトリの Settings → Pages → Build and deployment → Source を **"GitHub Actions"** に変更する。
 
-## 未確認事項
+## 確認済み事項
 
-- ワークフロー内でのテスト実行の要否
-- ホームページの内容の詳細
+- ワークフロー内でのテスト実行: 不要（テストCIは別途検討）
+- ホームページ: v1→v2→v3の進化の物語 + スクリーンショット + GitHub リポジトリリンク
+- 将来バージョンの自動検出: 不要（手動でワークフローに追加）
 
-## 実装順序
+## 実装状況
 
-1. 各バージョンの `package.json` に `build` スクリプトを追加
-2. 各バージョンの `vite.config.ts` に `base` を追加
-3. ローカルで各バージョンのビルドが成功することを確認
-4. `site/index.html` を作成
-5. `.github/workflows/deploy-pages.yml` を作成
-6. main へ push → GitHub Actions の動作を確認（Settings で Source 変更後）
+- [x] 各バージョンの `package.json` に `build` スクリプトを追加
+- [x] 各バージョンの `vite.config.ts` に `base` を追加
+- [x] ローカルで各バージョンのビルドが成功することを確認
+- [x] `site/index.html` を作成
+- [x] `site/screenshot_sample.png` プレースホルダーを作成
+- [x] `.github/workflows/deploy-pages.yml` を作成
+- [x] 残作業・動作確認ガイドを `2026-04-05_github_pages_deploy_guide.md` に記載
+
+## 残作業（ユーザー）
+
+→ [デプロイガイド](2026-04-05_github_pages_deploy_guide.md) を参照

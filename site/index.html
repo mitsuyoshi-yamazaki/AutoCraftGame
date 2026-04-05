@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoCraftGame</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .hero {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px 40px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 300;
+      color: #ffffff;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+    .tagline {
+      font-size: 1.1rem;
+      color: #9ca3af;
+      margin-bottom: 40px;
+    }
+    .screenshot {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      margin-bottom: 48px;
+    }
+    .versions {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 24px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .version-card {
+      display: block;
+      padding: 20px 24px;
+      background: #111118;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .version-card:hover {
+      border-color: #4fc3f7;
+      background: #13131f;
+    }
+    .version-card h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .version-card p {
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+    .version-card .arrow {
+      float: right;
+      color: #4fc3f7;
+      font-size: 1.2rem;
+      margin-top: -24px;
+    }
+    .footer {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      text-align: center;
+      border-top: 1px solid #1f2937;
+    }
+    .footer a {
+      color: #4fc3f7;
+      text-decoration: none;
+    }
+    .footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>AutoCraftGame</h1>
+    <p class="tagline">
+      進化を設計しない。自律的な活動の結果として、進化が創発する世界を作る。
+    </p>
+    <img class="screenshot" src="screenshot_sample.png" alt="AutoCraftGame v3 simulation" width="640" height="360" />
+  </div>
+
+  <div class="versions">
+    <a class="version-card" href="v1/">
+      <h2>v1 &mdash; Self-Replication</h2>
+      <p>自己複製できるか？ &mdash; 資源を採掘し、加工し、自らのコピーを組み立てるキャラクターの検証。</p>
+      <span class="arrow">&rarr;</span>
+    </a>
+    <a class="version-card" href="v2/">
+      <h2>v2 &mdash; Selection Pressure</h2>
+      <p>淘汰圧を加えたらどうなるか？ &mdash; エネルギーモデルと資源の有限化。種族間競争が生まれる。</p>
+      <span class="arrow">&rarr;</span>
+    </a>
+    <a class="version-card" href="v3/">
+      <h2>v3 &mdash; Continuous World</h2>
+      <p>連続空間と物理法則を導入したら？ &mdash; 14種族が資源を巡り、残骸を糧に、生態系が創発する。</p>
+      <span class="arrow">&rarr;</span>
+    </a>
+  </div>
+
+  <div class="footer">
+    <a href="https://github.com/mitsuyoshi-yamazaki/AutoCraftGame">GitHub Repository</a>
+  </div>
+</body>
+</html>

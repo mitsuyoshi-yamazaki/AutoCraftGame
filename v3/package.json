@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "sim": "npx tsx src/cli.ts",
-    "ui": "vite"
+    "ui": "vite",
+    "build": "vite build"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
