@@ -10,7 +10,7 @@ import type { Engine } from '@/engine.js';
 import { DEFAULT_GAME_PARAMS } from '@/params.js';
 import { evaluateProgram } from '@/program.js';
 import { Renderer } from './renderer.js';
-import type { HitResult } from './renderer.js';
+import type { HitResult, DrawSelection } from './renderer.js';
 import { GAME_VERSION } from '@/version.js';
 import { serialize, deserialize, formatTimestamp, buildSaveFileName } from '@/save-load.js';
 import { positionToCell, groundGridDimensions } from '@/ground.js';
@@ -165,6 +165,7 @@ const statRemains = document.getElementById('stat-remains')!;
 const statSpecies = document.getElementById('stat-species')!;
 const selectedContent = document.getElementById('selected-content')!;
 const eventLogContent = document.getElementById('event-log-content')!;
+const btnStep = document.getElementById('btn-step')! as HTMLButtonElement;
 const versionDisplay = document.getElementById('version-display')!;
 versionDisplay.textContent = `v${GAME_VERSION}`;
 
@@ -272,10 +273,15 @@ function stopTimer(): void {
   }
 }
 
+function updatePlayPauseUI(): void {
+  btnPlayPause.textContent = state.running ? '⏸' : '▶';
+  btnStep.disabled = state.running;
+}
+
 function toggleRunning(): void {
   state = { ...state, running: !state.running };
   if (state.running) startTimer(); else stopTimer();
-  btnPlayPause.textContent = state.running ? '⏸' : '▶';
+  updatePlayPauseUI();
 }
 
 function setSpeed(tps: number): void {
@@ -287,8 +293,8 @@ function setSpeed(tps: number): void {
 // ============================================================
 // Rendering
 // ============================================================
-function getSelectedCharacterId(): string | null {
-  return state.selection?.kind === 'character' ? state.selection.id : null;
+function getDrawSelection(): DrawSelection {
+  return state.selection;
 }
 
 function getSelectedPosition(): Position | null {
@@ -322,7 +328,7 @@ function panToSelection(): void {
 }
 
 function render(): void {
-  renderer.draw(state.world, getSelectedCharacterId());
+  renderer.draw(state.world, getDrawSelection());
   updateStats();
   updateSelected();
 }
@@ -393,6 +399,7 @@ function updateSelected(): void {
       <div><strong>${node.type}</strong></div>
       <div>Pos: (${node.position.x.toFixed(1)}, ${node.position.y.toFixed(1)})</div>
       <div>Remaining: ${node.remaining}</div>
+      <div>Created: tick ${node.createdAt}</div>
     `;
     return;
   }
@@ -405,6 +412,7 @@ function updateSelected(): void {
       <div>Pos: (${node.position.x.toFixed(1)}, ${node.position.y.toFixed(1)})</div>
       <div>Stored: ${node.stored} / ${node.maxStored}</div>
       <div>Production: ${node.productionRate}/tick</div>
+      <div>Created: tick ${node.createdAt}</div>
     `;
     return;
   }
@@ -557,7 +565,7 @@ fileInput.addEventListener('change', () => {
       }
 
       renderer.resetView(state.world.width, state.world.height);
-      btnPlayPause.textContent = '▶';
+      updatePlayPauseUI();
       render();
     } catch (e: any) {
       alert(e.message);
@@ -576,7 +584,7 @@ function resetWithRandomSeed(): void {
   const seed = Date.now() ^ (Math.random() * 0xffffffff);
   state = createInitialState(seed);
   renderer.resetView(state.world.width, state.world.height);
-  btnPlayPause.textContent = '▶';
+  updatePlayPauseUI();
   eventLogContent.innerHTML = '';
   render();
 }
@@ -592,6 +600,9 @@ btnFit.addEventListener('click', () => {
 btnPlayPause.addEventListener('click', toggleRunning);
 btnSpeedDown.addEventListener('click', () => setSpeed(state.ticksPerSecond - 1));
 btnSpeedUp.addEventListener('click', () => setSpeed(state.ticksPerSecond + 1));
+btnStep.addEventListener('click', () => {
+  if (!state.running) step();
+});
 btnSave.addEventListener('click', saveGame);
 btnLoad.addEventListener('click', loadGame);
 statSpecies.addEventListener('click', (e) => {

@@ -53,6 +53,17 @@ const DRAG_THRESHOLD = 4;
 const PAN_MARGIN = 0;
 
 // ============================================================
+// Selection info for rendering
+// ============================================================
+export type DrawSelection =
+  | { kind: 'character'; id: string }
+  | { kind: 'resourceNode'; id: string }
+  | { kind: 'energyNode'; id: string }
+  | { kind: 'remains'; id: string }
+  | { kind: 'ground'; cellX: number; cellY: number }
+  | null;
+
+// ============================================================
 // HitResult — what was clicked
 // ============================================================
 export type HitResult =
@@ -308,6 +319,15 @@ function componentCounts(char: Character): [ComponentType, number][] {
   return Array.from(map.entries());
 }
 
+function drawObjectSelection(pos: Position, worldRadius: number, t: Transform): Graphics {
+  const g = new Graphics();
+  const { sx, sy } = worldToScreen(pos, t);
+  const screenR = Math.max(3, worldRadius * effectiveScale(t)) + 2;
+  g.circle(sx, sy, screenR);
+  g.stroke({ color: COLORS.selected, width: 2, alpha: 0.9 });
+  return g;
+}
+
 // ============================================================
 // Renderer class
 // ============================================================
@@ -478,7 +498,7 @@ export class Renderer {
     this.transform = { baseScale, zoom: 1, offsetX, offsetY };
   }
 
-  draw(world: World, selectedId: string | null): void {
+  draw(world: World, selection: DrawSelection): void {
     this.worldWidth = world.width;
     this.worldHeight = world.height;
 
@@ -506,6 +526,15 @@ export class Renderer {
     bg.stroke({ color: COLORS.wall, width: 2, alpha: 0.8 });
     this.worldContainer.addChild(bg);
 
+    // Ground cell selection highlight (draw before objects)
+    if (selection?.kind === 'ground') {
+      const cellG = new Graphics();
+      const { sx: cx, sy: cy } = worldToScreen({ x: selection.cellX, y: selection.cellY }, t);
+      cellG.rect(cx, cy, s, s);
+      cellG.stroke({ color: COLORS.selected, width: 2, alpha: 0.7 });
+      this.worldContainer.addChild(cellG);
+    }
+
     const maxRemaining = world.resourceNodes.reduce((m, n) => Math.max(m, n.remaining), 50);
     const useLODResource = isLOD(RESOURCE_NODE_RADIUS, t);
     const useLODEnergy = isLOD(ENERGY_NODE_RADIUS, t);
@@ -513,29 +542,38 @@ export class Renderer {
     const useLODChar = isLOD(CHARACTER_RADIUS, t);
 
     for (const node of world.resourceNodes) {
-      const draw = useLODResource ? drawResourceNodeLOD : drawResourceNode;
-      this.worldContainer.addChild(draw(node, t, maxRemaining));
+      const drawFn = useLODResource ? drawResourceNodeLOD : drawResourceNode;
+      this.worldContainer.addChild(drawFn(node, t, maxRemaining));
+      if (selection?.kind === 'resourceNode' && selection.id === node.id) {
+        this.worldContainer.addChild(drawObjectSelection(node.position, RESOURCE_NODE_RADIUS, t));
+      }
     }
 
     for (const node of world.energyNodes) {
-      const draw = useLODEnergy ? drawEnergyNodeLOD : drawEnergyNode;
-      this.worldContainer.addChild(draw(node, t));
+      const drawFn = useLODEnergy ? drawEnergyNodeLOD : drawEnergyNode;
+      this.worldContainer.addChild(drawFn(node, t));
+      if (selection?.kind === 'energyNode' && selection.id === node.id) {
+        this.worldContainer.addChild(drawObjectSelection(node.position, ENERGY_NODE_RADIUS, t));
+      }
     }
 
     for (const r of world.remains) {
-      const draw = useLODRemains ? drawRemainsLOD : drawRemains;
-      this.worldContainer.addChild(draw(r, t));
+      const drawFn = useLODRemains ? drawRemainsLOD : drawRemains;
+      this.worldContainer.addChild(drawFn(r, t));
+      if (selection?.kind === 'remains' && selection.id === r.id) {
+        this.worldContainer.addChild(drawObjectSelection(r.position, REMAINS_RADIUS, t));
+      }
     }
 
     for (const char of world.characters) {
-      const sel = char.id === selectedId;
-      const draw = useLODChar ? drawCharacterLOD : drawCharacter;
-      this.worldContainer.addChild(draw(char, t, sel));
+      const sel = selection?.kind === 'character' && selection.id === char.id;
+      const drawFn = useLODChar ? drawCharacterLOD : drawCharacter;
+      this.worldContainer.addChild(drawFn(char, t, sel));
     }
 
     // SENSE_RANGE circle for selected character
-    if (selectedId) {
-      const selChar = world.characters.find((c: Character) => c.id === selectedId);
+    if (selection?.kind === 'character') {
+      const selChar = world.characters.find((c: Character) => c.id === selection.id);
       if (selChar) {
         const rangeG = new Graphics();
         const { sx, sy } = worldToScreen(selChar.position, t);

@@ -212,6 +212,7 @@ export function regenerateNodes(world: World, params: GameParams): World {
           position: { x: cx + 0.5 + 0.2, y: cy + 0.5 },
           type: 'OreNode',
           remaining: sum.ore,
+          createdAt: currentWorld.tick,
         };
         currentWorld = { ...currentWorld, resourceNodes: [...currentWorld.resourceNodes, node] };
         grid = [...clearMooreResource(grid, gridWidth, gridHeight, cx, cy, 'ore')];
@@ -225,6 +226,7 @@ export function regenerateNodes(world: World, params: GameParams): World {
           position: { x: cx + 0.5, y: cy + 0.5 + 0.2 },
           type: 'CrystalNode',
           remaining: sum.crystal,
+          createdAt: currentWorld.tick,
         };
         currentWorld = { ...currentWorld, resourceNodes: [...currentWorld.resourceNodes, node] };
         grid = [...clearMooreResource(grid, gridWidth, gridHeight, cx, cy, 'crystal')];

@@ -29,7 +29,7 @@ function makeWorld(chars: Character[]): World {
     height: 20,
     resourceNodes: [],
     energyNodes: [
-      { id: 'e1', position: { x: 10, y: 10 }, productionRate: 150, stored: 3000, maxStored: 3000 },
+      { id: 'e1', position: { x: 10, y: 10 }, productionRate: 150, stored: 3000, maxStored: 3000, createdAt: 0 },
     ],
     remains: [],
     characters: chars,
@@ -49,7 +49,7 @@ describe('simulation', () => {
 
   it('produces energy each tick', () => {
     const world = makeWorld([]);
-    const result = executeTick({ ...world, energyNodes: [{ id: 'e1', position: { x: 10, y: 10 }, productionRate: 100, stored: 500, maxStored: 3000 }] });
+    const result = executeTick({ ...world, energyNodes: [{ id: 'e1', position: { x: 10, y: 10 }, productionRate: 100, stored: 500, maxStored: 3000, createdAt: 0 }] });
     expect(result.world.energyNodes[0].stored).toBe(600);
   });
 

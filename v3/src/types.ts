@@ -67,6 +67,7 @@ export interface ResourceNode {
   readonly position: Position;
   readonly type: ResourceNodeType;
   readonly remaining: number;
+  readonly createdAt: number;
 }
 
 // ============================================================
@@ -78,6 +79,7 @@ export interface EnergyNode {
   readonly productionRate: number;
   readonly stored: number;
   readonly maxStored: number;
+  readonly createdAt: number;
 }
 
 // ============================================================

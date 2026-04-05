@@ -386,7 +386,7 @@ export function createWorld(config: WorldConfig, rng: Rng, worldEngine: WorldEng
     const { id, world: w } = nextObjectId(world);
     world = {
       ...w,
-      resourceNodes: [...w.resourceNodes, { id, position: pos, type: 'OreNode', remaining: config.nodeRemaining }],
+      resourceNodes: [...w.resourceNodes, { id, position: pos, type: 'OreNode', remaining: config.nodeRemaining, createdAt: 0 }],
     };
   }
 
@@ -396,7 +396,7 @@ export function createWorld(config: WorldConfig, rng: Rng, worldEngine: WorldEng
     const { id, world: w } = nextObjectId(world);
     world = {
       ...w,
-      resourceNodes: [...w.resourceNodes, { id, position: pos, type: 'CrystalNode', remaining: config.nodeRemaining }],
+      resourceNodes: [...w.resourceNodes, { id, position: pos, type: 'CrystalNode', remaining: config.nodeRemaining, createdAt: 0 }],
     };
   }
 
@@ -409,6 +409,7 @@ export function createWorld(config: WorldConfig, rng: Rng, worldEngine: WorldEng
       energyNodes: [...w.energyNodes, {
         id, position: pos, productionRate: config.energyProductionRate,
         stored: config.energyMaxStored, maxStored: config.energyMaxStored,
+        createdAt: 0,
       }],
     };
   }

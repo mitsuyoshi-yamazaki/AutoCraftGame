@@ -37,10 +37,10 @@ function makeWorld(): World {
     width: 20,
     height: 20,
     resourceNodes: [
-      { id: 'r1', position: { x: 5, y: 5 }, type: 'OreNode', remaining: 50 },
+      { id: 'r1', position: { x: 5, y: 5 }, type: 'OreNode', remaining: 50, createdAt: 0 },
     ],
     energyNodes: [
-      { id: 'e1', position: { x: 10, y: 10 }, productionRate: 150, stored: 3000, maxStored: 3000 },
+      { id: 'e1', position: { x: 10, y: 10 }, productionRate: 150, stored: 3000, maxStored: 3000, createdAt: 0 },
     ],
     remains: [],
     characters: [],
