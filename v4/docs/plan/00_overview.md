@@ -23,6 +23,6 @@ v3以前との互換性は一切不要。プログラム形式、セーブデー
 ## 検討資料の構成
 
 - [01_vm_architecture.md](01_vm_architecture.md) — VMアーキテクチャ（メモリモデル、ワードサイズ、実行モデル）
-- [02_game_interface.md](02_game_interface.md) — ゲーム世界とのインターフェース（アクション、センサー、コンポーネント制御）
-- [03_self_replication.md](03_self_replication.md) — 自己複製の実現方法（WRITE、子メモリアクセス、変異）
-- [04_open_questions.md](04_open_questions.md) — 未決定事項の一覧
+- [02_game_interface.md](02_game_interface.md) — ゲーム世界とのインターフェース（I/O空間、アクション、ローカルID、SENSE）
+- [03_self_replication.md](03_self_replication.md) — 自己複製の実現方法（WRITE、変異）
+- [04_open_questions.md](04_open_questions.md) — 決定済み事項と未決定事項の一覧
