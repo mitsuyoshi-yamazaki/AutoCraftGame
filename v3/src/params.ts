@@ -118,8 +118,8 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
 
   registersPerComponent: 4,
 
-  remainsAbsorptionTicks: 300,
-  nodeRegenerationThreshold: 80,
+  remainsAbsorptionTicks: 600,
+  nodeRegenerationThreshold: 50,
   disassembleSpillage: {
     Frame: { Metal: 1 },
     Actuator: { Metal: 1 },

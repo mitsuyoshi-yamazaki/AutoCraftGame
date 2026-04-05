@@ -337,7 +337,7 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   height: 60,
   oreNodeCount: 80,
   crystalNodeCount: 80,
-  nodeRemaining: 150,
+  nodeRemaining: 225,
   energyNodeCount: 60,
   energyProductionRate: 75,
   energyMaxStored: 2000,

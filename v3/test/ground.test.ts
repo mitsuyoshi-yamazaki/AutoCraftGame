@@ -207,7 +207,8 @@ describe('ground', () => {
     it('does not spawn when below threshold', () => {
       let world = makeWorld({ width: 5, height: 5 });
       let grid = world.groundGrid;
-      grid = addToGround(grid, 5, 5, { x: 2.5, y: 2.5 }, 79, 0);
+      // Below threshold (50): 49 should not trigger
+      grid = addToGround(grid, 5, 5, { x: 2.5, y: 2.5 }, 49, 0);
       world = { ...world, groundGrid: grid };
 
       const result = regenerateNodes(world, params);
@@ -217,18 +218,17 @@ describe('ground', () => {
     it('clears only the regenerated resource from 9 cells', () => {
       let world = makeWorld({ width: 5, height: 5 });
       let grid = world.groundGrid;
-      // Both ore and crystal, but only ore reaches threshold
-      grid = addToGround(grid, 5, 5, { x: 2.5, y: 2.5 }, 80, 50);
+      // Both ore and crystal, but only ore reaches threshold (50)
+      grid = addToGround(grid, 5, 5, { x: 2.5, y: 2.5 }, 50, 30);
       world = { ...world, groundGrid: grid };
 
       const result = regenerateNodes(world, params);
       expect(result.resourceNodes).toHaveLength(1);
       expect(result.resourceNodes[0].type).toBe('OreNode');
-      // Crystal should still be in grid (at cell 2,2, inside (1,1)'s Moore neighborhood which was cleared for ore only)
-      // Cell (2,2) crystal is untouched since only ore was cleared
+      // Crystal (30) is below threshold, should still be in grid
       const cell22 = result.groundGrid[2 * 5 + 2];
       expect(cell22.ore).toBe(0);
-      expect(cell22.crystal).toBe(50);
+      expect(cell22.crystal).toBe(30);
     });
   });
 
@@ -238,7 +238,8 @@ describe('ground', () => {
         inventory: { Ore: 10 },
         createdAt: 0,
       });
-      const world = makeWorld({ tick: 300, remains: [remains] });
+      // absorptionTicks=600, so tick 600 should absorb remains from tick 0
+      const world = makeWorld({ tick: 600, remains: [remains] });
 
       const result = absorbOldRemains(world, params);
       expect(result.remains).toHaveLength(0);
@@ -253,7 +254,8 @@ describe('ground', () => {
         inventory: { Ore: 10 },
         createdAt: 100,
       });
-      const world = makeWorld({ tick: 300, remains: [remains] });
+      // tick 600, createdAt 100 → age=500 < 600 → kept
+      const world = makeWorld({ tick: 600, remains: [remains] });
 
       const result = absorbOldRemains(world, params);
       expect(result.remains).toHaveLength(1);
@@ -371,9 +373,9 @@ describe('ground', () => {
       });
       // Frame = Ore×6, Actuator = Ore×2 + Crystal×2, Metal = Ore×2
       // Total: Ore = 6+2+3+2 = 13, Crystal = 2+2 = 4
-      let world = makeWorld({ tick: 300, remains: [remains] });
+      let world = makeWorld({ tick: 600, remains: [remains] });
 
-      // Step 1: Absorb remains
+      // Step 1: Absorb remains (absorptionTicks=600, age=600 >= 600)
       world = absorbOldRemains(world, params);
       expect(world.remains).toHaveLength(0);
 

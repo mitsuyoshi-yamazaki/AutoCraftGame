@@ -55,6 +55,7 @@ function parseArgs(args: string[]) {
   let initialEnergy = 5000;
   let counts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3];
   const configOverrides: Partial<WorldConfig> = {};
+  const paramsOverrides: Record<string, number> = {};
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -75,9 +76,11 @@ function parseArgs(args: string[]) {
       case '--node-remaining': configOverrides.nodeRemaining = parseInt(args[++i], 10); break;
       case '--energy-prod-rate': configOverrides.energyProductionRate = parseInt(args[++i], 10); break;
       case '--energy-max-stored': configOverrides.energyMaxStored = parseInt(args[++i], 10); break;
+      case '--absorption-ticks': paramsOverrides.remainsAbsorptionTicks = parseInt(args[++i], 10); break;
+      case '--regen-threshold': paramsOverrides.nodeRegenerationThreshold = parseInt(args[++i], 10); break;
     }
   }
-  return { ticks, seed, snapshotInterval, initialEnergy, counts, configOverrides };
+  return { ticks, seed, snapshotInterval, initialEnergy, counts, configOverrides, paramsOverrides };
 }
 
 function loadProgram(path: string, count: number): ProgramDef {
@@ -117,7 +120,8 @@ function main() {
     loadProgram(path, opts.counts[i] ?? 3),
   );
 
-  const engine = createEngine(DEFAULT_GAME_PARAMS);
+  const gameParams = { ...DEFAULT_GAME_PARAMS, ...opts.paramsOverrides };
+  const engine = createEngine(gameParams);
   const worldConfig: WorldConfig = { ...DEFAULT_WORLD_CONFIG, ...opts.configOverrides };
   const rng = createRng(opts.seed);
   let world = engine.createWorld(worldConfig, rng);
@@ -214,6 +218,7 @@ function main() {
   console.log(`World: ${worldConfig.width}x${worldConfig.height}`);
   console.log(`OreNodes: ${worldConfig.oreNodeCount}, CrystalNodes: ${worldConfig.crystalNodeCount}, EnergyNodes: ${worldConfig.energyNodeCount}`);
   console.log(`NodeRemaining: ${worldConfig.nodeRemaining}, EnergyProdRate: ${worldConfig.energyProductionRate}, EnergyMaxStored: ${worldConfig.energyMaxStored}`);
+  console.log(`AbsorptionTicks: ${gameParams.remainsAbsorptionTicks}, RegenThreshold: ${gameParams.nodeRegenerationThreshold}`);
   console.log(`Programs: ${programs.map(p => `${p.name}(x${p.count})`).join(', ')}`);
   console.log(`Initial energy: ${opts.initialEnergy}`);
   console.log('');
