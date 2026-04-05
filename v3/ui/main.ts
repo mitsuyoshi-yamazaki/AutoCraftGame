@@ -1,4 +1,4 @@
-import type { World, SimulationEvent, Action, Program, ComponentType, Position } from '@/types.js';
+import type { World, SimulationEvent, Action, Program, ComponentType, Position, GroundCell } from '@/types.js';
 import { createRng, addCharacter } from '@/world.js';
 import type { WorldConfig } from '@/world.js';
 import { DEFAULT_WORLD_CONFIG } from '@/world.js';
@@ -13,6 +13,7 @@ import { Renderer } from './renderer.js';
 import type { HitResult } from './renderer.js';
 import { GAME_VERSION } from '@/version.js';
 import { serialize, deserialize, formatTimestamp, buildSaveFileName } from '@/save-load.js';
+import { positionToCell, groundGridDimensions } from '@/ground.js';
 import type { SaveData, SavedEvent } from '@/save-load.js';
 import selfReplicatorProgram from '../programs/self-replicator.json';
 import selfReplicatorExplorerProgram from '../programs/self-replicator-explorer.json';
@@ -46,6 +47,7 @@ type Selection =
   | { kind: 'resourceNode'; id: string }
   | { kind: 'energyNode'; id: string }
   | { kind: 'remains'; id: string }
+  | { kind: 'ground'; cellX: number; cellY: number }
   | null;
 
 interface UIState {
@@ -190,6 +192,11 @@ async function main(): Promise<void> {
         else if (hit.kind === 'resourceNode') selection = { kind: 'resourceNode', id: hit.resourceNode.id };
         else if (hit.kind === 'energyNode') selection = { kind: 'energyNode', id: hit.energyNode.id };
         else if (hit.kind === 'remains') selection = { kind: 'remains', id: hit.remains.id };
+        else if (hit.kind === 'ground') {
+          const { gridWidth, gridHeight } = groundGridDimensions(state.world);
+          const { cellX, cellY } = positionToCell(hit.position, gridWidth, gridHeight);
+          selection = { kind: 'ground', cellX, cellY };
+        }
       }
       state = { ...state, selection };
       render();
@@ -303,6 +310,9 @@ function getSelectedPosition(): Position | null {
     const r = state.world.remains.find((rm) => rm.id === sel.id);
     return r?.position ?? null;
   }
+  if (sel.kind === 'ground') {
+    return { x: sel.cellX + 0.5, y: sel.cellY + 0.5 };
+  }
   return null;
 }
 
@@ -406,11 +416,27 @@ function updateSelected(): void {
     const invText = invEntries.length > 0
       ? invEntries.map(([k, v]) => `${k}: ${v}`).join(', ')
       : 'empty';
+    const elapsed = state.world.tick - rem.createdAt;
+    const ticksLeft = Math.max(0, engine.params.remainsAbsorptionTicks - elapsed);
     selectedContent.innerHTML = `
       <div><strong>Remains</strong></div>
       <div>Pos: (${rem.position.x.toFixed(1)}, ${rem.position.y.toFixed(1)})</div>
+      <div>Absorption: ${ticksLeft} ticks</div>
       <div>Components: ${rem.components.join(', ')}</div>
       <div>Inventory: ${invText}</div>
+    `;
+    return;
+  }
+
+  if (sel.kind === 'ground') {
+    const { gridWidth } = groundGridDimensions(state.world);
+    const idx = sel.cellY * gridWidth + sel.cellX;
+    const cell = state.world.groundGrid[idx];
+    if (!cell) { selectedContent.innerHTML = '<em>Click an object</em>'; return; }
+    selectedContent.innerHTML = `
+      <div><strong>Ground (${sel.cellX}, ${sel.cellY})</strong></div>
+      <div>Ore: ${cell.ore}</div>
+      <div>Crystal: ${cell.crystal}</div>
     `;
     return;
   }

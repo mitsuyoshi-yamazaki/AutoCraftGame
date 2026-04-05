@@ -59,7 +59,8 @@ export type HitResult =
   | { kind: 'character'; character: Character }
   | { kind: 'resourceNode'; resourceNode: ResourceNode }
   | { kind: 'energyNode'; energyNode: EnergyNode }
-  | { kind: 'remains'; remains: Remains };
+  | { kind: 'remains'; remains: Remains }
+  | { kind: 'ground'; position: Position };
 
 // ============================================================
 // Coordinate transform
@@ -586,6 +587,11 @@ export class Renderer {
       if (Math.sqrt(dx * dx + dy * dy) <= REMAINS_RADIUS * 1.5) {
         return { kind: 'remains', remains: r };
       }
+    }
+
+    // Nothing hit — return ground position
+    if (worldPos.x >= 0 && worldPos.x <= world.width && worldPos.y >= 0 && worldPos.y <= world.height) {
+      return { kind: 'ground', position: worldPos };
     }
 
     return null;
