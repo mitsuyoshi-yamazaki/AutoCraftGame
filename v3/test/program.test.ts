@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { angleTo, createProgramEngine } from '../src/program.js';
 import { DEFAULT_GAME_PARAMS } from '../src/params.js';
 import type { Character, World, Program, Condition } from '../src/types.js';
+import { createGroundGrid } from '../src/ground.js';
 
 const { evaluateProgram, findNearestAngle } = createProgramEngine(DEFAULT_GAME_PARAMS);
 
@@ -43,6 +44,7 @@ function makeWorld(): World {
     ],
     remains: [],
     characters: [],
+    groundGrid: createGroundGrid(20, 20),
     nextCharacterId: 1,
     nextObjectId: 100,
     tick: 0,

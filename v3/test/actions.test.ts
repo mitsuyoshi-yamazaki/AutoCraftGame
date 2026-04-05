@@ -3,6 +3,7 @@ import type { Character, World } from '../src/types.js';
 import { createEngine } from '../src/engine.js';
 import { createForceMap } from '../src/physics.js';
 import { DEFAULT_GAME_PARAMS } from '../src/params.js';
+import { createGroundGrid } from '../src/ground.js';
 
 const engine = createEngine(DEFAULT_GAME_PARAMS);
 const { executeAction } = engine.simulation;
@@ -52,6 +53,7 @@ function makeWorld(chars: Character[]): World {
     ],
     remains: [],
     characters: chars,
+    groundGrid: createGroundGrid(20, 20),
     nextCharacterId: chars.length + 1,
     nextObjectId: 100,
     tick: 0,

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Character, World, Program } from '../src/types.js';
 import { createEngine } from '../src/engine.js';
 import { DEFAULT_GAME_PARAMS } from '../src/params.js';
+import { createGroundGrid } from '../src/ground.js';
 
 const engine = createEngine(DEFAULT_GAME_PARAMS);
 const { executeTick, runSimulation } = engine;
@@ -32,6 +33,7 @@ function makeWorld(chars: Character[]): World {
     ],
     remains: [],
     characters: chars,
+    groundGrid: createGroundGrid(20, 20),
     nextCharacterId: chars.length + 1,
     nextObjectId: 100,
     tick: 0,

@@ -44,6 +44,11 @@ export interface GameParams {
   // Registers
   readonly registersPerComponent: number;
 
+  // Resource regeneration
+  readonly remainsAbsorptionTicks: number;
+  readonly nodeRegenerationThreshold: number;
+  readonly disassembleSpillage: Readonly<Record<ComponentType, Readonly<Record<string, number>>>>;
+
   // Recipes
   readonly processRecipes: readonly ProcessRecipe[];
   readonly craftRecipes: readonly CraftRecipe[];
@@ -112,6 +117,21 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   senseRange: 10.0,
 
   registersPerComponent: 4,
+
+  remainsAbsorptionTicks: 300,
+  nodeRegenerationThreshold: 80,
+  disassembleSpillage: {
+    Frame: { Metal: 1 },
+    Actuator: { Metal: 1 },
+    Sensor: { Circuit: 1 },
+    Processor: { Circuit: 1 },
+    Harvester: { Metal: 1 },
+    Assembler: { Metal: 1 },
+    Disassembler: { Metal: 1 },
+    Charger: { Circuit: 1 },
+    MemoryCore: { Circuit: 1 },
+    Register: {},
+  },
 
   processRecipes: [
     { output: 'Metal', inputs: { Ore: 2 } },

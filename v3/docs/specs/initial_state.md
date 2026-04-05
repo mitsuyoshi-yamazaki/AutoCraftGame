@@ -66,7 +66,11 @@ v2のタイル占有制約は廃止される。代わりに、**衝突しない�
 
 壁は初期状態として暗黙的に存在し、CLIパラメータでの変更対象ではない。
 
-## 7. 初期状態の定数
+## 7. 地面グリッド（GroundGrid）の初期状態
+
+ワールド生成時に、全セルが `{ ore: 0, crystal: 0 }` の GroundGrid を生成する。グリッドサイズは `floor(WORLD_WIDTH) × floor(WORLD_HEIGHT)` セル。
+
+## 8. 初期状態の定数
 
 v2からの変更・追加分のみ記載。v2の定数（NODE_DEFAULT_REMAINING, ENERGY_NODE_COUNT等）は引き続き使用する。
 

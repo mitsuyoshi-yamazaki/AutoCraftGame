@@ -1,5 +1,6 @@
 import type { World, ResourceNode, EnergyNode, Remains, Position, Character, ComponentType, Inventory } from './types.js';
 import type { GameParams } from './params.js';
+import { createGroundGrid, groundGridDimensions } from './ground.js';
 import type { SpatialGrid } from './spatial-grid.js';
 import { queryRange } from './spatial-grid.js';
 
@@ -266,8 +267,9 @@ export function createRemains(
   position: Position,
   components: readonly ComponentType[],
   inventory: Inventory,
+  createdAt: number,
 ): Remains {
-  return { id, position, components, inventory };
+  return { id, position, components, inventory, createdAt };
 }
 
 export function addRemains(world: World, remains: Remains): World {
@@ -360,6 +362,7 @@ function findNonCollidingPosition(
 }
 
 export function createWorld(config: WorldConfig, rng: Rng, worldEngine: WorldEngine): World {
+  const { gridWidth, gridHeight } = groundGridDimensions(config);
   let world: World = {
     width: config.width,
     height: config.height,
@@ -367,6 +370,7 @@ export function createWorld(config: WorldConfig, rng: Rng, worldEngine: WorldEng
     energyNodes: [],
     remains: [],
     characters: [],
+    groundGrid: createGroundGrid(gridWidth, gridHeight),
     nextCharacterId: 1,
     nextObjectId: 1,
     tick: 0,

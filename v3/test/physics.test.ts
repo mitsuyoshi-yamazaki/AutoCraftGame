@@ -5,6 +5,7 @@ import { createRecipeEngine } from '../src/recipes.js';
 import { createWorldEngine } from '../src/world.js';
 import { DEFAULT_GAME_PARAMS } from '../src/params.js';
 import { buildGrid } from '../src/spatial-grid.js';
+import { createGroundGrid } from '../src/ground.js';
 
 const recipeEngine = createRecipeEngine(DEFAULT_GAME_PARAMS);
 const worldEngine = createWorldEngine(DEFAULT_GAME_PARAMS);
@@ -34,6 +35,7 @@ function makeWorld(chars: Character[]): World {
     energyNodes: [],
     remains: [],
     characters: chars,
+    groundGrid: createGroundGrid(20, 20),
     nextCharacterId: chars.length + 1,
     nextObjectId: 1,
     tick: 0,

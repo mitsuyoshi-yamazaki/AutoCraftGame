@@ -15,6 +15,7 @@ import {
   nextObjectId,
 } from './world.js';
 import { buildGrid } from './spatial-grid.js';
+import { absorbOldRemains, regenerateNodes } from './ground.js';
 
 // ============================================================
 // SimulationEngine — param-dependent functions (maker pattern)
@@ -91,7 +92,7 @@ export function createSimulationEngine(
         allEvents.push({ type: 'character_died', id: character.id });
         const { id: remainsId, world: w } = nextObjectId(currentWorld);
         currentWorld = w;
-        const remains = createRemains(remainsId, character.position, character.components, character.inventory);
+        const remains = createRemains(remainsId, character.position, character.components, character.inventory, currentWorld.tick);
         currentWorld = addRemains(currentWorld, remains);
       }
     }
@@ -99,7 +100,13 @@ export function createSimulationEngine(
       currentWorld = removeCharacter(currentWorld, id);
     }
 
-    // Step 10: Increment tick
+    // Step 10: Remains absorption into ground grid
+    currentWorld = absorbOldRemains(currentWorld, params);
+
+    // Step 11: Resource node regeneration from ground grid
+    currentWorld = regenerateNodes(currentWorld, params);
+
+    // Step 12: Increment tick
     currentWorld = { ...currentWorld, tick: currentWorld.tick + 1 };
 
     const actions = new Map<string, Action>(decisions.map((d) => [d.characterId, d.action]));

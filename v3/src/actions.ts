@@ -35,6 +35,7 @@ import type { WorldEngine } from './world.js';
 import type { ProgramEngine } from './program.js';
 import type { ForceMap } from './physics.js';
 import type { SpatialGrid } from './spatial-grid.js';
+import { computeSpillage, addToGround, groundGridDimensions } from './ground.js';
 
 // ============================================================
 // ActionEngine dependencies
@@ -354,6 +355,40 @@ export function createActionEngine(params: GameParams, deps: ActionEngineDeps): 
     return ok(updateCharacter(world, updated), character, { op: 'REPAIR' });
   }
 
+  function disassembleComponent(
+    world: World, character: Character, componentName: string, remains: Remains,
+  ): { character: Character; world: World } {
+    const recipe = recipeEngine.findCraftRecipe(componentName);
+    let updatedCharacter: Character;
+    let newWorld = world;
+
+    if (recipe) {
+      // Compute net items: recipe inputs minus spillage
+      const spillageDef = params.disassembleSpillage[componentName as ComponentType] ?? {};
+      const netItems: Record<string, number> = {};
+      for (const [item, count] of Object.entries(recipe.inputs)) {
+        const loss = spillageDef[item] ?? 0;
+        const net = count - loss;
+        if (net > 0) netItems[item] = net;
+      }
+      updatedCharacter = { ...character, inventory: addItems(character.inventory, netItems) };
+
+      // Add spillage to ground grid
+      const spill = computeSpillage(componentName, params);
+      if (spill.ore > 0 || spill.crystal > 0) {
+        const { gridWidth, gridHeight } = groundGridDimensions(world);
+        newWorld = {
+          ...newWorld,
+          groundGrid: addToGround(newWorld.groundGrid, gridWidth, gridHeight, remains.position, spill.ore, spill.crystal),
+        };
+      }
+    } else {
+      updatedCharacter = { ...character, inventory: addItem(character.inventory, componentName) };
+    }
+
+    return { character: updatedCharacter, world: newWorld };
+  }
+
   function executeDisassemble(world: World, character: Character, grid?: SpatialGrid): ActionResult {
     if (!hasComponent(character, 'Disassembler')) {
       return fail(world, character, { op: 'DISASSEMBLE' });
@@ -372,13 +407,11 @@ export function createActionEngine(params: GameParams, deps: ActionEngineDeps): 
       if (newRemainsInv[itemName] <= 0) delete newRemainsInv[itemName];
 
       let updatedCharacter: Character;
+      let newWorld = world;
       if (isComponentType(itemName)) {
-        const recipe = recipeEngine.findCraftRecipe(itemName);
-        if (recipe) {
-          updatedCharacter = { ...character, inventory: addItems(character.inventory, recipe.inputs) };
-        } else {
-          updatedCharacter = { ...character, inventory: addItem(character.inventory, itemName) };
-        }
+        const result = disassembleComponent(world, character, itemName, remains);
+        updatedCharacter = result.character;
+        newWorld = result.world;
       } else {
         updatedCharacter = { ...character, inventory: addItem(character.inventory, itemName) };
       }
@@ -386,7 +419,7 @@ export function createActionEngine(params: GameParams, deps: ActionEngineDeps): 
       const newRemains = { ...remains, inventory: newRemainsInv };
       const isEmpty = Object.keys(newRemainsInv).length === 0 && newRemains.components.length === 0;
 
-      let newWorld = updateCharacter(world, updatedCharacter);
+      newWorld = updateCharacter(newWorld, updatedCharacter);
       newWorld = updateRemains(newWorld, remains, isEmpty ? null : newRemains);
 
       return ok(newWorld, character, { op: 'DISASSEMBLE' });
@@ -399,18 +432,12 @@ export function createActionEngine(params: GameParams, deps: ActionEngineDeps): 
       const newComponents = [...remains.components];
       newComponents.splice(idx, 1);
 
-      const recipe = recipeEngine.findCraftRecipe(componentName);
-      let updatedCharacter: Character;
-      if (recipe) {
-        updatedCharacter = { ...character, inventory: addItems(character.inventory, recipe.inputs) };
-      } else {
-        updatedCharacter = { ...character, inventory: addItem(character.inventory, componentName) };
-      }
+      const { character: updatedCharacter, world: newWorld1 } = disassembleComponent(world, character, componentName, remains);
 
       const isEmpty = newComponents.length === 0 && Object.keys(remains.inventory).length === 0;
       const newRemains = { ...remains, components: newComponents };
 
-      let newWorld = updateCharacter(world, updatedCharacter);
+      let newWorld = updateCharacter(newWorld1, updatedCharacter);
       newWorld = updateRemains(newWorld, remains, isEmpty ? null : newRemains);
 
       return ok(newWorld, character, { op: 'DISASSEMBLE' });

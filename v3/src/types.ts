@@ -88,7 +88,18 @@ export interface Remains {
   readonly position: Position;
   readonly components: readonly ComponentType[];
   readonly inventory: Inventory;
+  readonly createdAt: number;
 }
+
+// ============================================================
+// Ground grid — tracks absorbed materials per cell
+// ============================================================
+export interface GroundCell {
+  readonly ore: number;
+  readonly crystal: number;
+}
+
+export type GroundGrid = readonly GroundCell[];
 
 // ============================================================
 // Condition (Program DSL)
@@ -198,6 +209,7 @@ export interface World {
   readonly energyNodes: readonly EnergyNode[];
   readonly remains: readonly Remains[];
   readonly characters: readonly Character[];
+  readonly groundGrid: GroundGrid;
   readonly nextCharacterId: number;
   readonly nextObjectId: number;
   readonly tick: number;

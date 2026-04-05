@@ -295,11 +295,44 @@ v3のMOVEは、エネルギーが十分であれば常に成功する（力を�
 
 ## 5. その他のアクション変更
 
-### 5-1. HARVEST / RECHARGE / DISASSEMBLE
+### 5-1. HARVEST / RECHARGE
 
 前提条件の「隣接タイル」を「distance ≤ INTERACT_RANGE」に変更する。それ以外の仕様（必要コンポーネント、効果、失敗条件）はv2と同一。
 
 対象の選択順は 3-3節 に従う。
+
+### 5-1b. DISASSEMBLE
+
+前提条件の「隣接タイル」を「distance ≤ INTERACT_RANGE」に変更する。対象の選択順は 3-3節 に従う。
+
+v2からの追加仕様として、コンポーネントをDISASSEMBLEする際に物質の一部が地面に流出する。
+
+#### 流出ルール
+
+- 生リソース（Ore, Crystal）のDISASSEMBLE: 流出なし
+- 加工素材（Metal, Circuit）のDISASSEMBLE: 流出なし
+- コンポーネントのDISASSEMBLE: 以下のテーブルに定義された量が流出
+
+これは `remains.inventory` からコンポーネントを取り出す場合と、`remains.components` からコンポーネントを取り出す場合の両方に適用される。
+
+#### コンポーネント別流出テーブル
+
+| Component | CRAFTレシピ | 流出（加工素材） | → グリッド変換 | キャラクターが受け取る量 |
+|---|---|---|---|---|
+| Frame | Metal×3 | Metal×1 | ore += 2 | Metal×2 |
+| Actuator | Metal×1, Circuit×1 | Metal×1 | ore += 2 | Circuit×1 |
+| Sensor | Circuit×2 | Circuit×1 | crystal += 2 | Circuit×1 |
+| Processor | Circuit×3 | Circuit×1 | crystal += 2 | Circuit×2 |
+| Harvester | Metal×2 | Metal×1 | ore += 2 | Metal×1 |
+| Assembler | Metal×2, Circuit×1 | Metal×1 | ore += 2 | Metal×1, Circuit×1 |
+| Disassembler | Metal×2, Circuit×1 | Metal×1 | ore += 2 | Metal×1, Circuit×1 |
+| Charger | Metal×1, Circuit×2 | Circuit×1 | crystal += 2 | Metal×1, Circuit×1 |
+| MemoryCore | Circuit×2 | Circuit×1 | crystal += 2 | Circuit×1 |
+| Register | Circuit×1 | なし | — | Circuit×1 |
+
+流出先のグリッドセルは残骸の位置に対応するセルである。流出量は加工素材（Metal/Circuit）で定義され、グリッドには原料（Ore/Crystal）に変換して加算する（Metal×1 → ore+=2, Circuit×1 → crystal+=2）。
+
+> **設計意図**: スカベンジャー（Disassembler保持）がエネルギーと残骸のみで永久に自己複製する問題を解決する。DISASSEMBLEのたびに物質が地面に流出するため、分解・再組立のループは非保存的となり、長期的に物質が枯渇する。流出した物質はリソースノード再生（セクション6-5）を通じて世界に還元される。
 
 ### 5-2. ASSEMBLE
 
@@ -363,9 +396,79 @@ v2と同一。キャラクター死亡時にその位置に残骸が生成され
 
 残骸は固定オブジェクト（速度なし）として生成される。死亡キャラクターの速度は残骸に引き継がれない。
 
+残骸は生成時の tick を `createdAt` として記録する。
+
 ### 6-2. 残骸と衝突
 
 残骸は半径を持つ固定オブジェクトであり、キャラクターとの衝突判定が行われる。衝突時はキャラクター側にのみ反発力が作用する（残骸は動かない）。
+
+### 6-3. 地面グリッド（GroundGrid）
+
+ワールドを 1×1 の内部グリッドに分割し、地面に染み込んだ物質量を追跡する。
+
+```
+GroundCell = { ore: number, crystal: number }
+GroundGrid = GroundCell[] (flat array, index = y * gridWidth + x)
+```
+
+- グリッドサイズ: `floor(width) × floor(height)` セル（デフォルト 60×60 = 3,600 セル）
+- 各セルの初期値: `{ ore: 0, crystal: 0 }`
+- セル座標の算出: `cellX = min(floor(position.x), gridWidth - 1)`, `cellY = min(floor(position.y), gridHeight - 1)`
+
+World に `groundGrid` フィールドを追加する。
+
+### 6-4. 残骸の地面吸収
+
+`REMAINS_ABSORPTION_TICKS` tick 経過した残骸（`currentTick - remains.createdAt >= REMAINS_ABSORPTION_TICKS`）は消滅し、全内容物が GroundGrid に吸収される。
+
+#### 物質変換ルール（全量ロスなし）
+
+| 元のアイテム | グリッドへの変換 |
+|---|---|
+| Ore | ore += 1 |
+| Crystal | crystal += 1 |
+| Metal | ore += 2（PROCESSレシピ逆算: Ore×2 → Metal） |
+| Circuit | crystal += 2（PROCESSレシピ逆算: Crystal×2 → Circuit） |
+| コンポーネント | CRAFTレシピ逆算 → Metal/Circuit → さらに上記でOre/Crystalへ |
+
+例: Frame → Metal×3 → ore += 6
+例: Actuator → Metal×1 + Circuit×1 → ore += 2, crystal += 2
+
+inventory のアイテムも components も同一のルールで変換する。
+
+吸収先のグリッドセルは残骸の位置に対応するセルである。
+
+> **設計意図**: ゲーム世界の物質（Ore/Crystal）の総量は不変である。残骸が永久に残留して物質が固定されることを防ぎ、物質の循環を実現する。
+
+### 6-5. リソースノード再生
+
+グリッド全セルをラスタースキャン順（y=0,x=0 → y=0,x=1 → ... → y=max,x=max）で走査し、各セルについてムーア近傍（自セル + 8近傍 = 最大9セル）の ore/crystal 合計を**独立に**評価する。
+
+- ore 合計 ≥ `NODE_REGENERATION_THRESHOLD` → OreNode を生成
+- crystal 合計 ≥ `NODE_REGENERATION_THRESHOLD` → CrystalNode を生成
+- ore と crystal が同時に閾値を超えた場合、両方のノードを生成する
+
+#### 生成されるノードの属性
+
+- `remaining`: 9セルの該当リソース合計値
+- `position`: セル中心にオフセットを加えた座標
+  - OreNode: `(cellX + 0.5 + 0.2, cellY + 0.5)` — x方向に +0.2
+  - CrystalNode: `(cellX + 0.5, cellY + 0.5 + 0.2)` — y方向に +0.2
+- `id`: `nextObjectId` で発番
+
+ノード生成後、9セルの該当リソース（ore または crystal）を 0 にクリアする。
+
+#### 境界セルの扱い
+
+ワールド端のセルはムーア近傍の一部が存在しない。存在するセルのみで合計を計算する。端セルは近傍が少ない分、再生に必要な1セルあたりの蓄積量が多くなる。
+
+#### 既存オブジェクトとの重複
+
+再生位置に既存のオブジェクトが存在しても、衝突チェックせず生成する。リソースノードは不動オブジェクトであり、衝突反発でキャラクターが押し出される。
+
+#### 決定論
+
+走査順序が固定（ラスタースキャン）であるため、処理は決定論的である。あるセルの再生で9セルがクリアされた場合、後続のセルはクリア後の値で評価される。
 
 ---
 
@@ -498,25 +601,28 @@ fnがnullを返した場合、nullがレジスタに書き込まれる（前の�
 
 ## 8. ゲームループの変更
 
-v2の8ステップを以下の10ステップに変更する。
+v2の8ステップを以下の12ステップに変更する。
 
 ```
 v3 ゲームループ:
 
-1. EnergyNodeのエネルギー生産
-2. 全キャラクターがアクションを決定（Programの評価 + set_registersの適用）
-3. アクションの順次実行
-   - MOVE: 力の蓄積（物理更新で適用される）
-   - HARVEST/RECHARGE/DISASSEMBLE/WRITE/ACTIVATE: 距離判定で実行
-   - PROCESS/CRAFT/ASSEMBLE/REPAIR: v2と同一
-   - エネルギーチェック・消費・失敗ペナルティはv2と同一
-4. 摩擦力の算出（全キャラクター）
-5. 衝突判定と反発力の算出（全オブジェクトペア）
-6. 物理更新（力の合成 → 加速度 → 速度更新 → 位置更新）
-7. エネルギー基礎代謝の適用
-8. 耐久度自然減衰（全キャラクター -1）
-9. 死亡判定（耐久度 ≤ 0 → 残骸生成 + キャラクター除去）
-10. tick++
+1.  EnergyNodeのエネルギー生産
+2.  全キャラクターがアクションを決定（Programの評価 + set_registersの適用）
+3.  アクションの順次実行
+    - MOVE: 力の蓄積（物理更新で適用される）
+    - HARVEST/RECHARGE/DISASSEMBLE/WRITE/ACTIVATE: 距離判定で実行
+    - DISASSEMBLE: コンポーネント流出あり（セクション5-1b）
+    - PROCESS/CRAFT/ASSEMBLE/REPAIR: v2と同一
+    - エネルギーチェック・消費・失敗ペナルティはv2と同一
+4.  摩擦力の算出（全キャラクター）
+5.  衝突判定と反発力の算出（全オブジェクトペア）
+6.  物理更新（力の合成 → 加速度 → 速度更新 → 位置更新）
+7.  エネルギー基礎代謝の適用
+8.  耐久度自然減衰（全キャラクター -1）
+9.  死亡判定（耐久度 ≤ 0 → 残骸生成 + キャラクター除去）
+10. 残骸の地面吸収（セクション6-4）
+11. リソースノード再生（セクション6-5）
+12. tick++
 ```
 
 ### 8-1. v2からの変更点
@@ -583,6 +689,14 @@ v2の定数に加えて、以下の物理関連定数を追加する。
 | `ENERGY_NODE_RADIUS` | EnergyNodeの衝突半径 | (実装後調整) |
 | `REMAINS_RADIUS` | Remainsの衝突半径 | (実装後調整) |
 
+### 物質循環定数（新規）
+
+| 定数名 | 意味 | デフォルト値 |
+|--------|------|-------------|
+| `REMAINS_ABSORPTION_TICKS` | 残骸が地面に吸収されるまでの経過tick数 | 300 |
+| `NODE_REGENERATION_THRESHOLD` | ムーア近傍9セルの合計がこの値以上でノード再生 | 80 |
+| `DISASSEMBLE_SPILLAGE` | コンポーネントDISASSEMBLE時の流出量（セクション5-1b参照） | コンポーネント別定義 |
+
 ### 廃止される定数
 
 | 定数名 | 理由 |
@@ -606,11 +720,23 @@ v2の定数に加えて、以下の物理関連定数を追加する。
 ```
 Velocity = { vx: number, vy: number }
 
+GroundCell = { ore: number, crystal: number }
+
 Character = {
   ...v2のフィールド,
   velocity: Velocity,     // 新規: 速度ベクトル
   registers: (number | null)[],  // 新規: レジスタ（初期値は全てnull）
   // position: Position は型はv2と同一だが、値は浮動小数点数
+}
+
+Remains = {
+  ...v2のフィールド,
+  createdAt: number,      // 新規: 生成時のtick
+}
+
+World = {
+  ...v2のフィールド,
+  groundGrid: GroundCell[],  // 新規: 地面グリッド（セクション6-3）
 }
 
 SenseData = {
@@ -640,8 +766,8 @@ MOVEアクションの `direction` フィールドは `number | { register: numb
 | 3. エネルギーモデル | 変更なし（v2踏襲） |
 | 4. HARVEST / RECHARGE | 距離判定に変更（セクション3, 5） |
 | 5. 耐久度モデル | 変更なし（v2踏襲） |
-| 6. 死亡と残骸 | セクション6で補足 |
-| 7. DISASSEMBLE | 距離判定に変更（セクション3, 5） |
+| 6. 死亡と残骸 | セクション6で補足（地面グリッド・吸収・再生を追加） |
+| 7. DISASSEMBLE | 距離判定に変更（セクション3, 5）、物質流出を追加（セクション5-1b） |
 | 8. 隣接とタイル占有ルール | **全面廃止** → 物理モデル（セクション2）で置換 |
 | 9. ゲームループ | セクション8で更新 |
 | 10. 定数一覧 | セクション9で追加 |

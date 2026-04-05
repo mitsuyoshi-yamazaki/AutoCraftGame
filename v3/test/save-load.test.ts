@@ -3,6 +3,7 @@ import { serialize, deserialize, VersionMismatchError, formatTimestamp, buildSav
 import type { SaveData } from '../src/save-load.js';
 import { DEFAULT_GAME_PARAMS } from '../src/params.js';
 import { GAME_VERSION } from '../src/version.js';
+import { createGroundGrid } from '../src/ground.js';
 
 function makeSaveData(): SaveData {
   return {
@@ -16,6 +17,7 @@ function makeSaveData(): SaveData {
       energyNodes: [],
       remains: [],
       characters: [],
+      groundGrid: createGroundGrid(20, 20),
       nextCharacterId: 1,
       nextObjectId: 1,
       tick: 42,
