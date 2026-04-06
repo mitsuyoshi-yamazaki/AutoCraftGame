@@ -16,7 +16,7 @@
 └─────────────────────┘
 ```
 
-- I/O空間のワードサイズはプログラム空間と同一
+- I/O空間のワードサイズはプログラム空間と同一（16bit）
 - nullは導入しない。不在スロットのINは0を返す。不在スロットへのOUTは無視
 
 ### アクセス命令
@@ -69,14 +69,6 @@ MemoryCore:    0x9000
 ...
 ```
 
-### スロット共通ヘッダ
-
-```
-+0x00  status: 1=存在, 0=不在（読み取り専用）
-+0x01  command: アクションコマンド書き込み先
-+0x02~ 種別固有のパラメータ/結果領域
-```
-
 ### ディスカバリ（自己構成の認識）
 
 以下の組み合わせで存在確認を行う:
@@ -84,39 +76,149 @@ MemoryCore:    0x9000
 - 種別ごとの接続総数（欠番を含むインデックス上限）
 - 各スロットのstatusフィールド
 
-## アクション一覧（v4最小スコープ）
+## アクション予約: コマンドラスト方式
 
-v3の全アクションを含む（NOOPを除く）:
+### 全アクション共通の規約
 
-| アクション | 概要 | v3での必要コンポーネント |
-|-----------|------|------------------------|
-| MOVE | 移動（方向指定） | Actuator |
-| HARVEST | 資源採取 | Harvester |
-| RECHARGE | エネルギー補給 | Charger |
-| PROCESS | 素材加工 | Assembler |
-| CRAFT | コンポーネント製作 | Assembler |
-| ASSEMBLE | 子の身体生成 | Assembler |
-| WRITE | 対象メモリへの1ワード書き込み | Processor |
-| ACTIVATE | 子の起動 | Processor |
-| SENSE | 周囲の探知 | Sensor |
-| REPAIR | 自身の修理 | Assembler |
-| DISASSEMBLE | 残骸の分解 | Disassembler |
+1. 引数をI/Oスロットに書き込む
+2. 最後にcommandフィールドに値を書き込む → **アクション予約が確定**
+3. command書き込みにより引数領域がクリアされ、結果領域に切り替わる
 
-NOOPは不要（プログラムがアクションを発行しなければNOOP相当）。
+この方式により:
+- 引数の書き込み途中でアクションが受理されることがない
+- 引数と結果が同じ領域を共有し、I/Oスロットを効率的に使う
+- 結果（返り値）はcommand書き込み直後に読み出し可能
 
-### ASSEMBLEの変更
+### スロット共通ヘッダ
 
-- v3: `components`引数はプログラム中にハードコード
-- v4: `components`引数をランタイムに決定する（メモリの値からI/Oスロット経由で指定）
-- ASSEMBLEは返り値として子のローカルIDを返す
+```
++0x00  status    ; 1=存在, 0=不在（読み取り専用）
++0x01  command   ; 書き込み → 予約確定。引数領域をクリアし結果を格納
++0x02~ 引数/結果 共用領域（種別ごとに異なるレイアウト）
+```
 
-### WRITEの変更
+## アクション一覧と各スロットレイアウト
 
-- v3: 自身のプログラム全体を対象にディープコピー
-- v4: 対象キャラクターのメモリにブロック書き込み
-  - 引数: ローカルID、自身のメモリ上のソースアドレス、対象の書き込み先アドレス、書き込みワード数
-  - エネルギーコストは書き込みワード数に比例する
-  - length=1 で1ワード書き込みとしても使用可能（変異の部分上書き等）
+### Actuator — MOVE
+
+```
++0x00  status
++0x01  command        ; 1=MOVE
+--- 引数 ---
++0x02  direction      ; 移動方向（角度、0-359）
+--- 結果（command後）---
++0x02  (クリア: 0)
+```
+
+### Harvester — HARVEST
+
+```
++0x00  status
++0x01  command        ; 1=HARVEST
+--- 引数/結果 ---
+（なし）
+```
+
+### Charger — RECHARGE
+
+```
++0x00  status
++0x01  command        ; 1=RECHARGE
+--- 引数/結果 ---
+（なし）
+```
+
+### Assembler — PROCESS / CRAFT / ASSEMBLE / REPAIR
+
+```
++0x00  status
++0x01  command        ; 1=PROCESS, 2=CRAFT, 3=ASSEMBLE, 4=REPAIR
+--- 引数（command=3: ASSEMBLE）---
++0x02  frame_count
++0x03  actuator_count
++0x04  harvester_count
++0x05  charger_count
++0x06  assembler_count
++0x07  processor_count
++0x08  sensor_count
++0x09  disassembler_count
++0x0A  memorycore_count
+--- 結果（command=3: ASSEMBLE 後）---
++0x02  child_local_id   ; 子のローカルID（即時読み出し可能）
++0x03~ (クリア: 0)
+
+--- 引数（command=1: PROCESS）---
++0x02  recipe           ; 加工レシピ
+--- 結果 ---
++0x02  (クリア: 0)
+
+--- 引数（command=2: CRAFT）---
++0x02  component_type   ; 製作するコンポーネント種別
+--- 結果 ---
++0x02  (クリア: 0)
+
+--- 引数（command=4: REPAIR）---
+（なし）
+--- 結果 ---
+（なし）
+```
+
+### Processor — WRITE / ACTIVATE
+
+```
++0x00  status
++0x01  command         ; 1=WRITE, 2=ACTIVATE
+--- 引数（command=1: WRITE）---
++0x02  target_id       ; 対象のローカルID
++0x03  src_addr        ; 自身のメモリ上のソースアドレス
++0x04  dst_addr        ; 対象のメモリ上の書き込み先アドレス
++0x05  length          ; 書き込みワード数
+--- 結果（command=1: WRITE 後）---
++0x02~ (クリア: 0)
+
+--- 引数（command=2: ACTIVATE）---
++0x02  target_id       ; 対象のローカルID
+--- 結果 ---
++0x02  (クリア: 0)
+```
+
+WRITEのエネルギーコストはlengthに比例する。
+
+### Sensor — SENSE
+
+```
++0x00  status
++0x01  command          ; 1=SENSE
+--- 引数 ---
+（フィルタ等、未決定）
+--- 結果（SENSE実行後）---
++0x02  result_count     ; 検出件数
++0x03  entry_index      ; 現在選択中のエントリ番号（書き込みで選択切替）
++0x04  entry_type       ; 選択エントリの種別（読み取り専用）
++0x05  entry_angle      ; 選択エントリの角度（読み取り専用）
++0x06  entry_distance   ; 選択エントリの距離（読み取り専用）
++0x07  register_cmd     ; 1を書き込む → 選択中のエントリを登録
++0x08  registered_id    ; 登録結果のローカルID（読み取り専用）
+```
+
+### Disassembler — DISASSEMBLE
+
+```
++0x00  status
++0x01  command        ; 1=DISASSEMBLE
+--- 引数 ---
++0x02  target_id      ; 対象のローカルID
+--- 結果 ---
++0x02  (クリア: 0)
+```
+
+### Frame / MemoryCore
+
+Frame と MemoryCore はアクションを持たないため、command フィールドは不使用。
+
+```
++0x00  status
+```
 
 ## アクション実行タイミングと複数アクション
 
@@ -138,6 +240,7 @@ NOOPは不要（プログラムがアクションを発行しなければNOOP相
 1tickに複数のアクションを予約可能。ただし:
 - **異なる種別のアクション**: 同時実行可能（例: MOVE + HARVEST）
 - **同一種別の競合するアクション**: 最後の予約のみが実行される（例: 上方向MOVE + 右方向MOVE → 右方向MOVEのみ）
+- **同一コンポーネントスロットへの複数command**: 最後のcommand書き込みが有効
 
 ### 複数WRITEの競合
 
@@ -167,19 +270,26 @@ NOOPは不要（プログラムがアクションを発行しなければNOOP相
 - テーブル容量に上限はない
 - テーブルはキャラクター死亡時に解放される
 
-### ID登録の流れ
+### ID取得方法
 
+**SENSE経由（一般的な対象）:**
 ```
-1. SENSE実行 → 結果バッファに (type, angle, distance, properties...) が並ぶ
-   （この時点ではIDなし）
-2. プログラムが「バッファのN番目のエントリを登録する」操作を実行
+1. SENSE実行 → 概要バッファに結果格納
+2. バッファ内のエントリを選択し、登録コマンドを実行
    → ゲームシステムがローカルIDを割り当て、テーブルに追加
-   → ローカルIDがプログラムに返る
-3. プログラムがそのローカルIDを使ってアクションを発行
+   → ローカルIDが即座に読み出し可能
 ```
 
 - 同じシステムIDを再度登録した場合 → 既存のローカルIDを返す（重複なし）
-- ASSEMBLEは例外的に、子のローカルIDを返り値として返す（SENSE不要で取得可能）
+
+**ASSEMBLE経由（子の取得）:**
+```
+1. ASSEMBLEのcommandを書き込む
+2. 引数領域がクリアされ、child_local_id が結果領域に格納される
+3. 即座にchild_local_idを読み出し、同一tick内でWRITE/ACTIVATEに使用可能
+```
+
+ASSEMBLEが世界更新時に失敗した場合、child_local_idは存在しないオブジェクトを指す。そのIDを使う後続アクションは「対象不在→失敗」で安全に処理される。
 
 ### ローカルIDの割り当てと解放
 
@@ -207,7 +317,7 @@ NOOPは不要（プログラムがアクションを発行しなければNOOP相
 
 SENSEは「何がいるか」の概要だけ返す。詳細プロパティは対象を登録した後に個別クエリで取得する。
 
-- 概要エントリが軽量なため、多くの対象を検知できる
+- 概要エントリが軽量（3ワード/件）なため、多くの対象を検知できる
 - 不要な情報を読まなくて済む（必要な対象だけ詳細取得）
 - 「何がいるか」→「それは何か」という段階的な認知プロセスに近い
 
@@ -221,17 +331,8 @@ SENSEは「何がいるか」の概要だけ返す。詳細プロパティは対
 +0x02  distance       ; 自分からの距離（整数丸め）
 ```
 
-- 結果件数はSensorスロットのresult_countフィールドで取得
 - Nの決定方法（固定 / Sensor性能依存 等）は未決定（Q15）
-
-### ID登録操作
-
-Sensorスロットの登録用フィールド:
-```
-+0xNN  register_index   ; 登録したいバッファエントリ番号（書き込み）
-+0xNN  register_cmd     ; 1を書き込む → 登録実行
-+0xNN  registered_id    ; 登録結果のローカルID（読み取り専用）
-```
+- 結果件数はSensorスロットのresult_countフィールドで取得
 
 ### 個別クエリ
 
@@ -242,8 +343,9 @@ Sensorスロットの登録用フィールド:
 クエリ用I/O領域:
   query_target_id    ; クエリ対象のローカルID（書き込み）
   query_cmd          ; 1を書き込む → クエリ実行
+  query_valid        ; 1=成功, 0=失敗（対象不在/射程外）（読み取り専用）
   query_type         ; 対象の種別（読み取り専用）
-  query_angle        ; 現在の角度（読み取り専用、SENSEからの変化を反映）
+  query_angle        ; 現在の角度（読み取り専用）
   query_distance     ; 現在の距離（読み取り専用）
   query_prop0        ; 種別依存の属性（読み取り専用）
   query_prop1        ; 種別依存の属性（読み取り専用）
@@ -256,63 +358,31 @@ Sensorスロットの登録用フィールド:
 - **ResourceNode**: 種別(Ore/Crystal/Energy), 残量
 - **Remains**: コンポーネント数
 
-### クエリの制約
-
-- 対象が射程外にいる場合 → クエリ失敗（値は0）
-- 対象が消滅している場合 → クエリ失敗（値は0）
-- クエリ成功/失敗の判定用フィールドが必要（query_valid等）
-
-### 利用フロー
+### 自己複製の利用フロー
 
 ```
-1. SENSE予約 → tick末に実行 → 概要バッファに結果格納
-2. 次tick: 概要バッファを走査（type, angle, distanceで判断）
-3. 興味のある対象を登録 → ローカルID取得
-4. ローカルIDで個別クエリ → 詳細プロパティ取得
-5. 情報に基づきアクションを予約
+tick N:
+  1. ASSEMBLE予約 → child_local_id を即時取得
+  2. child_local_id を使って WRITE 予約（自身のメモリ → 子のメモリ）
+  3. child_local_id を使って ACTIVATE 予約
+  4. HALT
+
+tick N → N+1 の世界更新:
+  5. ASSEMBLE 実行 → 子が生成される（失敗する可能性あり）
+  6. WRITE 実行 → 子のメモリにプログラムをコピー（ASSEMBLE失敗なら不発）
+  7. ACTIVATE 実行 → 子が起動（ASSEMBLE失敗なら不発）
 ```
 
-### プログラム例
+### C言語での表現
 
-アセンブリ:
-```asm
-; 1. SENSE予約（前tick）
-; 2. 結果を処理
-    IN   r3, SENSOR0_COUNT
-
-    ; entry 0 を読む（I/O index select）
-    OUT  SENSOR0_INDEX, r0
-    IN   r4, SENSOR0_E_TYPE       ; type
-    IN   r5, SENSOR0_E_ANGLE      ; angle
-    IN   r6, SENSOR0_E_DIST       ; distance
-
-    ; 興味があれば登録
-    OUT  SENSOR0_REG_CMD, r2      ; register
-    IN   r7, SENSOR0_REG_ID       ; local_id
-
-    ; 詳細クエリ
-    OUT  QUERY_TARGET, r7
-    OUT  QUERY_CMD, r2
-    IN   r4, QUERY_ENERGY         ; energy
-    IN   r5, QUERY_DURABILITY     ; durability
-```
-
-C:
 ```c
-int n = sense_count(0);
-for (int i = 0; i < n; i++) {
-    sense_select(0, i);
-    int type = sense_type(0);
-    int dist = sense_distance(0);
-
-    if (type == TYPE_CHARACTER && dist < 5) {
-        int id = sense_register(0);
-        int energy = query(id, PROP_ENERGY);
-        int durability = query(id, PROP_DURABILITY);
-        // energy が低い対象を狙う等の判断
-    }
-}
+// ASSEMBLE → WRITE → ACTIVATE を直線的に記述
+int child = assemble(1,1,1,0,1,1,0,0,1);  // Frame,Actuator,Harvester,...
+write_memory(child, 0, 0, PROGRAM_SIZE);    // 自身のメモリを子にコピー
+activate(child);
 ```
+
+コンパイラが各関数呼び出しを「引数OUT → command OUT → 結果IN」のシーケンスに展開する。
 
 ## コンポーネントの個別制御（将来対応）
 
