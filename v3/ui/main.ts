@@ -167,9 +167,8 @@ const tickDisplay = document.getElementById('tick-display')!;
 const statCharacters = document.getElementById('stat-characters')!;
 const statBirths = document.getElementById('stat-births')!;
 const statDeaths = document.getElementById('stat-deaths')!;
-const statResources = document.getElementById('stat-resources')!;
-const statEnergy = document.getElementById('stat-energy')!;
 const statRemains = document.getElementById('stat-remains')!;
+const statOldest = document.getElementById('stat-oldest')!;
 const statSpecies = document.getElementById('stat-species')!;
 const selectedContent = document.getElementById('selected-content')!;
 const eventLogContent = document.getElementById('event-log-content')!;
@@ -346,10 +345,25 @@ function updateStats(): void {
   statCharacters.textContent = String(state.world.characters.length);
   statBirths.textContent = String(state.totalBirths);
   statDeaths.textContent = String(state.totalDeaths);
-  statResources.textContent = String(state.world.resourceNodes.length);
-  const totalEnergy = state.world.energyNodes.reduce((s, n) => s + n.stored, 0);
-  statEnergy.textContent = String(totalEnergy);
   statRemains.textContent = String(state.world.remains.length);
+
+  // Oldest character
+  statOldest.innerHTML = '';
+  if (state.world.characters.length > 0) {
+    let oldest = state.world.characters[0];
+    for (const c of state.world.characters) {
+      if ((state.world.tick - c.createdAt) > (state.world.tick - oldest.createdAt)) oldest = c;
+    }
+    const age = state.world.tick - oldest.createdAt;
+    const div = document.createElement('div');
+    div.textContent = `Oldest: ${age} ticks (${oldest.species})`;
+    div.style.cursor = 'pointer';
+    div.addEventListener('click', () => {
+      state.selection = { kind: 'character', id: oldest.id };
+      updateSelected();
+    });
+    statOldest.appendChild(div);
+  }
 
   const counts = new Map<string, number>();
   for (const c of state.world.characters) {
@@ -386,9 +400,11 @@ function updateSelected(): void {
       ? invEntries.map(([k, v]) => `${k}: ${v}`).join(', ')
       : 'empty';
 
+    const age = state.world.tick - char.createdAt;
     selectedContent.innerHTML = `
       <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
       <div>Species: ${char.species}</div>
+      <div>Age: ${age} ticks</div>
       <div>Pos: (${char.position.x.toFixed(1)}, ${char.position.y.toFixed(1)})</div>
       <div>Mass: ${mass}</div>
       <div>Durability: ${char.durability} / ${maxDur}</div>
@@ -474,8 +490,10 @@ function appendEvents(events: readonly SimulationEvent[], tick: number, oldWorld
       div.textContent = `[tick ${tick}] ${event.parentId} spawned ${event.childId} (${species})`;
       div.classList.add('log-birth');
     } else {
-      const species = getSpecies(oldWorld, event.id);
-      div.textContent = `[tick ${tick}] ${event.id} (${species}) died`;
+      const deadChar = oldWorld.characters.find((c) => c.id === event.id);
+      const species = deadChar?.species ?? '?';
+      const age = deadChar ? tick - deadChar.createdAt : 0;
+      div.textContent = `[tick ${tick}] ${event.id} (${species}) died (age ${age})`;
       div.classList.add('log-death');
 
       // Extinction check: no survivors of this species in newWorld

@@ -35,9 +35,8 @@ UIコンポーネント、状態、アクションの名前を統一するため
 | StatCharacters | `#stat-characters` | 生存キャラクター数 |
 | StatBirths | `#stat-births` | 累計誕生数 |
 | StatDeaths | `#stat-deaths` | 累計死亡数 |
-| StatResources | `#stat-resources` | 残存ResourceNode数 |
-| StatEnergy | `#stat-energy` | EnergyNode総stored量 |
 | StatRemains | `#stat-remains` | 残骸数 |
+| StatOldest | `#stat-oldest` | 最長寿キャラクターの生存期間（クリックで選択） |
 | StatSpecies | `#stat-species` | 種族ごとの個体数（クリック可能） |
 
 ---
