@@ -44,6 +44,10 @@ export interface GameParams {
   // Registers
   readonly registersPerComponent: number;
 
+  // Aging metabolism
+  readonly agingThresholdN: number;
+  readonly agingThresholdM: number;
+
   // Resource regeneration
   readonly remainsAbsorptionTicks: number;
   readonly nodeRegenerationThreshold: number;
@@ -117,6 +121,9 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   senseRange: 10.0,
 
   registersPerComponent: 4,
+
+  agingThresholdN: 3000,
+  agingThresholdM: 6000,
 
   remainsAbsorptionTicks: 600,
   nodeRegenerationThreshold: 50,

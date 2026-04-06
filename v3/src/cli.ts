@@ -107,7 +107,7 @@ function main() {
   const centerPos = { x: config.width / 2, y: config.height / 2 };
   const id = `char-${String(world.nextCharacterId).padStart(3, '0')}`;
   world = { ...world, nextCharacterId: world.nextCharacterId + 1 };
-  const initialChar = engine.createCharacter(id, centerPos, components, program, opts.initialEnergy, species);
+  const initialChar = engine.createCharacter(id, centerPos, components, program, opts.initialEnergy, species, 0);
   world = addCharacter(world, initialChar);
 
   const { world: finalWorld, allEvents } = engine.runSimulation(world, opts.ticks, (result) => {

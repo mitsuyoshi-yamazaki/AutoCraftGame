@@ -81,6 +81,12 @@ export const SENSE_RANGE = 10.0;
 export const REGISTERS_PER_COMPONENT = 4;
 
 // ============================================================
+// Aging metabolism
+// ============================================================
+export const AGING_THRESHOLD_N = 3000;
+export const AGING_THRESHOLD_M = 6000;
+
+// ============================================================
 // Action cost lookup
 // ============================================================
 export function getActionEnergyCost(op: string): number {

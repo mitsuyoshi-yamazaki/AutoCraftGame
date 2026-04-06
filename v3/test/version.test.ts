@@ -58,8 +58,8 @@ describe('SemanticVersion', () => {
   });
 
   describe('GAME_VERSION', () => {
-    it('is 3.14.0', () => {
-      expect(GAME_VERSION.toString()).toBe('3.14.0');
+    it('is 3.15.0', () => {
+      expect(GAME_VERSION.toString()).toBe('3.15.0');
     });
   });
 });

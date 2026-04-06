@@ -38,6 +38,7 @@ function makeChar(id: string, x: number, y: number, energy = 5000): Character {
     program: { name: 'test', rules: [] },
     senseData: null,
     registers: [null, null, null, null],
+    createdAt: 0,
   };
 }
 

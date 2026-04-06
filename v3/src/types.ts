@@ -199,6 +199,7 @@ export interface Character {
   readonly program: Program | null;
   readonly senseData: SenseData | null;
   readonly registers: readonly (number | null)[];
+  readonly createdAt: number;
 }
 
 // ============================================================

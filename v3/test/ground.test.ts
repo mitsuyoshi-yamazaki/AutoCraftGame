@@ -296,6 +296,7 @@ describe('ground', () => {
         program: { name: 'test', rules: [] },
         senseData: null,
         registers: [],
+        createdAt: 0,
       };
     }
 

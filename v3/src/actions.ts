@@ -262,7 +262,7 @@ export function createActionEngine(params: GameParams, deps: ActionEngineDeps): 
     const updatedParent = { ...character, inventory: inv };
 
     const { id: childId, world: worldWithId } = nextCharacterId(world);
-    const child = characterEngine.createInactiveCharacter(childId, spawnPos, components, params.assembleEnergyTransfer, character.species);
+    const child = characterEngine.createInactiveCharacter(childId, spawnPos, components, params.assembleEnergyTransfer, character.species, world.tick);
 
     let newWorld = updateCharacter(worldWithId, updatedParent);
     newWorld = addCharacter(newWorld, child);

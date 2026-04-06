@@ -26,11 +26,11 @@ export interface Engine {
   runSimulation(initialWorld: World, ticks: number, onTick?: (result: TickResult) => void): { world: World; allEvents: SimulationEvent[] };
   createCharacter(
     id: string, position: Position, components: readonly ComponentType[],
-    program: Program, energy: number, species: string,
+    program: Program, energy: number, species: string, createdAt: number,
   ): Character;
   createInactiveCharacter(
     id: string, position: Position, components: readonly ComponentType[],
-    energy: number, species: string,
+    energy: number, species: string, createdAt: number,
   ): Character;
   createWorld(config: WorldConfig, rng: Rng): World;
 }

@@ -74,12 +74,12 @@ export function createSimulationEngine(
     // Step 6: Physics integration (velocity + position update)
     currentWorld = physicsEngine.integratePhysics(currentWorld, forces);
 
-    // Step 7+8: Basal metabolism and durability decay
+    // Step 7+8: Basal metabolism (with aging coefficient) and durability decay
     currentWorld = {
       ...currentWorld,
       characters: currentWorld.characters.map((c) => {
-        const starving = !characterEngine.canPayMetabolism(c);
-        const afterMetabolism = characterEngine.applyBasalMetabolism(c);
+        const starving = !characterEngine.canPayMetabolism(c, currentWorld.tick);
+        const afterMetabolism = characterEngine.applyBasalMetabolism(c, currentWorld.tick);
         return characterEngine.decayDurability(afterMetabolism, starving);
       }),
     };

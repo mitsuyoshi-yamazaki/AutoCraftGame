@@ -29,6 +29,7 @@ function makeChar(x: number, y: number): Character {
     program: null,
     senseData: null,
     registers: [],
+    createdAt: 0,
   };
 }
 

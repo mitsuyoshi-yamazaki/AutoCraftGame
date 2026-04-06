@@ -128,7 +128,7 @@ function createInitialState(seed?: number): UIState {
       };
       const id = `char-${String(world.nextCharacterId).padStart(3, '0')}`;
       world = { ...world, nextCharacterId: world.nextCharacterId + 1 };
-      const character = engine.createCharacter(id, pos, [...def.components], def.program, INITIAL_ENERGY, def.name);
+      const character = engine.createCharacter(id, pos, [...def.components], def.program, INITIAL_ENERGY, def.name, 0);
       world = addCharacter(world, character);
       if (!firstCharId) firstCharId = id;
     }

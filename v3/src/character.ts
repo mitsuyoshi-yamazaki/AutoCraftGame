@@ -23,16 +23,17 @@ export function isDead(character: Character): boolean {
 export interface CharacterEngine {
   createCharacter(
     id: string, position: Position, components: readonly ComponentType[],
-    program: Program, energy: number, species: string,
+    program: Program, energy: number, species: string, createdAt: number,
   ): Character;
   createInactiveCharacter(
     id: string, position: Position, components: readonly ComponentType[],
-    energy: number, species: string,
+    energy: number, species: string, createdAt: number,
   ): Character;
   calculateEnergyMetabolism(energy: number): number;
-  calculateBasalMetabolism(character: Character): number;
-  applyBasalMetabolism(character: Character): Character;
-  canPayMetabolism(character: Character): boolean;
+  calculateAgingCoefficient(age: number): number;
+  calculateBasalMetabolism(character: Character, currentTick: number): number;
+  applyBasalMetabolism(character: Character, currentTick: number): Character;
+  canPayMetabolism(character: Character, currentTick: number): boolean;
   decayDurability(character: Character, starvation: boolean): Character;
 }
 
@@ -44,6 +45,7 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
     program: Program,
     energy: number,
     species: string,
+    createdAt: number,
   ): Character {
     const frameCount = components.filter((c) => c === 'Frame').length;
     const registerCount = components.filter((c) => c === 'Register').length * params.registersPerComponent;
@@ -59,6 +61,7 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
       program,
       senseData: null,
       registers: Array.from({ length: registerCount }, () => null),
+      createdAt,
     };
   }
 
@@ -68,6 +71,7 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
     components: readonly ComponentType[],
     energy: number,
     species: string,
+    createdAt: number,
   ): Character {
     const frameCount = components.filter((c) => c === 'Frame').length;
     const registerCount = components.filter((c) => c === 'Register').length * params.registersPerComponent;
@@ -83,6 +87,7 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
       program: null,
       senseData: null,
       registers: Array.from({ length: registerCount }, () => null),
+      createdAt,
     };
   }
 
@@ -91,24 +96,33 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
     return Math.floor((excess * excess) / params.energyMetabolismScale);
   }
 
-  function calculateBasalMetabolism(character: Character): number {
-    const componentCost = character.components.reduce(
+  function calculateAgingCoefficient(age: number): number {
+    if (age <= params.agingThresholdN) return 1.0;
+    const ratio = (age - params.agingThresholdN) / (params.agingThresholdM - params.agingThresholdN);
+    return 1 + ratio * ratio;
+  }
+
+  function calculateBasalMetabolism(character: Character, currentTick: number): number {
+    const baseComponentCost = character.components.reduce(
       (sum, c) => sum + params.metabolism[c],
       0,
     );
+    const age = currentTick - character.createdAt;
+    const coefficient = calculateAgingCoefficient(age);
+    const componentCost = Math.ceil(baseComponentCost * coefficient);
     const itemCount = inventoryTotalCount(character.inventory);
     const inventoryCost = Math.ceil(itemCount * params.inventoryMetabolismPerItem);
     const energyCost = calculateEnergyMetabolism(character.energy);
     return componentCost + inventoryCost + energyCost;
   }
 
-  function applyBasalMetabolism(character: Character): Character {
-    const cost = calculateBasalMetabolism(character);
+  function applyBasalMetabolism(character: Character, currentTick: number): Character {
+    const cost = calculateBasalMetabolism(character, currentTick);
     return { ...character, energy: Math.max(0, character.energy - cost) };
   }
 
-  function canPayMetabolism(character: Character): boolean {
-    return character.energy >= calculateBasalMetabolism(character);
+  function canPayMetabolism(character: Character, currentTick: number): boolean {
+    return character.energy >= calculateBasalMetabolism(character, currentTick);
   }
 
   function decayDurability(character: Character, starvation: boolean): Character {
@@ -120,6 +134,7 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
     createCharacter: createCharacterFn,
     createInactiveCharacter: createInactiveCharacterFn,
     calculateEnergyMetabolism,
+    calculateAgingCoefficient,
     calculateBasalMetabolism,
     applyBasalMetabolism,
     canPayMetabolism,
