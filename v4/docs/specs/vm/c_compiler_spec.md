@@ -102,6 +102,14 @@ void foo(void) {
 
 `++`, `--`（前置・後置）
 
+### 4-7. カンマ演算子
+
+```c
+int x = (f(), g());  // f()を評価し捨て、g()の結果をxに代入
+```
+
+左辺を評価し結果を破棄、右辺を評価しその値を返す。
+
 ## 5. 制御構文
 
 ### 5-1. if-else
@@ -160,9 +168,37 @@ void関数では `return;`（値なし）。
 
 if-else で代替する。
 
-## 6. 関数
+## 6. プリプロセッサ
 
-### 6-1. 定義と呼び出し
+### 6-1. #define（マクロ定義）
+
+```c
+// 定数マクロ
+#define MAX_ENERGY 3000
+
+// 関数マクロ
+#define square(x) ((x) * (x))
+```
+
+- テキスト置換方式（C言語の標準的なプリプロセッサと同様）
+- 引数付きマクロを使用可能
+- マクロ内で `\` による行継続が可能
+
+```c
+#define assemble_full(fr,act,har,cha,asm_,proc,sen,dis,mem) \
+    (assemble_ext(sen,dis,mem), assemble(fr,act,har,cha,asm_,proc))
+```
+
+### 6-2. その他のプリプロセッサ指令
+
+以下は提供しない:
+- `#ifdef` / `#ifndef` / `#if` / `#else` / `#endif`（条件コンパイル）
+- `#undef`
+- `#include`（標準定数はコンパイラ組み込み）
+
+## 7. 関数
+
+### 7-1. 定義と呼び出し
 
 ```c
 int add(int a, int b) {
@@ -179,12 +215,12 @@ void main(void) {
 - 前方宣言は不要（コンパイラが2パスで解決）
 - 再帰呼び出し可能
 
-### 6-2. エントリポイント
+### 7-2. エントリポイント
 
 `void main(void)` がプログラムのエントリポイント。
 VMのPC=0から実行が開始される。コンパイラはmain関数へのジャンプを先頭に配置する。
 
-### 6-3. 呼び出し規約
+### 7-3. 呼び出し規約
 
 | 項目 | 規約 |
 |------|------|
@@ -196,11 +232,11 @@ VMのPC=0から実行が開始される。コンパイラはmain関数へのジ�
 
 引数が6個を超える場合はコンパイルエラー。
 
-## 7. ゲームAPI
+## 8. ゲームAPI
 
 I/O操作をラップする組み込み関数群。コンパイラが対応するIN/OUTシーケンスに展開する。
 
-### 7-1. 環境情報取得
+### 8-1. 環境情報取得
 
 ```c
 int my_energy(void);       // 自身のエネルギー
@@ -212,7 +248,7 @@ int my_vy(void);           // 自身のVY
 int current_tick(void);    // 現在のtick
 ```
 
-### 7-2. アクション
+### 8-2. アクション
 
 ```c
 void move(int direction);
@@ -255,7 +291,7 @@ void repair(void);
 
 注: assemble関数は引数6個制限により2つに分割。assemble_ext()でsensor, disassembler, memorycoreの個数をI/Oスロットに書き込み、assemble()で残りを書き込んでcommandを発行する。
 
-### 7-3. SENSE
+### 8-3. SENSE
 
 ```c
 int sense(int filter);
@@ -272,7 +308,7 @@ int sense_register(void);
 // 選択エントリを登録。戻り値: ローカルID
 ```
 
-### 7-4. 個別クエリ
+### 8-4. 個別クエリ
 
 ```c
 int query(int local_id, int property);
@@ -283,14 +319,14 @@ bool query_valid(void);
 // 直前のqueryが成功したか
 ```
 
-### 7-5. ローカルID管理
+### 8-5. ローカルID管理
 
 ```c
 void release_id(int local_id);
 // ローカルIDを解放
 ```
 
-### 7-6. コンポーネントディスカバリ
+### 8-6. コンポーネントディスカバリ
 
 ```c
 int component_count(int type);
@@ -303,18 +339,18 @@ bool component_status(int type, int index);
 // 指定スロットが存在するか
 ```
 
-### 7-7. プログラム制御
+### 8-7. プログラム制御
 
 ```c
 void halt(void);
 // HALT命令を発行。このtickの実行を終了
 ```
 
-## 8. 定数
+## 9. 定数
 
 コンパイラが提供する組み込み定数:
 
-### 8-1. フィルタ値
+### 9-1. フィルタ値
 
 ```c
 #define FILTER_ALL          0
@@ -329,7 +365,7 @@ void halt(void);
 #define FILTER_ALL_CHAR     9
 ```
 
-### 8-2. オブジェクト種別
+### 9-2. オブジェクト種別
 
 ```c
 #define TYPE_ORE_NODE       1
@@ -340,7 +376,7 @@ void halt(void);
 #define TYPE_INACTIVE_CHAR  6
 ```
 
-### 8-3. コンポーネント種別
+### 9-3. コンポーネント種別
 
 ```c
 #define COMP_FRAME          0
@@ -354,7 +390,7 @@ void halt(void);
 #define COMP_MEMORYCORE     8
 ```
 
-### 8-4. クエリ属性
+### 9-4. クエリ属性
 
 ```c
 #define PROP_TYPE           0
@@ -368,14 +404,14 @@ void halt(void);
 #define PROP_REMAINING      8
 ```
 
-### 8-5. レシピ/コンポーネント
+### 9-5. レシピ/コンポーネント
 
 ```c
 #define RECIPE_METAL        0
 #define RECIPE_CIRCUIT      1
 ```
 
-## 9. コンパイラの出力
+## 10. コンパイラの出力
 
 コンパイラはアセンブリソース（.asm）を出力する。
 
@@ -399,7 +435,7 @@ _add:
     ...
 ```
 
-## 10. 制限事項
+## 11. 制限事項
 
 - ポインタなし
 - 構造体なし
@@ -414,7 +450,7 @@ _add:
 - 三項演算子なし
 - do-while なし
 
-## 11. エラー処理
+## 12. エラー処理
 
 コンパイラは以下のエラーを検出して報告する:
 
@@ -428,10 +464,16 @@ _add:
 | break/continue | ループ外でのbreak/continue |
 | return | void関数での値返却、または非void関数での値なしreturn |
 
-## 12. 自己複製の記述例
+## 13. 自己複製の記述例
 
 ```c
 // 自己複製プログラムの概要
+
+// assemble_fullマクロ: 9引数を分割して2関数呼び出し
+#define assemble_full(fr,act,har,cha,asm_,proc,sen,dis,mem) \
+    (assemble_ext(sen,dis,mem), assemble(fr,act,har,cha,asm_,proc))
+
+#define PROGRAM_SIZE 256
 
 int child_id = 0;
 int state = 0;
@@ -451,10 +493,10 @@ void main(void) {
 }
 
 void replicate(void) {
-    // 子の身体を組み立て
-    assemble_ext(1, 0, 1);  // sensor=1, disassembler=0, memorycore=1
-    child_id = assemble(3, 1, 1, 1, 1, 1);
-    // frame=3, actuator=1, harvester=1, charger=1, assembler=1, processor=1
+    // 子の身体を組み立て（マクロで一括呼び出し）
+    child_id = assemble_full(3,1,1,1,1,1,1,0,1);
+    // frame=3, actuator=1, harvester=1, charger=1, assembler=1,
+    // processor=1, sensor=1, disassembler=0, memorycore=1
 
     // 自身のメモリを子にコピー
     write_memory(child_id, 0, 0, PROGRAM_SIZE);
