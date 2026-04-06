@@ -199,4 +199,5 @@ CLIやチューニングスクリプトのオプションでも上書き可能�
 | [008_resource_regeneration.md](008_resource_regeneration.md) | リソースノード再生システム(v3.13.0)の影響分析 |
 | [009_regeneration_tuning.md](009_regeneration_tuning.md) | リソースノード再生パラメータの最適化（最良設定: abs=600, thr=50, nodeRem=225） |
 | [010_new_species.md](010_new_species.md) | 新種族（Settler/Recycler）の投入と生態系への影響 |
-| [011_four_species_coexistence.md](011_four_species_coexistence.md) | 4種族以上の長期共存パラメータ��索（最良設定: eProd=135, eN=65） |
+| [011_four_species_coexistence.md](011_four_species_coexistence.md) | 4種族以上の長期共存パラメータ探索（最良設定: eProd=135, eN=65） |
+| [012_aging_metabolism.md](012_aging_metabolism.md) | 加齢代謝（v3.15.0）の影響分析（GUI条件、N=3000/M=6000） |
