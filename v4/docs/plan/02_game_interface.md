@@ -199,28 +199,30 @@ NOOPは不要（プログラムがアクションを発行しなければNOOP相
 6. 実行
 ```
 
-## SENSE結果形式
+## SENSE: 概要＋個別クエリ方式
 
-### バッファ構造
+検討された他の案は [drafts/sense_alternatives.md](drafts/sense_alternatives.md) を参照。
 
-上限N件、距離順ソート。1エントリあたり:
+### 設計方針
+
+SENSEは「何がいるか」の概要だけ返す。詳細プロパティは対象を登録した後に個別クエリで取得する。
+
+- 概要エントリが軽量なため、多くの対象を検知できる
+- 不要な情報を読まなくて済む（必要な対象だけ詳細取得）
+- 「何がいるか」→「それは何か」という段階的な認知プロセスに近い
+
+### SENSEの概要バッファ
+
+上限N件、距離順ソート。1エントリあたり3ワード:
 
 ```
 +0x00  type           ; オブジェクト種別
-+0x01  angle          ; 自分からの角度（整数度）
++0x01  angle          ; 自分からの角度（整数度、0-359）
 +0x02  distance       ; 自分からの距離（整数丸め）
-+0x03~ property...    ; 種別依存の属性
 ```
 
 - 結果件数はSensorスロットのresult_countフィールドで取得
-- Nの決定方法（固定 / Sensor性能依存 等）は未決定
-
-### 種別依存の属性
-
-- **Character**: energy, durability, コンポーネント数, species等
-- **InactiveCharacter**: コンポーネント数
-- **ResourceNode**: 種別(Ore/Crystal/Energy), 残量
-- **Remains**: コンポーネント数
+- Nの決定方法（固定 / Sensor性能依存 等）は未決定（Q15）
 
 ### ID登録操作
 
@@ -229,6 +231,87 @@ Sensorスロットの登録用フィールド:
 +0xNN  register_index   ; 登録したいバッファエントリ番号（書き込み）
 +0xNN  register_cmd     ; 1を書き込む → 登録実行
 +0xNN  registered_id    ; 登録結果のローカルID（読み取り専用）
+```
+
+### 個別クエリ
+
+登録済みのローカルIDを使って、対象の詳細プロパティを取得する。
+クエリはアクション予約ではなく、tick内で即時応答する（I/O読み取り）。
+
+```
+クエリ用I/O領域:
+  query_target_id    ; クエリ対象のローカルID（書き込み）
+  query_cmd          ; 1を書き込む → クエリ実行
+  query_type         ; 対象の種別（読み取り専用）
+  query_angle        ; 現在の角度（読み取り専用、SENSEからの変化を反映）
+  query_distance     ; 現在の距離（読み取り専用）
+  query_prop0        ; 種別依存の属性（読み取り専用）
+  query_prop1        ; 種別依存の属性（読み取り専用）
+  ...
+```
+
+種別依存の属性:
+- **Character**: energy, durability, コンポーネント数, species
+- **InactiveCharacter**: コンポーネント数
+- **ResourceNode**: 種別(Ore/Crystal/Energy), 残量
+- **Remains**: コンポーネント数
+
+### クエリの制約
+
+- 対象が射程外にいる場合 → クエリ失敗（値は0）
+- 対象が消滅している場合 → クエリ失敗（値は0）
+- クエリ成功/失敗の判定用フィールドが必要（query_valid等）
+
+### 利用フロー
+
+```
+1. SENSE予約 → tick末に実行 → 概要バッファに結果格納
+2. 次tick: 概要バッファを走査（type, angle, distanceで判断）
+3. 興味のある対象を登録 → ローカルID取得
+4. ローカルIDで個別クエリ → 詳細プロパティ取得
+5. 情報に基づきアクションを予約
+```
+
+### プログラム例
+
+アセンブリ:
+```asm
+; 1. SENSE予約（前tick）
+; 2. 結果を処理
+    IN   r3, SENSOR0_COUNT
+
+    ; entry 0 を読む（I/O index select）
+    OUT  SENSOR0_INDEX, r0
+    IN   r4, SENSOR0_E_TYPE       ; type
+    IN   r5, SENSOR0_E_ANGLE      ; angle
+    IN   r6, SENSOR0_E_DIST       ; distance
+
+    ; 興味があれば登録
+    OUT  SENSOR0_REG_CMD, r2      ; register
+    IN   r7, SENSOR0_REG_ID       ; local_id
+
+    ; 詳細クエリ
+    OUT  QUERY_TARGET, r7
+    OUT  QUERY_CMD, r2
+    IN   r4, QUERY_ENERGY         ; energy
+    IN   r5, QUERY_DURABILITY     ; durability
+```
+
+C:
+```c
+int n = sense_count(0);
+for (int i = 0; i < n; i++) {
+    sense_select(0, i);
+    int type = sense_type(0);
+    int dist = sense_distance(0);
+
+    if (type == TYPE_CHARACTER && dist < 5) {
+        int id = sense_register(0);
+        int energy = query(id, PROP_ENERGY);
+        int durability = query(id, PROP_DURABILITY);
+        // energy が低い対象を狙う等の判断
+    }
+}
 ```
 
 ## コンポーネントの個別制御（将来対応）

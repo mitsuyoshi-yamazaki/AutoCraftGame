@@ -15,7 +15,7 @@
 | - | 対象指定 | ローカルID方式（テーブルはシステム管理、上限なし、死亡時解放） | 02 |
 | - | ローカルID割り当て | 単調増加。解放命令あり、解放IDは再割り当て可能 | 02 |
 | - | ASSEMBLE返り値 | 子のローカルIDを返す | 02 |
-| - | SENSE結果 | バッファにエントリ列（type, angle, distance, properties）、距離順 | 02 |
+| - | SENSE方式 | 概要SENSE（type, angle, distance）＋登録後に個別クエリで詳細取得 | 02 |
 | - | WRITE仕様 | ブロック書き込み（src_addr, dst_addr, length）。コスト=length比例 | 02 |
 | - | SLOT_SIZE | 種別ごとに異なるサイズ | 02 |
 | - | 新コンポーネントのインデックス | 次の連番（欠番を埋めない） | 02 |
