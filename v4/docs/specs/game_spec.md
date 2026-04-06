@@ -1,125 +1,231 @@
-# ゲーム仕様書 — v4
+# ゲームシステム仕様 — v4
 
-本仕様はv3仕様をベースとし、v4で変更された箇所を定義する。
-本仕様に記載のない項目はv3仕様（v3/docs/specs/game_spec.md）に従う。
+本文書はゲーム世界の**法則**（物理ルール）を定める。
+世界の初期状態は `initial_state.md` で定義する。
+キャラクタープログラムのVMは `vm/vm_spec.md` で定義する。
+
+---
 
 ## 1. 数値の扱い
 
-v3と同じ。
+- **物理量**（座標、速度、力、加速度、質量、半径）: **浮動小数点数**
+- **ゲームロジック量**（エネルギー、耐久度、資源remaining、インベントリ数量）: **整数**
+
+丸め規則: 消費は切り上げ(ceil)、獲得は切り捨て(floor)。ゲームロジック量にのみ適用。
+
+---
 
 ## 2. 物理モデル
 
-v3と同じ。
+### 2-1. 座標系
+
+ワールドは連続な2次元平面。
+
+```
+Position = { x: number, y: number }   // 浮動小数点数
+```
+
+原点 (0, 0) はワールドの左上角。x軸は右方向、y軸は下方向を正とする。
+ワールドには有限の矩形範囲 `(0, 0)` - `(width, height)` があり、周囲は壁オブジェクトで囲われる（2-6節）。
+
+### 2-2. 速度
+
+**キャラクターのみ**が速度を持つ。ResourceNode, EnergyNode, Remains, 壁は位置が固定。
+
+```
+Velocity = { vx: number, vy: number }  // 浮動小数点数
+```
+
+初期値は `{ vx: 0, vy: 0 }`。
+
+### 2-3. 力と加速度
+
+```
+加速度 = 力 / 質量
+```
+
+1tickの間に複数の力が作用する場合、全ての力のベクトル和を求めてから加速度を算出する。
+
+### 2-4. 質量
+
+キャラクターの質量は、保有する全ての物質を原料換算した合計値。
+
+```
+質量 = Σ(コンポーネントの原料換算) + Σ(インベントリの原料換算)
+```
+
+**エネルギーは質量に寄与しない。**
+
+#### 原料換算表
+
+原料（Layer 0）:
+
+| アイテム | 原料換算 |
+|---------|---------|
+| Ore | 1 |
+| Crystal | 1 |
+
+加工素材（Layer 1）:
+
+| アイテム | レシピ | 原料換算 |
+|---------|--------|---------|
+| Metal | Ore ×2 | 2 |
+| Circuit | Crystal ×2 | 2 |
+
+コンポーネント（Layer 2）:
+
+| コンポーネント | レシピ | 原料換算 |
+|---------------|--------|---------|
+| Frame | Metal ×3 | 6 |
+| Actuator | Metal ×1 + Circuit ×1 | 4 |
+| Sensor | Circuit ×2 | 4 |
+| Processor | Circuit ×3 | 6 |
+| Harvester | Metal ×2 | 4 |
+| Assembler | Metal ×2 + Circuit ×1 | 6 |
+| Disassembler | Metal ×2 + Circuit ×1 | 6 |
+| Charger | Metal ×1 + Circuit ×2 | 6 |
+| MemoryCore | Circuit ×2 | 4 |
+
+ASSEMBLEにはコンポーネントが必須であり、質量0のキャラクターは生成できない。ゼロ除算は発生しない。
+
+### 2-5. 摩擦
+
+全キャラクターに一様な摩擦力がかかる。
+
+```
+摩擦力 = -velocity × FRICTION_COEFFICIENT × 質量
+```
+
+速度に比例した粘性摩擦。毎tickの物理更新で他の力と合わせて適用される。
+
+### 2-6. ワールド境界
+
+ワールドの周囲は4つの壁線分（上壁、下壁、左壁、右壁）で囲われる。壁は無限の質量を持つ不動オブジェクト。衝突判定と同じ仕組みで反発力が作用する。
+
+### 2-7. 衝突判定
+
+全ゲームオブジェクト（Character, ResourceNode, EnergyNode, Remains, 壁）は衝突対象。各オブジェクトは種別ごとに固定の半径を持つ。
+
+```
+衝突判定: 2オブジェクト間のユークリッド距離 < 両者の半径の和 → 衝突
+```
+
+#### 衝突応答
+
+```
+重なり量 = (半径A + 半径B) - distance(A, B)
+重なり量 > 0 のとき:
+  反発力の方向 = A→B の単位ベクトル
+  反発力の大きさ = 重なり量 × COLLISION_STIFFNESS
+```
+
+- 固定オブジェクト（ResourceNode, EnergyNode, Remains, 壁）: キャラクター側にのみ力が作用
+- キャラクター同士: 双方に反対方向の反発力
+
+#### オブジェクト半径
+
+| オブジェクト種別 | 半径定数 |
+|-----------------|---------|
+| Character | `CHARACTER_RADIUS` |
+| ResourceNode | `RESOURCE_NODE_RADIUS` |
+| EnergyNode | `ENERGY_NODE_RADIUS` |
+| Remains | `REMAINS_RADIUS` |
+
+---
 
 ## 3. 距離判定
 
-v3と同じ。
+### 3-1. 距離関数
+
+```
+distance(a, b) = sqrt((a.x - b.x)² + (a.y - b.y)²)
+```
+
+### 3-2. アクション距離
+
+全てのアクションの対象は、実行者との距離が `INTERACT_RANGE` 以下であることが前提条件。
+
+| アクション | 前提条件 |
+|-----------|---------|
+| HARVEST | distance ≤ INTERACT_RANGE のResourceNode |
+| RECHARGE | distance ≤ INTERACT_RANGE のEnergyNode |
+| DISASSEMBLE | distance ≤ INTERACT_RANGE のRemains |
+| WRITE | distance ≤ INTERACT_RANGE の対象キャラクター |
+| ACTIVATE | distance ≤ INTERACT_RANGE の対象キャラクター |
+
+### 3-3. 対象の選択順
+
+距離内に同種の対象が複数存在する場合:
+1. 距離が最も近いものを選択
+2. 距離が同一の場合はID順
+
+---
 
 ## 4. MOVEアクション
 
 ### 4-1. 概要
 
-v3と同じ（力の適用による移動）。
+指定方向に一定の力を加えるアクション。実際の移動は物理シミュレーションにより決定される。
 
 ### 4-2. 方向指定
 
 VMプログラムがActuatorスロットのdirectionフィールドに角度（0-359の整数）を書き込む。
-v3のプログラムDSL（`{op: 'MOVE', direction: number | {register: number}}`）は廃止。
 
-### 4-3〜4-6
+```
+0度: 右（+x方向）
+90度: 下（+y方向）
+180度: 左（-x方向）
+270度: 上（-y方向）
+```
 
-v3と同じ。
+### 4-3. 力の適用
 
-## 5. アクションの変更
+```
+力ベクトル = MOVE_FORCE × (cos(direction°), sin(direction°))
+加速度 = 力ベクトル / 質量
+```
 
-### 5-1. HARVEST / RECHARGE
+軽いキャラクターは大きく加速し、重いキャラクターは小さく加速する。
 
-基本動作はv3と同じ。対象指定はv3と同じ（最近接のオブジェクト）。
-VMプログラムからはコンポーネントスロットのcommandフィールドに書き込むことで予約する。
+### 4-4. エネルギーコスト
 
-### 5-1b. DISASSEMBLE
+一定値 `ENERGY_COST_MOVE`。方向・質量によらず固定。
 
-v3と同じ流出テーブルを使用する。
-対象指定はローカルIDで行う（v3の最近接指定から変更）。
+### 4-5. MOVEの失敗
 
-### 5-2. ASSEMBLE
+エネルギーが十分であれば常に成功する。衝突による移動不能は物理的な結果であり、アクション失敗ではない。
 
-#### 子の身体構成
+---
 
-v3では固定のコンポーネントリストだったが、v4ではランタイムに決定する。
-AssemblerスロットのI/Oフィールドに各コンポーネント種別の個数を書き込む。
+## 5. その他のアクション
 
-#### コンポーネント種別（v4）
+### 5-1. HARVEST
 
-| 種別 | 機能 |
-|------|------|
-| Frame | 耐久値の提供 |
-| Actuator | MOVE |
-| Harvester | HARVEST |
-| Charger | RECHARGE |
-| Assembler | PROCESS, CRAFT, ASSEMBLE, REPAIR |
-| Processor | WRITE, ACTIVATE |
-| Sensor | SENSE |
-| Disassembler | DISASSEMBLE |
-| MemoryCore | VMメモリの提供（1個あたり1024ワード） |
+- 前提: Harvesterコンポーネント保持、distance ≤ INTERACT_RANGE のResourceNode
+- 動作: 対象ノードから資源を採取しインベントリに追加
+- 対象選択: 3-3節に従う（最近接、ローカルID不使用）
+- 枯渇したResourceNodeは即座に除去
 
-v3のRegisterコンポーネントは廃止。レジスタはVMに内蔵される（8本固定）。
+### 5-2. RECHARGE
 
-#### 子の生成
+- 前提: Chargerコンポーネント保持、distance ≤ INTERACT_RANGE のEnergyNode
+- 動作: 対象ノードからエネルギーを取得
+- 対象選択: 3-3節に従う（最近接、ローカルID不使用）
 
-- 配置位置: v3と同じ（SPAWN_DISTANCE、親の速度の逆方向、4方向試行）
-- 子の初期状態:
-  - inactive（VMは未起動、PC=0、全レジスタ=0、全メモリ=0）
-  - 速度: {vx: 0, vy: 0}
-  - インベントリ: 空
-  - エネルギー: ASSEMBLE_ENERGY_TRANSFER
-  - 耐久値: Frame数 × FRAME_DURABILITY
-  - species: 親のspeciesを継承
+### 5-3. PROCESS
 
-#### 返り値
+- 前提: Assemblerコンポーネント保持
+- 動作: インベントリの原料を加工素材に変換
+- レシピ:
+  - Metal: Ore × 2 → Metal × 1
+  - Circuit: Crystal × 2 → Circuit × 1
 
-ASSEMBLEのcommand書き込み時に、子のローカルIDが即座に結果領域に格納される。
-プログラムはこのIDを使って同一tick内でWRITE、ACTIVATEを予約できる。
+### 5-4. CRAFT
 
-### 5-3. WRITE
+- 前提: Assemblerコンポーネント保持
+- 動作: インベントリの加工素材をコンポーネントに変換
 
-v3から大幅に変更。
-
-#### 動作
-
-親のメモリの指定範囲を、対象のメモリの指定位置にブロックコピーする。
-
-- 引数: target_id（ローカルID）, src_addr, dst_addr, length
-- 対象はローカルIDで指定する
-- 対象はMemoryCoreコンポーネントを持っていなければならない
-- エネルギーコストはlengthに比例する
-
-#### 前提条件
-
-- 実行キャラクターがProcessorコンポーネントを持つ
-- 対象が存在し、INTERACT_RANGE内にいる
-- 対象がMemoryCoreを持つ
-
-### 5-3b. ACTIVATE
-
-対象をローカルIDで指定する（v3の最近接指定から変更）。
-ACTIVATEにより対象のVMが起動する（PC=0から実行開始）。
-
-前提条件:
-- 実行キャラクターがProcessorコンポーネントを持つ
-- 対象が存在し、INTERACT_RANGE内にいる
-- 対象がinactive（VM未起動）である
-
-### 5-4. REPAIR
-
-v3と同じ。
-
-### 5-5. PROCESS / CRAFT
-
-v3と同じ。レシピはv3に従う。
-ただし、Registerコンポーネントのレシピは削除する。
-
-#### v4 コンポーネントレシピ（Registerを除外）
+コンポーネントレシピ:
 
 | コンポーネント | 材料 |
 |--------------|------|
@@ -133,33 +239,65 @@ v3と同じ。レシピはv3に従う。
 | Charger | Metal × 1, Circuit × 2 |
 | MemoryCore | Circuit × 2 |
 
-### 5-6. SENSE
+### 5-5. ASSEMBLE
 
-v3から大幅に変更。詳細は [vm/vm_spec.md](vm/vm_spec.md) セクション7（Sensorスロット）および セクション8（個別クエリ）を参照。
+- 前提: Assemblerコンポーネント保持、必要コンポーネントがインベントリにある
+- 動作: 子キャラクターを生成する
 
-概要:
-- 結果は近い順に最大4件（概要のみ: type, angle, distance）
-- フィルタにより対象種別を絞り込み可能
-- 検知範囲: SENSE_RANGE
-- 自分自身は結果に含まれない
-- 詳細情報は個別クエリで取得する
+#### コンポーネント構成の指定
 
-## 6. 死亡と残骸
+AssemblerスロットのI/Oフィールドに各コンポーネント種別の個数を書き込む。
 
-v3と同じ。
+#### 子の配置
 
-### 6-1〜6-5
+1. 親の速度ベクトルと逆方向にSPAWN_DISTANCE離れた位置を第一候補
+2. 速度が0の場合、0度（右方向）を第一候補
+3. 衝突する場合、90度ずつ回転して計4方向試行
+4. 全方向で衝突 → ASSEMBLE失敗
 
-v3と同じ（残骸生成、衝突、GroundGrid、残骸吸収、ノード再生）。
+#### 子の初期状態
 
-ただし、Registerコンポーネントに関する記述を削除する:
+- inactive（VMは未起動、PC=0、全レジスタ=0、全メモリ=0）
+- 速度: {vx: 0, vy: 0}
+- インベントリ: 空
+- エネルギー: ASSEMBLE_ENERGY_TRANSFER
+- 耐久値: Frame数 × FRAME_DURABILITY
+- species: 親のspeciesを継承
 
-#### DISASSEMBLE流出テーブル（v4）
+#### 返り値
 
-v3からRegisterの行を削除。他は同一。
+ASSEMBLEのcommand書き込み時に、子のローカルIDが結果領域に即時格納される。
 
-| コンポーネント | レシピ | 流出 | グリッド変換 | キャラクター取得 |
-|--------------|--------|------|-------------|----------------|
+### 5-6. WRITE
+
+- 前提: Processorコンポーネント保持、対象が存在しINTERACT_RANGE内、対象がMemoryCoreを持つ
+- 動作: 自身のメモリの指定範囲を、対象のメモリの指定位置にブロックコピー
+- 引数: target_id（ローカルID）, src_addr, dst_addr, length
+- エネルギーコスト: 基本コスト + ceil(length × WRITE_COST_PER_WORD)
+- メモリラッピング: 自身・対象ともにアドレスはメモリサイズでラップする
+
+### 5-7. ACTIVATE
+
+- 前提: Processorコンポーネント保持、対象が存在しINTERACT_RANGE内、対象がinactive
+- 動作: 対象のVMを起動（PC=0から実行開始）
+- 対象: ローカルIDで指定
+
+### 5-8. REPAIR
+
+- 前提: Assemblerコンポーネント保持
+- 動作: 耐久値を回復（Frame数 × FRAME_DURABILITY を上限）
+- エネルギーコスト: 固定
+
+### 5-9. DISASSEMBLE
+
+- 前提: Disassemblerコンポーネント保持、distance ≤ INTERACT_RANGE のRemains
+- 動作: 残骸からコンポーネント/素材を回収（流出あり）
+- 対象: ローカルIDで指定
+
+#### コンポーネント別流出テーブル
+
+| コンポーネント | CRAFTレシピ | 流出 | グリッド変換 | キャラクター受取 |
+|--------------|------------|------|-------------|----------------|
 | Frame | Metal×3 | Metal×1 | ore += 2 | Metal×2 |
 | Actuator | Metal×1, Circuit×1 | Metal×1 | ore += 2 | Circuit×1 |
 | Sensor | Circuit×2 | Circuit×1 | crystal += 2 | Circuit×1 |
@@ -170,25 +308,78 @@ v3からRegisterの行を削除。他は同一。
 | Charger | Metal×1, Circuit×2 | Circuit×1 | crystal += 2 | Metal×1, Circuit×1 |
 | MemoryCore | Circuit×2 | Circuit×1 | crystal += 2 | Circuit×1 |
 
-### 6-6. 質量計算
+流出先はRemains位置のGroundGridセル。生リソース（Ore, Crystal）と加工素材（Metal, Circuit）のDISASSEMBLEには流出なし。
 
-v3と同じ計算方法。ただし、Registerの原材料換算値（2）は削除。
+### 5-10. SENSE
 
-| コンポーネント | 原材料換算値 |
-|--------------|-------------|
-| Frame | 6 |
-| Actuator | 4 |
-| Sensor | 4 |
-| Processor | 6 |
-| Harvester | 4 |
-| Assembler | 6 |
-| Disassembler | 6 |
-| Charger | 6 |
-| MemoryCore | 4 |
+- 前提: Sensorコンポーネント保持
+- 動作: **即時実行**（アクション予約ではない）。世界に影響を与えないため
+- 結果: 近い順に最大4件の概要情報（type, angle, distance）
+- フィルタ: 対象種別を絞り込み可能
+- 検知範囲: SENSE_RANGE
+- 自分自身は結果に含まれない
+- 詳細は [vm/vm_spec.md](vm/vm_spec.md) セクション7-2（Sensorスロット）参照
+
+---
+
+## 6. 死亡と残骸
+
+### 6-1. 残骸の生成
+
+キャラクター死亡時（耐久値 ≤ 0）にその位置に残骸が生成される。残骸は固定オブジェクト。死亡キャラクターの速度は残骸に引き継がれない。残骸は生成時のtickを `createdAt` として記録する。
+
+### 6-2. 残骸と衝突
+
+残骸は半径を持つ固定オブジェクト。キャラクターとの衝突判定が行われ、キャラクター側にのみ反発力が作用する。
+
+### 6-3. 地面グリッド（GroundGrid）
+
+ワールドを 1×1 の内部グリッドに分割し、地面に染み込んだ物質量を追跡する。
+
+```
+GroundCell = { ore: number, crystal: number }
+```
+
+- グリッドサイズ: `floor(width) × floor(height)` セル
+- 初期値: 全セル `{ ore: 0, crystal: 0 }`
+- セル座標: `cellX = min(floor(x), gridWidth - 1)`, `cellY = min(floor(y), gridHeight - 1)`
+
+### 6-4. 残骸の地面吸収
+
+`REMAINS_ABSORPTION_TICKS` tick 経過した残骸は消滅し、全内容物がGroundGridに吸収される。
+
+#### 物質変換ルール（全量ロスなし）
+
+| 元のアイテム | グリッドへの変換 |
+|---|---|
+| Ore | ore += 1 |
+| Crystal | crystal += 1 |
+| Metal | ore += 2 |
+| Circuit | crystal += 2 |
+| コンポーネント | CRAFTレシピ逆算 → Metal/Circuit → Ore/Crystal |
+
+inventory も components も同一ルールで変換。吸収先はRemains位置のグリッドセル。
+
+### 6-5. リソースノード再生
+
+グリッド全セルをラスタースキャン順（y=0,x=0 → y=max,x=max）で走査。各セルのムーア近傍（9セル）の ore/crystal 合計を独立に評価する。
+
+- ore 合計 ≥ `NODE_REGENERATION_THRESHOLD` → OreNode 生成
+- crystal 合計 ≥ `NODE_REGENERATION_THRESHOLD` → CrystalNode 生成
+- 両方同時に生成可能
+
+#### 生成されるノードの属性
+
+- `remaining`: 9セルの該当リソース合計値
+- `position`:
+  - OreNode: `(cellX + 0.5 + 0.2, cellY + 0.5)`
+  - CrystalNode: `(cellX + 0.5, cellY + 0.5 + 0.2)`
+
+ノード生成後、9セルの該当リソースを0にクリア。境界セルは存在するセルのみで合計。既存オブジェクトとの重複は許容（衝突判定で押し出される）。走査順は固定のため処理は決定論的。
+
+---
 
 ## 7. キャラクタープログラム
-
-v3のプログラムモデル（Rule列、Condition、Action型、set_registers、FnValue等）は全て廃止。
 
 キャラクターの行動はVMにより決定される。VMの仕様は [vm/vm_spec.md](vm/vm_spec.md) を参照。
 
@@ -197,98 +388,170 @@ v3のプログラムモデル（Rule列、Condition、Action型、set_registers�
 - **active**: VMが起動している状態。毎tickプログラムが実行される
 - **inactive**: VMが未起動の状態。プログラムは実行されない
 - ASSEMBLEで生成された子はinactive
-- ACTIVATEでinactiveからactiveに遷移する
+- ACTIVATEでactiveに遷移
 - activeからinactiveへの遷移は存在しない
 
 ### 7-2. species
 
-v3と同じ。キャラクター生成時に設定され、ASSEMBLEの際に親から子へ継承される。
+キャラクター生成時に設定され、ASSEMBLEの際に親から子へ継承される。
 初期キャラクターのspeciesはプログラム定義ファイルのname属性から決定される。
+
+---
 
 ## 8. ゲームループ
 
-v3のゲームループを以下のように変更する。
-
 ```
-1.  EnergyNode エネルギー生産
+v4 ゲームループ:
+
+1.  EnergyNodeのエネルギー生産
 2.  全activeキャラクターのVM実行（最大 INSTRUCTIONS_PER_TICK 命令）
-    → 各キャラクターのアクション予約が確定する
-3.  予約されたアクションを実行
-    - 異なる種別のアクション: 同時実行可能
-    - 同一コンポーネントスロットへの複数予約: 最後の予約のみ有効
+    → アクション予約が確定する（SENSEのみ即時実行）
+3.  予約されたアクションの一括実行
     - 実行順: キャラクターIDの昇順
-    - MOVE: 力を蓄積（物理ステップで適用）
-    - HARVEST/RECHARGE/DISASSEMBLE/WRITE/ACTIVATE: 距離チェック + 実行
+    - 異なる種別: 同時実行可能
+    - 同一コンポーネントスロットへの複数予約: 最後の予約のみ有効
+    - MOVE: 力の蓄積（物理更新で適用）
+    - HARVEST/RECHARGE: 最近接対象に対して実行
+    - DISASSEMBLE/WRITE/ACTIVATE: ローカルIDで指定した対象に対して実行
     - PROCESS/CRAFT/ASSEMBLE/REPAIR: 実行
-    - SENSE: 実行（結果はSensorスロットに格納、次tickで読み出し可能）
     - エネルギーチェック、消費、失敗ペナルティ
-4.  摩擦力の計算
-5.  衝突検出 + 反発力
-6.  物理更新（力 → 加速度 → 速度 → 位置）
-7.  基礎代謝（加齢係数あり）の適用
-8.  耐久値減衰（全キャラクター -1）
-9.  死亡チェック（耐久値 ≤ 0 → 残骸生成 + 除去）
-10. 残骸吸収
-11. ノード再生
+4.  摩擦力の算出（全キャラクター）
+5.  衝突判定と反発力の算出（全オブジェクトペア）
+6.  物理更新（力の合成 → 加速度 → 速度更新 → 位置更新）
+7.  エネルギー基礎代謝の適用（加齢代謝係数を含む）
+8.  耐久度自然減衰（全キャラクター -1）
+9.  死亡判定（耐久度 ≤ 0 → 残骸生成 + キャラクター除去）
+10. 残骸の地面吸収（6-4節）
+11. リソースノード再生（6-5節）
 12. tick++
 ```
 
 ### 8-1. ステップ2: VM実行
 
-各activeキャラクターについて、VMを実行する:
+各activeキャラクターについて:
 - PCが指すアドレスから命令を実行
-- HALT命令または INSTRUCTIONS_PER_TICK に達するまで
-- アクション予約はI/Oスロットへの書き込みにより行われる
+- HALTまたはINSTRUCTIONS_PER_TICKに達するまで
+- アクション予約はI/Oスロットへの書き込みで行われる
+- SENSEはcommand書き込み時に即時実行（予約ではない）
 
 ### 8-2. ステップ3: アクション実行
 
-全キャラクターのVM実行が完了した後、予約されたアクションを一括で実行する。
-
 - 実行順: キャラクターIDの昇順
-- 同一対象の同一アドレスへの複数WRITE: 実行順に書き込み、後勝ち
+- 同一対象への複数WRITE: 実行順に書き込み、後勝ち
 - ASSEMBLE失敗時: その子のローカルIDを使う後続アクションも失敗
+- アクション未予約でもNOOPコストは発生しない
 
 ### 8-3. エネルギーコスト
 
-v3と同じ。ただし:
-- WRITEのコスト: 基本コスト + length × WRITE_PER_WORD_COST
-- NOOPは存在しない（アクション未予約でもNOOPコストは発生しない）
+各アクションにはエネルギーコストが設定されている。エネルギー不足の場合、アクションは失敗し、コストの一定割合（失敗ペナルティ）を支払う。
 
-### 8-4. 加齢代謝
+WRITEのコスト: `基本コスト + ceil(length × WRITE_COST_PER_WORD)`
 
-v3と同じ。
+### 8-4. 物理更新の詳細（Step 4-6）
 
-### 8-5. 物理更新
+```
+Step 4: 摩擦力
+  friction_force = -velocity × FRICTION_COEFFICIENT × mass
 
-v3と同じ。
+Step 5: 衝突判定
+  全オブジェクトペアについて:
+    overlap = (radiusA + radiusB) - distance(A, B)
+    if overlap > 0:
+      direction = normalize(B.position - A.position)
+      force = overlap × COLLISION_STIFFNESS × direction
 
-## 9. 定数
+Step 6: 物理更新
+  total_force = move_force + friction_force + collision_forces
+  acceleration = total_force / mass
+  velocity += acceleration
+  position += velocity
+  // 速度クランプ（オプション）
+  if |velocity| < VELOCITY_CLAMP_THRESHOLD:
+    velocity = { vx: 0, vy: 0 }
+```
 
-v3の定数に加え、以下を追加/変更する:
+### 8-5. 加齢代謝（Step 7）
 
-### 追加定数
+```
+age = currentTick - character.createdAt
 
-| 定数 | 意味 | 暫定値 |
-|------|------|--------|
-| INSTRUCTIONS_PER_TICK | VMのtickあたり最大実行命令数 | 200 |
+age ≤ AGING_THRESHOLD_N の場合:
+  coefficient = 1.0
+age > AGING_THRESHOLD_N の場合:
+  coefficient = 1 + ((age - AGING_THRESHOLD_N) / (AGING_THRESHOLD_M - AGING_THRESHOLD_N))²
+```
+
+適用:
+```
+加齢後コンポーネント代謝 = ceil(コンポーネント代謝合計 × coefficient)
+インベントリ代謝 = アイテム数 × INVENTORY_METABOLISM_PER_ITEM
+エネルギー蓄積代謝 = floor((max(0, energy - THRESHOLD))² / SCALE)
+総代謝 = 加齢後コンポーネント代謝 + インベントリ代謝 + エネルギー蓄積代謝
+```
+
+加齢代謝係数はコンポーネント代謝にのみ適用。
+
+---
+
+## 9. 定数一覧
+
+### 物理定数
+
+| 定数名 | 意味 | デフォルト値 |
+|--------|------|-------------|
+| MOVE_FORCE | MOVEで加える力の大きさ | (調整) |
+| FRICTION_COEFFICIENT | 摩擦係数 | (調整) |
+| COLLISION_STIFFNESS | 衝突反発力のバネ定数 | (調整) |
+| INTERACT_RANGE | アクション実行可能距離 | (調整) |
+| SPAWN_DISTANCE | ASSEMBLE時の子の配置距離 | (調整) |
+| SENSE_RANGE | SENSEの探知半径 | 10 |
+| VELOCITY_CLAMP_THRESHOLD | 速度0クランプ閾値 | (調整) |
+
+### オブジェクト半径
+
+| 定数名 | 意味 | デフォルト値 |
+|--------|------|-------------|
+| CHARACTER_RADIUS | キャラクターの衝突半径 | (調整) |
+| RESOURCE_NODE_RADIUS | ResourceNodeの衝突半径 | (調整) |
+| ENERGY_NODE_RADIUS | EnergyNodeの衝突半径 | (調整) |
+| REMAINS_RADIUS | Remainsの衝突半径 | (調整) |
+
+### 物質循環定数
+
+| 定数名 | 意味 | デフォルト値 |
+|--------|------|-------------|
+| REMAINS_ABSORPTION_TICKS | 残骸吸収までのtick数 | 300 |
+| NODE_REGENERATION_THRESHOLD | ノード再生閾値 | 80 |
+
+### 加齢代謝定数
+
+| 定数名 | 意味 | デフォルト値 |
+|--------|------|-------------|
+| AGING_THRESHOLD_N | 加齢代謝猶予tick数 | 3000 |
+| AGING_THRESHOLD_M | 代謝2倍になるtick数 | 6000 |
+
+### VM関連定数
+
+| 定数名 | 意味 | 暫定値 |
+|--------|------|--------|
+| INSTRUCTIONS_PER_TICK | tickあたり最大実行命令数 | 200 |
 | MEMORYCORE_WORDS | MemoryCore 1個あたりのメモリワード数 | 1024 |
-| WRITE_PER_WORD_COST | WRITEの1ワードあたりの追加エネルギーコスト | (調整) |
+| WRITE_COST_PER_WORD | WRITEの1ワードあたり追加コスト | 0 |
 
-### 削除定数
-
-- registersPerComponent（Registerコンポーネント廃止のため）
-
-### 変更なし
-
-v3のその他の定数（MOVE_FORCE, FRICTION_COEFFICIENT, COLLISION_STIFFNESS, INTERACT_RANGE, SPAWN_DISTANCE, SENSE_RANGE, 各オブジェクト半径、REMAINS_ABSORPTION_TICKS, NODE_REGENERATION_THRESHOLD, AGING_THRESHOLD_N, AGING_THRESHOLD_M 等）はv3と同じ。
+---
 
 ## 10. 型定義
 
-v3からの変更箇所:
-
-### Character
-
 ```
+Position = { x: number, y: number }
+Velocity = { vx: number, vy: number }
+GroundCell = { ore: number, crystal: number }
+
+ComponentType =
+  | 'Frame' | 'Actuator' | 'Harvester' | 'Charger'
+  | 'Assembler' | 'Processor' | 'Sensor'
+  | 'Disassembler' | 'MemoryCore'
+
 Character = {
   id: string
   species: string
@@ -299,37 +562,29 @@ Character = {
   durability: number
   energy: number
   createdAt: number
-  // --- v4 変更 ---
-  active: boolean          // v3の program !== null に相当
+  active: boolean
   memory: number[]         // VMメモリ（MemoryCore依存サイズ）
-  registers: number[8]     // VMレジスタ r0-r7（r0は常に0）
+  registers: number[8]     // VMレジスタ r0-r7
   pc: number               // プログラムカウンタ
-  localIdTable: Map<number, string>  // ローカルID → システムID
-  localIdCounter: number   // 次に割り当てるローカルID
+  localIdTable: Map<number, string>
+  localIdCounter: number
+}
+
+Remains = {
+  id: string
+  position: Position
+  components: ComponentType[]
+  inventory: Inventory
+  createdAt: number
+}
+
+World = {
+  characters: Character[]
+  resourceNodes: ResourceNode[]
+  energyNodes: EnergyNode[]
+  remains: Remains[]
+  groundGrid: GroundCell[]
+  tick: number
+  nextId: number
 }
 ```
-
-### ComponentType
-
-```
-ComponentType =
-  | 'Frame'
-  | 'Actuator'
-  | 'Harvester'
-  | 'Charger'
-  | 'Assembler'
-  | 'Processor'
-  | 'Sensor'
-  | 'Disassembler'
-  | 'MemoryCore'
-```
-
-v3の `'Register'` を削除。
-
-### Program / Rule / Condition / Action 型
-
-全て廃止。VMの命令セットに置き換え。
-
-### SenseData
-
-廃止。SENSEの結果はI/Oスロットを通じてVMプログラムが読み取る。
