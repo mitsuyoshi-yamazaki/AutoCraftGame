@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --root .",
     "sim": "npx tsx src/cli.ts",
     "compile": "npx tsx src/tools/compile.ts",
     "assemble": "npx tsx src/tools/assemble.ts",
