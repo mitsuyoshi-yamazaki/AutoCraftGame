@@ -788,7 +788,7 @@ _do_replicate:
     IN r1, r2
     LI r3, _g_child_id
     SW r1, r3, 0
-    LI r1, 1400
+    LI r1, 1700
     PUSH r1
     ADD r1, r0, r0
     PUSH r1

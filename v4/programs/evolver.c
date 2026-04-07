@@ -3,7 +3,7 @@
 // Strategy: Pioneer-based behavior with evolvable parameters
 // On replication, parameters are mutated slightly before write_memory, then restored.
 
-#define COPY_SIZE       1400
+#define COPY_SIZE       1700
 
 // === Evolvable parameters (globals, copied to child via write_memory) ===
 int param_recharge_enter = 250;

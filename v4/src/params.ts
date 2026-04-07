@@ -98,12 +98,12 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   energyMetabolismThreshold: 3000,
   energyMetabolismScale: 9_000_000,
 
-  rechargeAmount: 1000,
+  rechargeAmount: 800,
   assembleEnergyTransfer: 500,
   repairAmount: 100,
 
-  frameDurability: 5000,
-  durabilityDecayNormal: 1,
+  frameDurability: 3000,
+  durabilityDecayNormal: 4,
   durabilityDecayStarving: 2,
 
   moveForce: 80.0,
@@ -124,8 +124,8 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   instructionsPerTick: 100000,
   writeCostPerWord: 0,
 
-  agingThresholdN: 8000,
-  agingThresholdM: 12000,
+  agingThresholdN: 3000,
+  agingThresholdM: 6000,
 
   remainsAbsorptionTicks: 600,
   nodeRegenerationThreshold: 50,
