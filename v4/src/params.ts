@@ -124,8 +124,8 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   instructionsPerTick: 100000,
   writeCostPerWord: 0,
 
-  agingThresholdN: 3000,
-  agingThresholdM: 6000,
+  agingThresholdN: 8000,
+  agingThresholdM: 12000,
 
   remainsAbsorptionTicks: 600,
   nodeRegenerationThreshold: 50,

@@ -75,7 +75,7 @@ function parseArgs(args: string[]) {
   return { ticks, seed, snapshotInterval, count, programPaths, configOverrides };
 }
 
-function loadProgramDef(path: string, count: number): ProgramDefinition {
+function loadProgramDef(path: string, defaultCount: number): ProgramDefinition {
   const json = JSON.parse(readFileSync(path, 'utf-8'));
   return {
     name: json.name ?? 'Unknown',
@@ -84,7 +84,7 @@ function loadProgramDef(path: string, count: number): ProgramDefinition {
       'Charger', 'Assembler', 'Processor', 'Sensor', 'MemoryCore', 'MemoryCore',
     ],
     program: json.program ?? [],
-    count,
+    count: json.count ?? defaultCount,
   };
 }
 
@@ -104,6 +104,9 @@ function main() {
     }
   }
   const params = { ...DEFAULT_GAME_PARAMS, ...paramOverrides } as typeof DEFAULT_GAME_PARAMS;
+  if (Object.keys(paramOverrides).length > 0) {
+    console.log(`Param overrides: ${Object.entries(paramOverrides).map(([k,v]) => `${k}=${v}`).join(', ')}`);
+  }
   const engine = createEngine(params);
   const worldConfig: WorldConfig = { ...DEFAULT_WORLD_CONFIG, ...opts.configOverrides };
   const rng = createRng(opts.seed);

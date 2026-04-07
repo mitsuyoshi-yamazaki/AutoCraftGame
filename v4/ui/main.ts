@@ -10,6 +10,8 @@ import { Renderer } from './renderer.js';
 import type { DrawSelection } from './renderer.js';
 import { GAME_VERSION } from '@/version.js';
 import { positionToCell, groundGridDimensions } from '@/ground.js';
+import { createRemains, addRemains, nextObjectId } from '@/world.js';
+import type { ComponentType } from '@/types.js';
 
 // ============================================================
 // Constants (UI only)
@@ -54,10 +56,20 @@ interface UIState {
 // ============================================================
 let PROGRAM_DEFS: ProgramDefinition[] = [];
 
+const PROGRAM_DEF_FILES = [
+  './pioneer_def.json',
+  './survivor_def.json',
+  './scavenger_def.json',
+];
+
 async function loadProgramDefs(): Promise<void> {
-  const resp = await fetch('./replicator_def.json');
-  const def = await resp.json() as ProgramDefinition;
-  PROGRAM_DEFS = [def];
+  const defs: ProgramDefinition[] = [];
+  for (const file of PROGRAM_DEF_FILES) {
+    const resp = await fetch(file);
+    const def = await resp.json() as ProgramDefinition;
+    defs.push(def);
+  }
+  PROGRAM_DEFS = defs;
 }
 
 // ============================================================
@@ -77,10 +89,39 @@ function buildSaveFileName(sessionStartedAt: string, resumedAt: string | null, t
 // ============================================================
 let engine: Engine = createEngine(DEFAULT_GAME_PARAMS);
 
+// Initial remains for Scavenger bootstrapping
+const INITIAL_REMAINS_COUNT = 10;
+const INITIAL_REMAINS_COMPONENTS: readonly ComponentType[] = [
+  'Frame', 'Frame', 'Actuator', 'Harvester', 'Charger',
+  'Assembler', 'Processor', 'Sensor', 'MemoryCore',
+];
+const INITIAL_REMAINS_INVENTORY: Readonly<Record<string, number>> = {
+  Ore: 4,
+  Crystal: 4,
+  Metal: 2,
+  Circuit: 2,
+};
+
 function createInitialState(seed?: number): UIState {
   const rng = createRng(seed ?? DEFAULT_SEED);
   let world = engine.createWorld(DEFAULT_WORLD_CONFIG, rng);
   world = engine.spawnInitialCharacters(world, PROGRAM_DEFS, rng);
+
+  // Add initial remains scattered across the map
+  for (let i = 0; i < INITIAL_REMAINS_COUNT; i++) {
+    const { id, world: w } = nextObjectId(world);
+    world = w;
+    const margin = 2;
+    const x = margin + (rng() * (world.width - 2 * margin));
+    const y = margin + (rng() * (world.height - 2 * margin));
+    const remains = createRemains(
+      id, { x, y },
+      [...INITIAL_REMAINS_COMPONENTS],
+      { ...INITIAL_REMAINS_INVENTORY },
+      0,
+    );
+    world = addRemains(world, remains);
+  }
 
   const firstChar = world.characters.length > 0 ? world.characters[0] : null;
 

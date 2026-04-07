@@ -167,11 +167,11 @@ describe('calculateBasalMetabolism', () => {
     const ch = engine.createCharacter(
       'c-001', { x: 0, y: 0 }, BASE_COMPONENTS, [1], 100, 's', 0,
     );
-    // age=4500, N=3000, M=6000
-    // ratio = (4500-3000)/(6000-3000) = 0.5
+    // age=10000, N=8000, M=12000
+    // ratio = (10000-8000)/(12000-8000) = 0.5
     // coefficient = 1 + 0.25 = 1.25
     // componentCost = ceil(16 * 1.25) = ceil(20) = 20
-    const cost = engine.calculateBasalMetabolism(ch, 4500);
+    const cost = engine.calculateBasalMetabolism(ch, 10000);
     expect(cost).toBe(20);
   });
 });
@@ -179,12 +179,12 @@ describe('calculateBasalMetabolism', () => {
 describe('calculateAgingCoefficient', () => {
   it('returns 1.0 when age <= N', () => {
     expect(engine.calculateAgingCoefficient(0)).toBe(1.0);
-    expect(engine.calculateAgingCoefficient(3000)).toBe(1.0);
+    expect(engine.calculateAgingCoefficient(8000)).toBe(1.0);
   });
 
   it('increases quadratically after N', () => {
-    // age=6000 (=M): ratio = 1.0, coefficient = 1 + 1 = 2
-    expect(engine.calculateAgingCoefficient(6000)).toBe(2.0);
+    // age=12000 (=M): ratio = 1.0, coefficient = 1 + 1 = 2
+    expect(engine.calculateAgingCoefficient(12000)).toBe(2.0);
   });
 });
 
