@@ -104,23 +104,34 @@
 - **memory** — VMメモリ（number[]）
 - **最大耐久値** — Frame数 × FRAME_DURABILITY（componentsから導出）
 
-### 選択時の詳細パネル
+### 選択時の詳細パネル（SelectedPanel）
 
 | 項目 | 表示内容 |
 |------|---------|
 | ID | キャラクターID |
 | Active/Inactive | active状態 |
 | Species | 種族名 |
+| Age | 生存tick数 |
 | Position | 座標 |
 | Mass | 質量 |
 | Durability | 現在値 / 最大値 |
 | Energy | エネルギー |
-| PC | プログラムカウンタの現在位置 |
-| Registers | r0-r7 の値 |
-| Memory | メモリサイズ（ワード数） |
 | Actions | 前tickの予約アクション一覧 |
 | Components | コンポーネント一覧 |
 | Inventory | アイテム一覧 |
+
+### VM状態パネル（VMPanel）
+
+キャラクター選択時のみ、SelectedPanelの下に表示される。VMデバッグ用の詳細情報。
+
+| 項目 | 表示内容 |
+|------|---------|
+| PC | プログラムカウンタの現在位置 |
+| Registers | r0-r7 の値 |
+| Memory | メモリサイズ（ワード数） |
+| VM Active | VM起動状態 |
+| Actions | 前tickの予約アクション一覧（SelectedPanelと同内容） |
+| Failed | 失敗したアクションのop名と失敗理由（ActionFailureReason）の一覧 |
 
 ### 描画要件（Active）
 

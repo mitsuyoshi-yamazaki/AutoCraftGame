@@ -153,3 +153,16 @@ body {
   color: #FF9800;
   font-weight: bold;
 }
+
+#vm-content {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#vm-content strong {
+  color: #2196F3;
+}
+
+.vm-failed {
+  color: #F44336;
+}

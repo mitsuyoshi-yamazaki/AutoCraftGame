@@ -25,6 +25,8 @@ UIコンポーネント、状態、アクションの名前を統一するため
 | StatsPanel | `#stats` | 統計情報セクション |
 | SelectedPanel | `#selected` | 選択オブジェクト詳細セクション |
 | SelectedContent | `#selected-content` | 選択オブジェクト詳細の内容領域 |
+| VMPanel | `#vm-panel` | VM状態デバッグセクション（キャラクター選択時のみ表示） |
+| VMContent | `#vm-content` | VM状態デバッグの内容領域 |
 | EventLog | `#event-log` | 画面下部のイベントログ領域 |
 | EventLogContent | `#event-log-content` | イベントログのスクロール可能な内容領域 |
 
@@ -136,6 +138,7 @@ UIコンポーネント、状態、アクションの名前を統一するため
 |------|------|
 | VMState | キャラクターのVM実行状態（PC, レジスタ, メモリ） |
 | ActionReservation | VMプログラムによるアクション予約 |
+| ActionFailureReason | アクション失敗理由の列挙型 |
 | LocalID | キャラクターごとのオブジェクト参照ID |
 
 ## v3から廃止された用語

@@ -121,6 +121,8 @@ const statRemains = document.getElementById('stat-remains')!;
 const statOldest = document.getElementById('stat-oldest')!;
 const statSpecies = document.getElementById('stat-species')!;
 const selectedContent = document.getElementById('selected-content')!;
+const vmPanel = document.getElementById('vm-panel')!;
+const vmContent = document.getElementById('vm-content')!;
 const eventLogContent = document.getElementById('event-log-content')!;
 const btnStep = document.getElementById('btn-step')! as HTMLButtonElement;
 const versionDisplay = document.getElementById('version-display')!;
@@ -335,6 +337,7 @@ function updateStats(): void {
 function updateSelected(): void {
   if (!state.selection) {
     selectedContent.innerHTML = '<em>Click an object</em>';
+    vmPanel.style.display = 'none';
     return;
   }
 
@@ -342,7 +345,11 @@ function updateSelected(): void {
 
   if (sel.kind === 'character') {
     const char = state.world.characters.find((c) => c.id === sel.id);
-    if (!char) { selectedContent.innerHTML = '<em>Click an object</em>'; return; }
+    if (!char) {
+      selectedContent.innerHTML = '<em>Click an object</em>';
+      vmPanel.style.display = 'none';
+      return;
+    }
 
     const actions = state.characterActions.get(char.id);
     const actionText = actions && actions.length > 0
@@ -356,7 +363,6 @@ function updateSelected(): void {
       : 'empty';
 
     const age = state.world.tick - char.createdAt;
-    const regs = char.vm.registers;
     selectedContent.innerHTML = `
       <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
       <div>Species: ${char.species}</div>
@@ -366,15 +372,32 @@ function updateSelected(): void {
       <div>Durability: ${char.durability} / ${maxDur}</div>
       <div>Energy: ${char.energy}</div>
       <div>Actions: ${actionText}</div>
-      <div>PC: ${char.vm.pc}</div>
-      <div>Registers: [${regs.join(', ')}]</div>
-      <div>Memory: ${char.vm.memory.length} words</div>
-      <div>VM Active: ${char.vm.active}</div>
       <div>Components: ${char.components.join(', ')}</div>
       <div>Inventory: ${invText}</div>
     `;
+
+    // VM Panel
+    const regs = char.vm.registers;
+    const failedActions = actions
+      ? actions.filter((a) => !a.success)
+      : [];
+    const failedText = failedActions.length > 0
+      ? failedActions.map((a) => `${a.op}(${a.reason ?? '?'})`).join(', ')
+      : '-';
+
+    vmPanel.style.display = '';
+    vmContent.innerHTML = `
+      <div><strong>PC</strong>: ${char.vm.pc}</div>
+      <div><strong>Registers</strong>: [${regs.join(', ')}]</div>
+      <div><strong>Memory</strong>: ${char.vm.memory.length} words</div>
+      <div><strong>VM Active</strong>: ${char.vm.active}</div>
+      <div><strong>Actions</strong>: ${actionText}</div>
+      <div class="vm-failed"><strong>Failed</strong>: ${failedText}</div>
+    `;
     return;
   }
+
+  vmPanel.style.display = 'none';
 
   if (sel.kind === 'resourceNode') {
     const node = state.world.resourceNodes.find((n) => n.id === sel.id);

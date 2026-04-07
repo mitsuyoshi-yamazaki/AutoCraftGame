@@ -31,7 +31,11 @@ CLIベースの連続空間シミュレーションを2Dビジュアルで表示
 - 同じオブジェクトを再クリックすると選択解除される
 - 何もないマップ上の地面をクリックすると、その位置のGroundGridセルが選択される
 - 選択中のオブジェクトが消滅した場合（Character死亡、Remains吸収等）、選択は自動解除される
-- **Character詳細**: ID, active/inactive, 種族名, 位置, 質量, 耐久値/最大耐久値, エネルギー, PC, VMレジスタ r0-r7, メモリサイズ, 前tickの予約アクション一覧（複数可）, コンポーネント一覧, インベントリ
+- **Character詳細（SelectedPanel）**: ID, active/inactive, 種族名, Age, 位置, 質量, 耐久値/最大耐久値, エネルギー, 前tickの予約アクション一覧（複数可）, コンポーネント一覧, インベントリ
+- **Character VM状態（VMPanel）**: SelectedPanelの下に表示。キャラクター選択時のみ表示される
+  - PC, VMレジスタ r0-r7, メモリサイズ, VM Active
+  - 前tickの予約アクション一覧（SelectedPanelと同内容）
+  - 失敗アクション一覧: 失敗したアクションのop名と失敗理由（ActionFailureReason）を表示
 - **ResourceNode詳細**: type, 位置, remaining, 生成tick
 - **EnergyNode詳細**: 位置, stored/maxStored, productionRate, 生成tick
 - **Remains詳細**: 位置, 吸収までの残りtick数, コンポーネント一覧, インベントリ
@@ -111,5 +115,5 @@ CLIベースの連続空間シミュレーションを2Dビジュアルで表示
 ## 非機能要件
 
 - ブラウザ上で動作する（サーバー不要、Vite dev serverのみ）
-- 既存のゲームロジック（src/）をUI目的で変更しない
+- 既存のゲームロジック（src/）をUI目的で変更しない（ただしActionRecordのreason追加のようにゲーム本体としても有用な変更は許容する）
 - pixi.js v8を描画エンジンとして使用する

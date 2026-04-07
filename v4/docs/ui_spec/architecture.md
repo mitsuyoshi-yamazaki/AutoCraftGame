@@ -111,6 +111,15 @@ ResourceNode / EnergyNode / Ground は消滅しない前提で自動解除しな
 │                               │   Actions: MOVE, HARVEST │
 │                               │   Components: ...        │  SelectedPanel
 │                               │   Inventory: ...         │
+│                               ├──────────────────────────┤
+│                               │  VM State                │
+│                               │   PC: 42                 │
+│                               │   Registers: [0,1,...]   │
+│                               │   Memory: 1024 words     │
+│                               │   VM Active: true        │
+│                               │   Actions: MOVE, HARVEST │
+│                               │   Failed: CRAFT(MISSING_ │  VMPanel
+│                               │           ITEMS)         │
 ├───────────────────────────────┴──────────────────────────┤
 │  Event Log                                               │
 │  [tick 42] char-001 spawned char-002 (Replicator)        │

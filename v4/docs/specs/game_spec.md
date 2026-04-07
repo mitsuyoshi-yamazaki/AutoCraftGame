@@ -443,6 +443,43 @@ v4 ゲームループ:
 - ASSEMBLE失敗時: その子のローカルIDを使う後続アクションも失敗
 - アクション未予約でもNOOPコストは発生しない
 
+#### アクション実行結果
+
+各アクションの実行結果は成否（boolean）と、失敗時の理由（ActionFailureReason）を記録する。
+
+```typescript
+type ActionFailureReason =
+  | 'INSUFFICIENT_ENERGY'
+  | 'MISSING_COMPONENT'
+  | 'INVALID_TARGET'
+  | 'TARGET_NOT_FOUND'
+  | 'OUT_OF_RANGE'
+  | 'MISSING_ITEMS'
+  | 'INVALID_RECIPE'
+  | 'NO_SPAWN_POSITION'
+  | 'TARGET_ALREADY_ACTIVE'
+  | 'EMPTY_REMAINS';
+
+interface ActionRecord {
+  readonly op: ActionOp;
+  readonly success: boolean;
+  readonly reason?: ActionFailureReason;  // 失敗時のみ
+}
+```
+
+失敗理由の判定は以下の優先順で行う:
+
+1. **INSUFFICIENT_ENERGY** — エネルギー不足（基本コスト未満）
+2. **MISSING_COMPONENT** — 必要コンポーネント未保持（Actuator, Harvester, Charger, Assembler, Processor, Disassembler, Sensor）
+3. **INVALID_TARGET** — ローカルID解決失敗、無効なレシピID、無効なコンポーネントID
+4. **TARGET_NOT_FOUND** — 対象オブジェクトが存在しない（距離内に対象なし含む）
+5. **OUT_OF_RANGE** — 対象が存在するが INTERACT_RANGE 外
+6. **MISSING_ITEMS** — レシピの材料不足、ASSEMBLE用コンポーネント不足
+7. **INVALID_RECIPE** — レシピが見つからない
+8. **NO_SPAWN_POSITION** — ASSEMBLE時に配置可能な位置がない
+9. **TARGET_ALREADY_ACTIVE** — ACTIVATE対象が既にactive
+10. **EMPTY_REMAINS** — DISASSEMBLE対象の残骸が空
+
 ### 8-3. エネルギーコスト
 
 各アクションにはエネルギーコストが設定されている。エネルギー不足の場合、アクションは失敗し、コストの一定割合（失敗ペナルティ）を支払う。

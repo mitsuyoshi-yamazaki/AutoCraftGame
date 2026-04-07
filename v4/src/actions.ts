@@ -14,6 +14,7 @@ import type {
   ComponentType,
   World,
   ActionRecord,
+  ActionFailureReason,
   SimulationEvent,
 } from './types.js';
 import { hasComponent } from './character.js';
@@ -188,7 +189,7 @@ export function createActionEngine(
     if (character.energy < baseCost) {
       return {
         world,
-        record: { op, success: false },
+        record: { op, success: false, reason: 'INSUFFICIENT_ENERGY' },
         events: [],
       };
     }
@@ -210,15 +211,16 @@ export function createActionEngine(
     }
 
     const penalty = getFailurePenalty(params, baseCost);
+    const reason = result.reason ?? 'INVALID_TARGET';
     const updatedChar = getCharacter(result.world, character.id);
     if (updatedChar) {
       const newWorld = updateCharacter(
         result.world,
         { ...updatedChar, energy: Math.max(0, updatedChar.energy - penalty) },
       );
-      return { world: newWorld, record: { op, success: false }, events: result.events };
+      return { world: newWorld, record: { op, success: false, reason }, events: result.events };
     }
-    return { world: result.world, record: { op, success: false }, events: result.events };
+    return { world: result.world, record: { op, success: false, reason }, events: result.events };
   }
 
   function reservationToActionOp(r: ActionReservation): ActionRecord['op'] {
@@ -236,6 +238,7 @@ export function createActionEngine(
   interface InnerResult {
     readonly world: World;
     readonly success: boolean;
+    readonly reason?: ActionFailureReason;
     readonly events: readonly SimulationEvent[];
   }
 
@@ -282,7 +285,7 @@ export function createActionEngine(
     forces: ForceMap,
   ): InnerResult {
     if (!hasComponent(character, 'Actuator')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     const angleDeg = reservation.direction;
@@ -298,7 +301,7 @@ export function createActionEngine(
     // SENSE was already executed in the I/O handler.
     // Just check prerequisite (Sensor component).
     if (!hasComponent(character, 'Sensor')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
     return { world, success: true, events: [] };
   }
@@ -322,18 +325,18 @@ export function createActionEngine(
     grid?: SpatialGrid,
   ): InnerResult {
     if (!hasComponent(character, 'Harvester')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     let node: import('./types.js').ResourceNode | null = null;
     if (reservation.targetLocalId !== 0) {
       const systemId = resolveLocalId(reservation.targetLocalId, localIdTable);
-      if (!systemId) return { world, success: false, events: [] };
+      if (!systemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
       node = findResourceNodeById(world, character, systemId);
     } else {
       node = worldEngine.findNearestResourceNode(world, character.position, grid);
     }
-    if (!node) return { world, success: false, events: [] };
+    if (!node) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
 
     const item = node.type === 'OreNode' ? 'Ore' : 'Crystal';
     const updated = { ...character, inventory: addItem(character.inventory, item) };
@@ -361,18 +364,18 @@ export function createActionEngine(
     grid?: SpatialGrid,
   ): InnerResult {
     if (!hasComponent(character, 'Charger')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     let node: import('./types.js').EnergyNode | null = null;
     if (reservation.targetLocalId !== 0) {
       const systemId = resolveLocalId(reservation.targetLocalId, localIdTable);
-      if (!systemId) return { world, success: false, events: [] };
+      if (!systemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
       node = findEnergyNodeById(world, character, systemId);
     } else {
       node = worldEngine.findNearestEnergyNode(world, character.position, grid);
     }
-    if (!node) return { world, success: false, events: [] };
+    if (!node) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
 
     const amount = Math.min(params.rechargeAmount, node.stored);
     const updated = { ...character, energy: character.energy + amount };
@@ -387,17 +390,17 @@ export function createActionEngine(
     reservation: ProcessReservation,
   ): InnerResult {
     if (!hasComponent(character, 'Assembler')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     const recipeName = recipeIdToName(reservation.recipe);
-    if (!recipeName) return { world, success: false, events: [] };
+    if (!recipeName) return { world, success: false, reason: 'INVALID_RECIPE', events: [] };
 
     const processRecipe = recipeEngine.findProcessRecipe(recipeName);
-    if (!processRecipe) return { world, success: false, events: [] };
+    if (!processRecipe) return { world, success: false, reason: 'INVALID_RECIPE', events: [] };
 
     if (!hasItems(character.inventory, processRecipe.inputs)) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_ITEMS', events: [] };
     }
 
     let inv = removeItems(character.inventory, processRecipe.inputs);
@@ -412,17 +415,17 @@ export function createActionEngine(
     reservation: CraftReservation,
   ): InnerResult {
     if (!hasComponent(character, 'Assembler')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     const componentName = craftIdToName(reservation.componentType);
-    if (!componentName) return { world, success: false, events: [] };
+    if (!componentName) return { world, success: false, reason: 'INVALID_RECIPE', events: [] };
 
     const craftRecipe = recipeEngine.findCraftRecipe(componentName);
-    if (!craftRecipe) return { world, success: false, events: [] };
+    if (!craftRecipe) return { world, success: false, reason: 'INVALID_RECIPE', events: [] };
 
     if (!hasItems(character.inventory, craftRecipe.inputs)) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_ITEMS', events: [] };
     }
 
     let inv = removeItems(character.inventory, craftRecipe.inputs);
@@ -439,26 +442,26 @@ export function createActionEngine(
     grid?: SpatialGrid,
   ): InnerResult {
     if (!hasComponent(character, 'Assembler')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     const components = reservation.components;
     if (components.length === 0) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_ITEMS', events: [] };
     }
 
     // Check that required components are in inventory
     const required: Record<string, number> = {};
     for (const c of components) required[c] = (required[c] ?? 0) + 1;
     if (!hasItems(character.inventory, required)) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_ITEMS', events: [] };
     }
 
     // Find spawn position
     const spawnPos = worldEngine.findSpawnPosition(
       world, character.position, character.velocity, grid,
     );
-    if (!spawnPos) return { world, success: false, events: [] };
+    if (!spawnPos) return { world, success: false, reason: 'NO_SPAWN_POSITION', events: [] };
 
     // Remove components from inventory
     const inv = removeItems(character.inventory, required);
@@ -486,7 +489,7 @@ export function createActionEngine(
 
   function executeRepair(world: World, character: Character): InnerResult {
     if (!hasComponent(character, 'Assembler')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     const frameCount = character.components.filter(c => c === 'Frame').length;
@@ -514,23 +517,23 @@ export function createActionEngine(
     grid?: SpatialGrid,
   ): InnerResult {
     if (!hasComponent(character, 'Processor')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     const targetSystemId = resolveLocalId(reservation.targetLocalId, localIdTable);
-    if (!targetSystemId) return { world, success: false, events: [] };
+    if (!targetSystemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
 
     const target = getCharacter(world, targetSystemId);
-    if (!target) return { world, success: false, events: [] };
+    if (!target) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
 
     // Range check
     if (distance(character.position, target.position) > params.interactRange) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'OUT_OF_RANGE', events: [] };
     }
 
     // Target must have MemoryCore
     if (!target.components.includes('MemoryCore')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'INVALID_TARGET', events: [] };
     }
 
     // Block copy: src memory -> target memory
@@ -540,7 +543,7 @@ export function createActionEngine(
     const dstSize = dstMemory.length;
 
     if (srcSize === 0 || dstSize === 0) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'INVALID_TARGET', events: [] };
     }
 
     const length = reservation.length;
@@ -565,23 +568,23 @@ export function createActionEngine(
     grid?: SpatialGrid,
   ): InnerResult {
     if (!hasComponent(character, 'Processor')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     const targetSystemId = resolveLocalId(reservation.targetLocalId, localIdTable);
-    if (!targetSystemId) return { world, success: false, events: [] };
+    if (!targetSystemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
 
     const target = getCharacter(world, targetSystemId);
-    if (!target) return { world, success: false, events: [] };
+    if (!target) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
 
     // Range check
     if (distance(character.position, target.position) > params.interactRange) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'OUT_OF_RANGE', events: [] };
     }
 
     // Target must be inactive
     if (target.vm.active) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'TARGET_ALREADY_ACTIVE', events: [] };
     }
 
     const updatedTarget: Character = {
@@ -599,18 +602,18 @@ export function createActionEngine(
     grid?: SpatialGrid,
   ): InnerResult {
     if (!hasComponent(character, 'Disassembler')) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
     const targetSystemId = resolveLocalId(reservation.targetLocalId, localIdTable);
-    if (!targetSystemId) return { world, success: false, events: [] };
+    if (!targetSystemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
 
     const remains = world.remains.find(r => r.id === targetSystemId);
-    if (!remains) return { world, success: false, events: [] };
+    if (!remains) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
 
     // Range check
     if (distance(character.position, remains.position) > params.interactRange) {
-      return { world, success: false, events: [] };
+      return { world, success: false, reason: 'OUT_OF_RANGE', events: [] };
     }
 
     // Try inventory items first (alphabetical order)
@@ -660,7 +663,7 @@ export function createActionEngine(
       return { world: newWorld, success: true, events: [] };
     }
 
-    return { world, success: false, events: [] };
+    return { world, success: false, reason: 'EMPTY_REMAINS', events: [] };
   }
 
   function disassembleItem(

@@ -89,9 +89,22 @@ export type ActionOp =
   | 'WRITE' | 'ACTIVATE' | 'SENSE'
   | 'REPAIR' | 'DISASSEMBLE';
 
+export type ActionFailureReason =
+  | 'INSUFFICIENT_ENERGY'
+  | 'MISSING_COMPONENT'
+  | 'INVALID_TARGET'
+  | 'TARGET_NOT_FOUND'
+  | 'OUT_OF_RANGE'
+  | 'MISSING_ITEMS'
+  | 'INVALID_RECIPE'
+  | 'NO_SPAWN_POSITION'
+  | 'TARGET_ALREADY_ACTIVE'
+  | 'EMPTY_REMAINS';
+
 export interface ActionRecord {
   readonly op: ActionOp;
   readonly success: boolean;
+  readonly reason?: ActionFailureReason;
 }
 
 // === Events ===
