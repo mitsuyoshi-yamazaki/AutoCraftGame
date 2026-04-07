@@ -94,15 +94,15 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
     Charger: 2,
     MemoryCore: 1,
   },
-  inventoryMetabolismPerItem: 1,
+  inventoryMetabolismPerItem: 0,
   energyMetabolismThreshold: 3000,
   energyMetabolismScale: 9_000_000,
 
-  rechargeAmount: 200,
+  rechargeAmount: 1000,
   assembleEnergyTransfer: 500,
   repairAmount: 100,
 
-  frameDurability: 300,
+  frameDurability: 5000,
   durabilityDecayNormal: 1,
   durabilityDecayStarving: 2,
 

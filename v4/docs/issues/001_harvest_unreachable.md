@@ -1,22 +1,26 @@
 # Issue 001: キャラクターがHARVEST距離に到達しない
 
+## ステータス: 解決済み
+
 ## 症状
 
 replicatorプログラムのキャラクターがSENSE→MOVE→RECHARGEのループを繰り返すが、
 リソースノードのINTERACT_RANGE内に入れず、HARVESTが一度も実行されない。
 
-## 原因の候補
+## 原因
 
-1. **MOVEの力と摩擦のバランス**: MOVE_FORCE=80, FRICTION_COEFFICIENT=0.8 の組み合わせで、
-   1tickあたりの移動距離が小さく、5tick（move_counter上限）では到達しない可能性
-2. **SENSE結果の角度精度**: 整数丸め（0-359度）による方向のずれ
-3. **プログラムのロジック**: state=1(MOVE)で5tick移動した後state=0に戻り再SENSEするが、
-   SENSEのたびに最も近い対象が変わる可能性
-4. **距離判定**: SENSE結果のdistanceが整数丸めで、distance < 2 のチェックが厳しい
+複合的な問題が原因だった:
 
-## 調整方針
+1. **RECIPE/CRAFT IDの不一致** (actions.ts): コンパイラ定数(0-based)とアクション実行側(1-based)のID不一致により、PROCESS/CRAFTが無条件失敗
+2. **移動オーバーシュート**: `moving = d`（距離d分のtick移動）で、1tickあたり~1.8単位移動するため大幅にオーバーシュート
+3. **エネルギー経済の破綻**: inventoryMetabolismPerItemが高すぎ、アイテム所持中の代謝がRECHARGE供給を超過
 
-- move_counter上限を増やす（5→20等）
-- INTERACT_RANGEを確認（v3のデフォルト値1.5）
-- distance < 2 の閾値をINTERACT_RANGEに合わせる
-- 物理パラメータのチューニング
+## 解決策
+
+1. actions.tsのRECIPE/CRAFT IDを0-basedに修正
+2. 毎tickSENSEして方向修正するプログラムに変更
+3. パラメータ調整（inventoryMetabolismPerItem=0, rechargeAmount=1000, frameDurability=5000）
+4. スタックリーク回避（全変数グローバル化）
+5. WRITE/ACTIVATE予約の分離（別tickに）
+
+詳細は docs/tuning/001_baseline_self_replication.md を参照。

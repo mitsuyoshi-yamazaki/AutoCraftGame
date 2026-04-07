@@ -221,14 +221,15 @@ describe('executeReservations — RECHARGE', () => {
 
     expect(result.records[0]).toMatchObject({ op: 'RECHARGE', success: true });
     const updated = result.world.characters.find(c => c.id === 'c-001')!;
-    // Energy gained = min(rechargeAmount, stored) = min(200, 500) = 200
-    // Then cost deducted: 100 + 200 - RECHARGE_COST(5)
-    const expectedEnergy = 100 + params.rechargeAmount - params.energyCosts['RECHARGE'];
+    // Energy gained = min(rechargeAmount, stored) = min(1000, 500) = 500
+    // Then cost deducted: 100 + 500 - RECHARGE_COST(5)
+    const gained = Math.min(params.rechargeAmount, 500);
+    const expectedEnergy = 100 + gained - params.energyCosts['RECHARGE'];
     expect(updated.energy).toBe(expectedEnergy);
 
     // Energy node should have stored reduced
     const node = result.world.energyNodes.find(n => n.id === 'en-001')!;
-    expect(node.stored).toBe(500 - params.rechargeAmount);
+    expect(node.stored).toBe(500 - gained);
   });
 
   it('RECHARGE fails when no energy node in range', () => {

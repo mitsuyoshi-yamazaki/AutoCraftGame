@@ -148,9 +148,9 @@ describe('calculateBasalMetabolism', () => {
       'c-001', { x: 0, y: 0 }, BASE_COMPONENTS, [1], 100, 's', 0,
     );
     const withItems: Character = { ...ch, inventory: { Ore: 5, Crystal: 3 } };
-    // componentCost=16, inventoryCost=ceil(8*1)=8, energyCost=0
+    // componentCost=16, inventoryCost=ceil(8*0)=0, energyCost=0
     const cost = engine.calculateBasalMetabolism(withItems, 0);
-    expect(cost).toBe(16 + 8);
+    expect(cost).toBe(16 + 0);
   });
 
   it('includes energy metabolism for high energy', () => {

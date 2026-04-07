@@ -1,11 +1,19 @@
     JMP _main
-_g_state:
+_g_phase:
     .word 0
-_g_target_angle:
+_g_count:
     .word 0
-_g_move_counter:
+_g_craft_step:
     .word 0
-_g_harvest_count:
+_g_wander_angle:
+    .word 0
+_g_recharging:
+    .word 0
+_g_child_id:
+    .word 0
+_g_energy:
+    .word 0
+_g_n:
     .word 0
 _main:
     PUSH r6
@@ -14,19 +22,73 @@ _L0:
     BEQL r1, r0, _L1
     LI r2, 0
     IN r1, r2
+    LI r3, _g_energy
+    SW r1, r3, 0
+    LI r3, _g_recharging
+    LW r1, r3, 0
     PUSH r1
-    LW r1, r7, 0
-    PUSH r1
-    LI r1, 200
+    ADD r1, r0, r0
     MOV r2, r1
     POP r1
-    BLTL r1, r2, _L4
+    BEQL r1, r2, _L4
     ADD r1, r0, r0
     JMP _L5
 _L4:
     LI r1, 1
 _L5:
     BEQL r1, r0, _L2
+    LI r3, _g_energy
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 200
+    MOV r2, r1
+    POP r1
+    BLTL r1, r2, _L8
+    ADD r1, r0, r0
+    JMP _L9
+_L8:
+    LI r1, 1
+_L9:
+    BEQL r1, r0, _L6
+    LI r1, 1
+    LI r3, _g_recharging
+    SW r1, r3, 0
+_L6:
+_L2:
+    LI r3, _g_recharging
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 1
+    MOV r2, r1
+    POP r1
+    BEQL r1, r2, _L12
+    ADD r1, r0, r0
+    JMP _L13
+_L12:
+    LI r1, 1
+_L13:
+    BEQL r1, r0, _L10
+    LI r3, _g_energy
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 600
+    MOV r2, r1
+    POP r1
+    MOV r3, r1
+    MOV r1, r2
+    MOV r2, r3
+    BLTL r1, r2, _L16
+    ADD r1, r0, r0
+    JMP _L17
+_L16:
+    LI r1, 1
+_L17:
+    BEQL r1, r0, _L14
+    ADD r1, r0, r0
+    LI r3, _g_recharging
+    SW r1, r3, 0
+    JMP _L15
+_L14:
     LI r1, 3
     PUSH r1
     POP r1
@@ -37,101 +99,10 @@ _L5:
     OUT r2, r1
     LI r2, 24578
     IN r1, r2
-    PUSH r1
-    LW r1, r7, 0
-    PUSH r1
-    ADD r1, r0, r0
-    MOV r2, r1
-    POP r1
-    MOV r3, r1
-    MOV r1, r2
-    MOV r2, r3
-    BLTL r1, r2, _L8
-    ADD r1, r0, r0
-    JMP _L9
-_L8:
-    LI r1, 1
-_L9:
-    BEQL r1, r0, _L6
-    ADD r1, r0, r0
-    PUSH r1
-    POP r1
-    LI r2, 24579
-    OUT r2, r1
-    LI r2, 24582
-    IN r1, r2
-    PUSH r1
-    LW r1, r7, 0
-    PUSH r1
-    LI r1, 2
-    MOV r2, r1
-    POP r1
-    BLTL r1, r2, _L12
-    ADD r1, r0, r0
-    JMP _L13
-_L12:
-    LI r1, 1
-_L13:
-    BEQL r1, r0, _L10
-    LI r1, 1
-    LI r2, 12289
-    OUT r2, r1
-    JMP _L11
-_L10:
-    LI r2, 24581
-    IN r1, r2
-    PUSH r1
-    POP r1
-    LI r2, 4098
-    OUT r2, r1
-    LI r1, 1
-    LI r2, 4097
-    OUT r2, r1
-_L11:
-    JMP _L7
-_L6:
-    LW r1, r7, 2
-    PUSH r1
-    LI r1, 360
-    MOV r2, r1
-    POP r1
-    MOD r1, r1, r2
-    PUSH r1
-    POP r1
-    LI r2, 4098
-    OUT r2, r1
-    LI r1, 1
-    LI r2, 4097
-    OUT r2, r1
-_L7:
-    HALT
-    JMP _L0
-_L2:
-    LI r3, _g_state
+    LI r3, _g_n
+    SW r1, r3, 0
+    LI r3, _g_n
     LW r1, r3, 0
-    PUSH r1
-    ADD r1, r0, r0
-    MOV r2, r1
-    POP r1
-    BEQL r1, r2, _L16
-    ADD r1, r0, r0
-    JMP _L17
-_L16:
-    LI r1, 1
-_L17:
-    BEQL r1, r0, _L14
-    LI r1, 4
-    PUSH r1
-    POP r1
-    LI r2, 24578
-    OUT r2, r1
-    LI r1, 1
-    LI r2, 24577
-    OUT r2, r1
-    LI r2, 24578
-    IN r1, r2
-    PUSH r1
-    LW r1, r7, 0
     PUSH r1
     ADD r1, r0, r0
     MOV r2, r1
@@ -151,14 +122,8 @@ _L21:
     POP r1
     LI r2, 24579
     OUT r2, r1
-    LI r2, 24581
-    IN r1, r2
-    LI r3, _g_target_angle
-    SW r1, r3, 0
     LI r2, 24582
     IN r1, r2
-    PUSH r1
-    LW r1, r7, 0
     PUSH r1
     LI r1, 2
     MOV r2, r1
@@ -170,41 +135,50 @@ _L24:
     LI r1, 1
 _L25:
     BEQL r1, r0, _L22
-    LI r1, 2
-    LI r3, _g_state
-    SW r1, r3, 0
+    LI r1, 1
+    LI r2, 12289
+    OUT r2, r1
     JMP _L23
 _L22:
+    LI r2, 24581
+    IN r1, r2
+    PUSH r1
+    POP r1
+    LI r2, 4098
+    OUT r2, r1
     LI r1, 1
-    LI r3, _g_state
-    SW r1, r3, 0
-    ADD r1, r0, r0
-    LI r3, _g_move_counter
-    SW r1, r3, 0
+    LI r2, 4097
+    OUT r2, r1
 _L23:
     JMP _L19
 _L18:
-    LW r1, r7, 4
-    PUSH r1
-    LI r1, 360
-    MOV r2, r1
-    POP r1
-    MOD r1, r1, r2
-    LI r3, _g_target_angle
-    SW r1, r3, 0
-    LI r1, 1
-    LI r3, _g_state
-    SW r1, r3, 0
-    ADD r1, r0, r0
-    LI r3, _g_move_counter
-    SW r1, r3, 0
-_L19:
-    JMP _L15
-_L14:
-    LI r3, _g_state
+    LI r3, _g_wander_angle
     LW r1, r3, 0
     PUSH r1
+    LI r1, 45
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_wander_angle
+    SW r1, r3, 0
+    LI r3, _g_wander_angle
+    LW r1, r3, 0
+    PUSH r1
+    POP r1
+    LI r2, 4098
+    OUT r2, r1
     LI r1, 1
+    LI r2, 4097
+    OUT r2, r1
+_L19:
+    HALT
+    JMP _L0
+_L15:
+_L10:
+    LI r3, _g_phase
+    LW r1, r3, 0
+    PUSH r1
+    ADD r1, r0, r0
     MOV r2, r1
     POP r1
     BEQL r1, r2, _L28
@@ -214,7 +188,110 @@ _L28:
     LI r1, 1
 _L29:
     BEQL r1, r0, _L26
-    LI r3, _g_target_angle
+    LI r3, _g_count
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 30
+    MOV r2, r1
+    POP r1
+    BGEL r1, r2, _L32
+    ADD r1, r0, r0
+    JMP _L33
+_L32:
+    LI r1, 1
+_L33:
+    BEQL r1, r0, _L30
+    LI r1, 1
+    LI r3, _g_phase
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_count
+    SW r1, r3, 0
+    HALT
+    JMP _L0
+_L30:
+    LI r1, 1
+    PUSH r1
+    POP r1
+    LI r2, 24578
+    OUT r2, r1
+    LI r1, 1
+    LI r2, 24577
+    OUT r2, r1
+    LI r2, 24578
+    IN r1, r2
+    LI r3, _g_n
+    SW r1, r3, 0
+    LI r3, _g_n
+    LW r1, r3, 0
+    PUSH r1
+    ADD r1, r0, r0
+    MOV r2, r1
+    POP r1
+    MOV r3, r1
+    MOV r1, r2
+    MOV r2, r3
+    BLTL r1, r2, _L36
+    ADD r1, r0, r0
+    JMP _L37
+_L36:
+    LI r1, 1
+_L37:
+    BEQL r1, r0, _L34
+    ADD r1, r0, r0
+    PUSH r1
+    POP r1
+    LI r2, 24579
+    OUT r2, r1
+    LI r2, 24582
+    IN r1, r2
+    PUSH r1
+    LI r1, 2
+    MOV r2, r1
+    POP r1
+    BLTL r1, r2, _L40
+    ADD r1, r0, r0
+    JMP _L41
+_L40:
+    LI r1, 1
+_L41:
+    BEQL r1, r0, _L38
+    LI r1, 1
+    LI r2, 8193
+    OUT r2, r1
+    LI r3, _g_count
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 1
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_count
+    SW r1, r3, 0
+    JMP _L39
+_L38:
+    LI r2, 24581
+    IN r1, r2
+    PUSH r1
+    POP r1
+    LI r2, 4098
+    OUT r2, r1
+    LI r1, 1
+    LI r2, 4097
+    OUT r2, r1
+_L39:
+    JMP _L35
+_L34:
+    LI r3, _g_wander_angle
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 45
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_wander_angle
+    SW r1, r3, 0
+    LI r3, _g_wander_angle
     LW r1, r3, 0
     PUSH r1
     POP r1
@@ -223,93 +300,14 @@ _L29:
     LI r1, 1
     LI r2, 4097
     OUT r2, r1
-    LI r3, _g_move_counter
-    LW r1, r3, 0
-    PUSH r1
-    LI r1, 1
-    MOV r2, r1
-    POP r1
-    ADD r1, r1, r2
-    LI r3, _g_move_counter
-    SW r1, r3, 0
-    LI r3, _g_move_counter
-    LW r1, r3, 0
-    PUSH r1
-    LI r1, 5
-    MOV r2, r1
-    POP r1
-    MOV r3, r1
-    MOV r1, r2
-    MOV r2, r3
-    BLTL r1, r2, _L32
-    ADD r1, r0, r0
-    JMP _L33
-_L32:
-    LI r1, 1
-_L33:
-    BEQL r1, r0, _L30
-    ADD r1, r0, r0
-    LI r3, _g_state
-    SW r1, r3, 0
-_L30:
-    JMP _L27
+_L35:
+    HALT
+    JMP _L0
 _L26:
-    LI r3, _g_state
-    LW r1, r3, 0
-    PUSH r1
-    LI r1, 2
-    MOV r2, r1
-    POP r1
-    BEQL r1, r2, _L36
-    ADD r1, r0, r0
-    JMP _L37
-_L36:
-    LI r1, 1
-_L37:
-    BEQL r1, r0, _L34
-    LI r1, 1
-    LI r2, 8193
-    OUT r2, r1
-    LI r3, _g_harvest_count
+    LI r3, _g_phase
     LW r1, r3, 0
     PUSH r1
     LI r1, 1
-    MOV r2, r1
-    POP r1
-    ADD r1, r1, r2
-    LI r3, _g_harvest_count
-    SW r1, r3, 0
-    LI r3, _g_harvest_count
-    LW r1, r3, 0
-    PUSH r1
-    LI r1, 20
-    MOV r2, r1
-    POP r1
-    MOV r3, r1
-    MOV r1, r2
-    MOV r2, r3
-    BLTL r1, r2, _L40
-    ADD r1, r0, r0
-    JMP _L41
-_L40:
-    LI r1, 1
-_L41:
-    BEQL r1, r0, _L38
-    LI r1, 3
-    LI r3, _g_state
-    SW r1, r3, 0
-    JMP _L39
-_L38:
-    ADD r1, r0, r0
-    LI r3, _g_state
-    SW r1, r3, 0
-_L39:
-    JMP _L35
-_L34:
-    LI r3, _g_state
-    LW r1, r3, 0
-    PUSH r1
-    LI r1, 3
     MOV r2, r1
     POP r1
     BEQL r1, r2, _L44
@@ -319,79 +317,277 @@ _L44:
     LI r1, 1
 _L45:
     BEQL r1, r0, _L42
+    LI r3, _g_count
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 26
+    MOV r2, r1
+    POP r1
+    BGEL r1, r2, _L48
+    ADD r1, r0, r0
+    JMP _L49
+_L48:
+    LI r1, 1
+_L49:
+    BEQL r1, r0, _L46
+    LI r1, 2
+    LI r3, _g_phase
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_count
+    SW r1, r3, 0
+    HALT
+    JMP _L0
+_L46:
+    LI r1, 2
+    PUSH r1
+    POP r1
+    LI r2, 24578
+    OUT r2, r1
+    LI r1, 1
+    LI r2, 24577
+    OUT r2, r1
+    LI r2, 24578
+    IN r1, r2
+    LI r3, _g_n
+    SW r1, r3, 0
+    LI r3, _g_n
+    LW r1, r3, 0
+    PUSH r1
+    ADD r1, r0, r0
+    MOV r2, r1
+    POP r1
+    MOV r3, r1
+    MOV r1, r2
+    MOV r2, r3
+    BLTL r1, r2, _L52
+    ADD r1, r0, r0
+    JMP _L53
+_L52:
+    LI r1, 1
+_L53:
+    BEQL r1, r0, _L50
     ADD r1, r0, r0
     PUSH r1
     POP r1
-    LI r2, 16386
+    LI r2, 24579
     OUT r2, r1
-    LI r1, 1
-    LI r2, 16385
-    OUT r2, r1
-    LI r1, 1
+    LI r2, 24582
+    IN r1, r2
     PUSH r1
+    LI r1, 2
+    MOV r2, r1
     POP r1
-    LI r2, 16386
-    OUT r2, r1
-    LI r1, 1
-    LI r2, 16385
-    OUT r2, r1
+    BLTL r1, r2, _L56
     ADD r1, r0, r0
+    JMP _L57
+_L56:
+    LI r1, 1
+_L57:
+    BEQL r1, r0, _L54
+    LI r1, 1
+    LI r2, 8193
+    OUT r2, r1
+    LI r3, _g_count
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 1
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_count
+    SW r1, r3, 0
+    JMP _L55
+_L54:
+    LI r2, 24581
+    IN r1, r2
     PUSH r1
     POP r1
-    LI r2, 16386
-    OUT r2, r1
-    LI r1, 2
-    LI r2, 16385
-    OUT r2, r1
-    ADD r1, r0, r0
-    PUSH r1
-    POP r1
-    LI r2, 16386
-    OUT r2, r1
-    LI r1, 2
-    LI r2, 16385
-    OUT r2, r1
-    ADD r1, r0, r0
-    PUSH r1
-    POP r1
-    LI r2, 16386
-    OUT r2, r1
-    LI r1, 2
-    LI r2, 16385
+    LI r2, 4098
     OUT r2, r1
     LI r1, 1
+    LI r2, 4097
+    OUT r2, r1
+_L55:
+    JMP _L51
+_L50:
+    LI r3, _g_wander_angle
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 45
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_wander_angle
+    SW r1, r3, 0
+    LI r3, _g_wander_angle
+    LW r1, r3, 0
     PUSH r1
     POP r1
-    LI r2, 16386
+    LI r2, 4098
     OUT r2, r1
-    LI r1, 2
-    LI r2, 16385
+    LI r1, 1
+    LI r2, 4097
     OUT r2, r1
-    LI r1, 2
+_L51:
+    HALT
+    JMP _L0
+_L42:
+    LI r3, _g_phase
+    LW r1, r3, 0
     PUSH r1
-    POP r1
-    LI r2, 16386
-    OUT r2, r1
     LI r1, 2
-    LI r2, 16385
-    OUT r2, r1
+    MOV r2, r1
+    POP r1
+    BEQL r1, r2, _L60
+    ADD r1, r0, r0
+    JMP _L61
+_L60:
+    LI r1, 1
+_L61:
+    BEQL r1, r0, _L58
+    LI r3, _g_count
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 15
+    MOV r2, r1
+    POP r1
+    BGEL r1, r2, _L64
+    ADD r1, r0, r0
+    JMP _L65
+_L64:
+    LI r1, 1
+_L65:
+    BEQL r1, r0, _L62
     LI r1, 3
+    LI r3, _g_phase
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_count
+    SW r1, r3, 0
+    JMP _L63
+_L62:
+    ADD r1, r0, r0
     PUSH r1
     POP r1
     LI r2, 16386
     OUT r2, r1
-    LI r1, 2
+    LI r1, 1
     LI r2, 16385
     OUT r2, r1
+    LI r3, _g_count
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 1
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_count
+    SW r1, r3, 0
+_L63:
+    HALT
+    JMP _L0
+_L58:
+    LI r3, _g_phase
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 3
+    MOV r2, r1
+    POP r1
+    BEQL r1, r2, _L68
+    ADD r1, r0, r0
+    JMP _L69
+_L68:
+    LI r1, 1
+_L69:
+    BEQL r1, r0, _L66
+    LI r3, _g_count
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 13
+    MOV r2, r1
+    POP r1
+    BGEL r1, r2, _L72
+    ADD r1, r0, r0
+    JMP _L73
+_L72:
+    LI r1, 1
+_L73:
+    BEQL r1, r0, _L70
     LI r1, 4
+    LI r3, _g_phase
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_craft_step
+    SW r1, r3, 0
+    JMP _L71
+_L70:
+    LI r1, 1
     PUSH r1
     POP r1
     LI r2, 16386
     OUT r2, r1
-    LI r1, 2
+    LI r1, 1
     LI r2, 16385
     OUT r2, r1
+    LI r3, _g_count
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 1
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_count
+    SW r1, r3, 0
+_L71:
+    HALT
+    JMP _L0
+_L66:
+    LI r3, _g_phase
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 4
+    MOV r2, r1
+    POP r1
+    BEQL r1, r2, _L76
+    ADD r1, r0, r0
+    JMP _L77
+_L76:
+    LI r1, 1
+_L77:
+    BEQL r1, r0, _L74
+    LI r3, _g_craft_step
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 11
+    MOV r2, r1
+    POP r1
+    BGEL r1, r2, _L80
+    ADD r1, r0, r0
+    JMP _L81
+_L80:
+    LI r1, 1
+_L81:
+    BEQL r1, r0, _L78
     LI r1, 5
+    LI r3, _g_phase
+    SW r1, r3, 0
+    JMP _L79
+_L78:
+    LI r3, _g_craft_step
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 3
+    MOV r2, r1
+    POP r1
+    BLTL r1, r2, _L84
+    ADD r1, r0, r0
+    JMP _L85
+_L84:
+    LI r1, 1
+_L85:
+    BEQL r1, r0, _L82
+    ADD r1, r0, r0
     PUSH r1
     POP r1
     LI r2, 16386
@@ -399,7 +595,28 @@ _L45:
     LI r1, 2
     LI r2, 16385
     OUT r2, r1
-    LI r1, 6
+    JMP _L83
+_L82:
+    LI r3, _g_craft_step
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 9
+    MOV r2, r1
+    POP r1
+    BLTL r1, r2, _L88
+    ADD r1, r0, r0
+    JMP _L89
+_L88:
+    LI r1, 1
+_L89:
+    BEQL r1, r0, _L86
+    LI r3, _g_craft_step
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 2
+    MOV r2, r1
+    POP r1
+    SUB r1, r1, r2
     PUSH r1
     POP r1
     LI r2, 16386
@@ -407,6 +624,8 @@ _L45:
     LI r1, 2
     LI r2, 16385
     OUT r2, r1
+    JMP _L87
+_L86:
     LI r1, 8
     PUSH r1
     POP r1
@@ -415,7 +634,150 @@ _L45:
     LI r1, 2
     LI r2, 16385
     OUT r2, r1
+_L87:
+_L83:
+    LI r3, _g_craft_step
+    LW r1, r3, 0
+    PUSH r1
     LI r1, 1
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_craft_step
+    SW r1, r3, 0
+_L79:
+    HALT
+    JMP _L0
+_L74:
+    LI r3, _g_phase
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 5
+    MOV r2, r1
+    POP r1
+    BEQL r1, r2, _L92
+    ADD r1, r0, r0
+    JMP _L93
+_L92:
+    LI r1, 1
+_L93:
+    BEQL r1, r0, _L90
+    LI r3, _g_energy
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 700
+    MOV r2, r1
+    POP r1
+    BLTL r1, r2, _L96
+    ADD r1, r0, r0
+    JMP _L97
+_L96:
+    LI r1, 1
+_L97:
+    BEQL r1, r0, _L94
+    LI r1, 3
+    PUSH r1
+    POP r1
+    LI r2, 24578
+    OUT r2, r1
+    LI r1, 1
+    LI r2, 24577
+    OUT r2, r1
+    LI r2, 24578
+    IN r1, r2
+    LI r3, _g_n
+    SW r1, r3, 0
+    LI r3, _g_n
+    LW r1, r3, 0
+    PUSH r1
+    ADD r1, r0, r0
+    MOV r2, r1
+    POP r1
+    MOV r3, r1
+    MOV r1, r2
+    MOV r2, r3
+    BLTL r1, r2, _L100
+    ADD r1, r0, r0
+    JMP _L101
+_L100:
+    LI r1, 1
+_L101:
+    BEQL r1, r0, _L98
+    ADD r1, r0, r0
+    PUSH r1
+    POP r1
+    LI r2, 24579
+    OUT r2, r1
+    LI r2, 24582
+    IN r1, r2
+    PUSH r1
+    LI r1, 2
+    MOV r2, r1
+    POP r1
+    BLTL r1, r2, _L104
+    ADD r1, r0, r0
+    JMP _L105
+_L104:
+    LI r1, 1
+_L105:
+    BEQL r1, r0, _L102
+    LI r1, 1
+    LI r2, 12289
+    OUT r2, r1
+    JMP _L103
+_L102:
+    LI r2, 24581
+    IN r1, r2
+    PUSH r1
+    POP r1
+    LI r2, 4098
+    OUT r2, r1
+    LI r1, 1
+    LI r2, 4097
+    OUT r2, r1
+_L103:
+    JMP _L99
+_L98:
+    LI r3, _g_wander_angle
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 45
+    MOV r2, r1
+    POP r1
+    ADD r1, r1, r2
+    LI r3, _g_wander_angle
+    SW r1, r3, 0
+    LI r3, _g_wander_angle
+    LW r1, r3, 0
+    PUSH r1
+    POP r1
+    LI r2, 4098
+    OUT r2, r1
+    LI r1, 1
+    LI r2, 4097
+    OUT r2, r1
+_L99:
+    JMP _L95
+_L94:
+    LI r1, 6
+    LI r3, _g_phase
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_count
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_craft_step
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_recharging
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_child_id
+    SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_n
+    SW r1, r3, 0
+    LI r1, 2
     PUSH r1
     ADD r1, r0, r0
     PUSH r1
@@ -465,14 +827,16 @@ _L45:
     OUT r2, r1
     LI r2, 16386
     IN r1, r2
-    PUSH r1
-    LI r1, 512
+    LI r3, _g_child_id
+    SW r1, r3, 0
+    LI r1, 1200
     PUSH r1
     ADD r1, r0, r0
     PUSH r1
     ADD r1, r0, r0
     PUSH r1
-    LW r1, r7, 3
+    LI r3, _g_child_id
+    LW r1, r3, 0
     PUSH r1
     POP r1
     LI r2, 20482
@@ -489,7 +853,25 @@ _L45:
     LI r1, 1
     LI r2, 20481
     OUT r2, r1
-    LW r1, r7, 0
+_L95:
+    HALT
+    JMP _L0
+_L90:
+    LI r3, _g_phase
+    LW r1, r3, 0
+    PUSH r1
+    LI r1, 6
+    MOV r2, r1
+    POP r1
+    BEQL r1, r2, _L108
+    ADD r1, r0, r0
+    JMP _L109
+_L108:
+    LI r1, 1
+_L109:
+    BEQL r1, r0, _L106
+    LI r3, _g_child_id
+    LW r1, r3, 0
     PUSH r1
     POP r1
     LI r2, 20482
@@ -498,24 +880,14 @@ _L45:
     LI r2, 20481
     OUT r2, r1
     ADD r1, r0, r0
-    LI r3, _g_harvest_count
+    LI r3, _g_phase
     SW r1, r3, 0
-    ADD r1, r0, r0
-    LI r3, _g_state
-    SW r1, r3, 0
-    JMP _L43
-_L42:
-    ADD r1, r0, r0
-    LI r3, _g_state
-    SW r1, r3, 0
-_L43:
-_L35:
-_L27:
-_L15:
+    HALT
+    JMP _L0
+_L106:
     HALT
     JMP _L0
 _L1:
 _main_epilogue:
-    ADDI r7, r7, 6
     POP r6
     JALR r0, r6

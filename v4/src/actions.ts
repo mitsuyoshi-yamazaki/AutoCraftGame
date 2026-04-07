@@ -79,18 +79,18 @@ export interface ActionExecResult {
 // ============================================================
 // Recipe / component encoding (matching io.ts)
 // ============================================================
-const RECIPE_METAL   = 1;
-const RECIPE_CIRCUIT = 2;
+const RECIPE_METAL   = 0;
+const RECIPE_CIRCUIT = 1;
 
-const CRAFT_FRAME        = 1;
-const CRAFT_ACTUATOR     = 2;
-const CRAFT_SENSOR       = 3;
-const CRAFT_PROCESSOR    = 4;
-const CRAFT_HARVESTER    = 5;
-const CRAFT_ASSEMBLER    = 6;
+const CRAFT_FRAME        = 0;
+const CRAFT_ACTUATOR     = 1;
+const CRAFT_HARVESTER    = 2;
+const CRAFT_CHARGER      = 3;
+const CRAFT_ASSEMBLER    = 4;
+const CRAFT_PROCESSOR    = 5;
+const CRAFT_SENSOR       = 6;
 const CRAFT_DISASSEMBLER = 7;
-const CRAFT_CHARGER      = 8;
-const CRAFT_MEMORYCORE   = 9;
+const CRAFT_MEMORYCORE   = 8;
 
 function recipeIdToName(id: number): string | null {
   switch (id) {
@@ -104,12 +104,12 @@ function craftIdToName(id: number): ComponentType | null {
   switch (id) {
     case CRAFT_FRAME:        return 'Frame';
     case CRAFT_ACTUATOR:     return 'Actuator';
-    case CRAFT_SENSOR:       return 'Sensor';
-    case CRAFT_PROCESSOR:    return 'Processor';
     case CRAFT_HARVESTER:    return 'Harvester';
-    case CRAFT_ASSEMBLER:    return 'Assembler';
-    case CRAFT_DISASSEMBLER: return 'Disassembler';
     case CRAFT_CHARGER:      return 'Charger';
+    case CRAFT_ASSEMBLER:    return 'Assembler';
+    case CRAFT_PROCESSOR:    return 'Processor';
+    case CRAFT_SENSOR:       return 'Sensor';
+    case CRAFT_DISASSEMBLER: return 'Disassembler';
     case CRAFT_MEMORYCORE:   return 'MemoryCore';
     default: return null;
   }
