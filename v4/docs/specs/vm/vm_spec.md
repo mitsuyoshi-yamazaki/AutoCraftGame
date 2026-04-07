@@ -245,17 +245,49 @@ MemoryCore:      0x9000
 
 ### 6-3. グローバル領域
 
-キャラクター全体の情報。読み取り専用。
+キャラクター全体の情報。
 
 ```
-0x0000: エネルギー
-0x0001: 耐久値
-0x0002: X座標（整数丸め）
-0x0003: Y座標（整数丸め）
-0x0004: VX（整数丸め）
-0x0005: VY（整数丸め）
-0x0006: 現在のtick
+0x0000: エネルギー                （読み取り専用）
+0x0001: 耐久値                    （読み取り専用）
+0x0002: X座標（整数丸め）          （読み取り専用）
+0x0003: Y座標（整数丸め）          （読み取り専用）
+0x0004: VX（整数丸め）             （読み取り専用）
+0x0005: VY（整数丸め）             （読み取り専用）
+0x0006: 現在のtick                （読み取り専用）
 ```
+
+### 6-3a. インベントリクエリ
+
+クエリ方式でキャラクター自身のインベントリを参照する。
+
+```
+0x0020: item_type     （書き込み）アイテム種別番号
+0x0021: command       （書き込み）1=クエリ実行
+0x0022: result        （読み取り）所持数
+```
+
+item_type書き込み → command=1書き込みの順で実行する。command書き込み時に即座にインベントリを検索し、結果が0x0022に格納される。
+
+アイテム種別番号:
+
+| 値 | アイテム |
+|----|---------|
+| 0 | Ore |
+| 1 | Crystal |
+| 2 | Metal |
+| 3 | Circuit |
+| 4 | Frame |
+| 5 | Actuator |
+| 6 | Harvester |
+| 7 | Charger |
+| 8 | Assembler |
+| 9 | Processor |
+| 10 | Sensor |
+| 11 | Disassembler |
+| 12 | MemoryCore |
+
+無効な種別番号を指定した場合、resultは0。
 
 ### 6-4. ディスカバリ
 
@@ -300,14 +332,21 @@ MemoryCore:      0x9000
 ```
 +0x00  status
 +0x01  command         ; 1=HARVEST
++0x02  target_id       ; 対象のローカルID（0=最近接、非0=指定ノード）→ 予約後: 0
 ```
+
+target_idが0の場合、INTERACT_RANGE内の最近接ResourceNodeを対象とする（従来動作）。
+target_idが非0の場合、ローカルIDで指定されたResourceNodeを対象とする。指定ノードが存在しない、残量0、または射程外の場合はHARVEST失敗。
 
 #### Charger — RECHARGE
 
 ```
 +0x00  status
 +0x01  command         ; 1=RECHARGE
++0x02  target_id       ; 対象のローカルID（0=最近接、非0=指定ノード）→ 予約後: 0
 ```
+
+target_idのセマンティクスはHarvesterと同様。0の場合は最近接EnergyNode、非0の場合はローカルIDで指定。
 
 #### Assembler — PROCESS / CRAFT / ASSEMBLE / REPAIR
 
@@ -366,6 +405,8 @@ command=2 (ACTIVATE) の場合:
 ```
 
 WRITEによる書き込みは、対象のメモリに対してもラッピング規則が適用される。dst_addrからlengthワード分を書き込む際、アドレスが対象のメモリサイズを超える場合はラップアラウンドする。自身のメモリからの読み出し（src_addr）についても同様にラッピングが適用される。
+
+**制約: WRITEとACTIVATEは同一tick内で同一Processorスロットに予約できない。** 同一スロットへの複数コマンドは最後の予約のみ有効であるため、WRITEの後にACTIVATEを発行するとWRITE予約が上書きされる。WRITEとACTIVATEを順次行うには、WRITEの後にHALT（tick境界）を挟み、次tickでACTIVATEを発行する。
 
 #### Sensor — SENSE
 
@@ -521,5 +562,5 @@ query_prop0~       ; 種別依存属性（読み取り専用）
 
 | 定数 | 意味 | 暫定値 |
 |------|------|--------|
-| INSTRUCTIONS_PER_TICK | tickあたりの最大実行命令数 | 200 |
+| INSTRUCTIONS_PER_TICK | tickあたりの最大実行命令数 | 100000 |
 | WRITE_COST_PER_WORD | WRITEの1ワードあたりの追加エネルギーコスト。コスト = ceil(length × WRITE_COST_PER_WORD) | 0 |

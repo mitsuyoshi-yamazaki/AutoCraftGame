@@ -29,9 +29,11 @@ const ACT0_DIR       = 0x1002;
 
 // Harvester[0] — base 0x2000
 const HAR0_CMD       = 0x2001;
+const HAR0_TARGET    = 0x2002;
 
 // Charger[0] — base 0x3000
 const CHR0_CMD       = 0x3001;
+const CHR0_TARGET    = 0x3002;
 
 // Assembler[0] — base 0x4000
 const ASM0_CMD       = 0x4001;
@@ -70,6 +72,11 @@ const DIS0_TARGET    = 0x7002;
 
 // Component discovery
 const COMP_DISC_BASE = 0x0010;
+
+// Inventory query
+const INVENTORY_TYPE   = 0x0020;
+const INVENTORY_CMD    = 0x0021;
+const INVENTORY_RESULT = 0x0022;
 
 // Query — base 0xA000
 const QRY_TARGET     = 0xA000;
@@ -152,9 +159,23 @@ export const BUILTINS: readonly BuiltinDef[] = [
   { name: 'harvest', argCount: 0, returnsValue: false,
     emit: () => ({ lines: constOut(HAR0_CMD, 1), pops: 0 }) },
 
+  // --- harvest_target(local_id) ---
+  { name: 'harvest_target', argCount: 1, returnsValue: false,
+    emit: () => ({ lines: [
+      ...popOut(HAR0_TARGET),             // target local_id
+      ...constOut(HAR0_CMD, 1),           // cmd = HARVEST
+    ], pops: 1 }) },
+
   // --- recharge() ---
   { name: 'recharge', argCount: 0, returnsValue: false,
     emit: () => ({ lines: constOut(CHR0_CMD, 1), pops: 0 }) },
+
+  // --- recharge_target(local_id) ---
+  { name: 'recharge_target', argCount: 1, returnsValue: false,
+    emit: () => ({ lines: [
+      ...popOut(CHR0_TARGET),             // target local_id
+      ...constOut(CHR0_CMD, 1),           // cmd = RECHARGE
+    ], pops: 1 }) },
 
   // --- process(recipe) ---
   { name: 'process', argCount: 1, returnsValue: false,
@@ -294,6 +315,14 @@ export const BUILTINS: readonly BuiltinDef[] = [
       ...constOut(COMP_DISC_BASE + 1, 3),
       ...inp('r1', COMP_DISC_BASE + 2),
     ], pops: 2 }) },
+
+  // --- inventory_count(item_type) ---
+  { name: 'inventory_count', argCount: 1, returnsValue: true,
+    emit: () => ({ lines: [
+      ...popOut(INVENTORY_TYPE),            // item_type
+      ...constOut(INVENTORY_CMD, 1),        // cmd = 1 (query count)
+      ...inp('r1', INVENTORY_RESULT),       // read result
+    ], pops: 1 }) },
 
   // --- halt() ---
   { name: 'halt', argCount: 0, returnsValue: false,

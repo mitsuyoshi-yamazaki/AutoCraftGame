@@ -68,6 +68,10 @@ const ID_RELEASE = 0xA010;
 
 const COMP_DISC_BASE = 0x0010;
 
+const INVENTORY_TYPE   = 0x0020;
+const INVENTORY_CMD    = 0x0021;
+const INVENTORY_RESULT = 0x0022;
+
 // ============================================================
 // Tests: ioRead — global area
 // ============================================================
@@ -503,5 +507,75 @@ describe('ioWrite/ioRead — discovery', () => {
     // Read result
     const count = handler.ioRead(COMP_DISC_BASE + 2);
     expect(count).toBe(1);
+  });
+});
+
+// ============================================================
+// Tests: Inventory query
+// ============================================================
+
+describe('ioWrite/ioRead — inventory query', () => {
+  it('returns count of raw materials in inventory', () => {
+    const ch = makeCharacter({ inventory: { Ore: 5, Crystal: 3, Metal: 2 } });
+    const world = makeWorld({ characters: [ch] });
+    const handler = createIoHandler(ch, world, params);
+
+    // Query Ore (type=0)
+    handler.ioWrite(INVENTORY_TYPE, 0);
+    handler.ioWrite(INVENTORY_CMD, 1);
+    expect(handler.ioRead(INVENTORY_RESULT)).toBe(5);
+
+    // Query Crystal (type=1)
+    handler.ioWrite(INVENTORY_TYPE, 1);
+    handler.ioWrite(INVENTORY_CMD, 1);
+    expect(handler.ioRead(INVENTORY_RESULT)).toBe(3);
+
+    // Query Metal (type=2)
+    handler.ioWrite(INVENTORY_TYPE, 2);
+    handler.ioWrite(INVENTORY_CMD, 1);
+    expect(handler.ioRead(INVENTORY_RESULT)).toBe(2);
+  });
+
+  it('returns count of components in inventory', () => {
+    const ch = makeCharacter({ inventory: { Frame: 2, Actuator: 1, Sensor: 4 } });
+    const world = makeWorld({ characters: [ch] });
+    const handler = createIoHandler(ch, world, params);
+
+    // Query Frame (type=4)
+    handler.ioWrite(INVENTORY_TYPE, 4);
+    handler.ioWrite(INVENTORY_CMD, 1);
+    expect(handler.ioRead(INVENTORY_RESULT)).toBe(2);
+
+    // Query Actuator (type=5)
+    handler.ioWrite(INVENTORY_TYPE, 5);
+    handler.ioWrite(INVENTORY_CMD, 1);
+    expect(handler.ioRead(INVENTORY_RESULT)).toBe(1);
+
+    // Query Sensor (type=10)
+    handler.ioWrite(INVENTORY_TYPE, 10);
+    handler.ioWrite(INVENTORY_CMD, 1);
+    expect(handler.ioRead(INVENTORY_RESULT)).toBe(4);
+  });
+
+  it('returns 0 for items not in inventory', () => {
+    const ch = makeCharacter({ inventory: { Ore: 5 } });
+    const world = makeWorld({ characters: [ch] });
+    const handler = createIoHandler(ch, world, params);
+
+    // Query Circuit (type=3) - not in inventory
+    handler.ioWrite(INVENTORY_TYPE, 3);
+    handler.ioWrite(INVENTORY_CMD, 1);
+    expect(handler.ioRead(INVENTORY_RESULT)).toBe(0);
+  });
+
+  it('returns 0 for invalid item type', () => {
+    const ch = makeCharacter({ inventory: { Ore: 5 } });
+    const world = makeWorld({ characters: [ch] });
+    const handler = createIoHandler(ch, world, params);
+
+    // Query invalid type (99)
+    handler.ioWrite(INVENTORY_TYPE, 99);
+    handler.ioWrite(INVENTORY_CMD, 1);
+    expect(handler.ioRead(INVENTORY_RESULT)).toBe(0);
   });
 });

@@ -59,7 +59,9 @@ interface Ctx {
   labelCounter: number;
   currentFunc: FuncInfo | null;
   breakLabel: string | null;
+  breakStackDepth: number;      // stackDepth at break target
   continueLabel: string | null;
+  continueStackDepth: number;   // stackDepth at continue target
   lines: string[];
 }
 
@@ -77,7 +79,9 @@ export function generate(program: Program): string {
     labelCounter: 0,
     currentFunc: null,
     breakLabel: null,
+    breakStackDepth: 0,
     continueLabel: null,
+    continueStackDepth: 0,
     lines: [],
   };
 
@@ -173,10 +177,28 @@ function emitStmt(stmt: Stmt, ctx: Ctx): void {
     case 'if': emitIf(stmt, ctx); break;
     case 'while': emitWhile(stmt, ctx); break;
     case 'for': emitFor(stmt, ctx); break;
-    case 'break': if (ctx.breakLabel) emit(ctx, `    JMP ${ctx.breakLabel}`); break;
-    case 'continue': if (ctx.continueLabel) emit(ctx, `    JMP ${ctx.continueLabel}`); break;
+    case 'break': emitBreak(ctx); break;
+    case 'continue': emitContinue(ctx); break;
     case 'block': for (const s of stmt.body) emitStmt(s, ctx); break;
   }
+}
+
+function emitBreak(ctx: Ctx): void {
+  if (!ctx.breakLabel) return;
+  const unwind = ctx.stackDepth - ctx.breakStackDepth;
+  if (unwind > 0) {
+    emitAddImm(ctx, 'r7', 'r7', unwind);
+  }
+  emit(ctx, `    JMP ${ctx.breakLabel}`);
+}
+
+function emitContinue(ctx: Ctx): void {
+  if (!ctx.continueLabel) return;
+  const unwind = ctx.stackDepth - ctx.continueStackDepth;
+  if (unwind > 0) {
+    emitAddImm(ctx, 'r7', 'r7', unwind);
+  }
+  emit(ctx, `    JMP ${ctx.continueLabel}`);
 }
 
 function emitVarDecl(decl: VarDecl, ctx: Ctx): void {
@@ -202,15 +224,38 @@ function emitIf(
   const elseLabel = newLabel(ctx);
   const endLabel = newLabel(ctx);
 
+  const savedStackDepth = ctx.stackDepth;
+  const savedLocals = [...ctx.locals];
+  const savedLocalVarCount = ctx.localVarCount;
+
   emitExpr(stmt.condition, ctx);
   emit(ctx, `    BEQL r1, r0, ${elseLabel}`);
 
   for (const s of stmt.thenBody) emitStmt(s, ctx);
 
+  // Cleanup then-branch locals
+  const thenNewVars = ctx.stackDepth - savedStackDepth;
+  if (thenNewVars > 0) {
+    emitAddImm(ctx, 'r7', 'r7', thenNewVars);
+  }
+  ctx.stackDepth = savedStackDepth;
+  ctx.localVarCount = savedLocalVarCount;
+  ctx.locals = [...savedLocals];
+
   if (stmt.elseBody) {
     emit(ctx, `    JMP ${endLabel}`);
     emit(ctx, `${elseLabel}:`);
     for (const s of stmt.elseBody) emitStmt(s, ctx);
+
+    // Cleanup else-branch locals
+    const elseNewVars = ctx.stackDepth - savedStackDepth;
+    if (elseNewVars > 0) {
+      emitAddImm(ctx, 'r7', 'r7', elseNewVars);
+    }
+    ctx.stackDepth = savedStackDepth;
+    ctx.localVarCount = savedLocalVarCount;
+    ctx.locals = [...savedLocals];
+
     emit(ctx, `${endLabel}:`);
   } else {
     emit(ctx, `${elseLabel}:`);
@@ -224,9 +269,17 @@ function emitWhile(
   const loopStart = newLabel(ctx);
   const loopEnd = newLabel(ctx);
   const savedBreak = ctx.breakLabel;
+  const savedBreakDepth = ctx.breakStackDepth;
   const savedContinue = ctx.continueLabel;
+  const savedContinueDepth = ctx.continueStackDepth;
+  const loopStackDepth = ctx.stackDepth;
   ctx.breakLabel = loopEnd;
+  ctx.breakStackDepth = loopStackDepth;
   ctx.continueLabel = loopStart;
+  ctx.continueStackDepth = loopStackDepth;
+
+  const bodyStartLocals = [...ctx.locals];
+  const bodyStartLocalVarCount = ctx.localVarCount;
 
   emit(ctx, `${loopStart}:`);
   emitExpr(stmt.condition, ctx);
@@ -234,11 +287,23 @@ function emitWhile(
 
   for (const s of stmt.body) emitStmt(s, ctx);
 
+  // Deallocate body-local variables at end of iteration (normal fallthrough path)
+  const bodyNewVars = ctx.localVarCount - bodyStartLocalVarCount;
+  if (bodyNewVars > 0) {
+    emitAddImm(ctx, 'r7', 'r7', bodyNewVars);
+  }
+  // Reset ctx to loop-start state regardless of body declarations
+  ctx.stackDepth = loopStackDepth;
+  ctx.localVarCount = bodyStartLocalVarCount;
+  ctx.locals = [...bodyStartLocals];
+
   emit(ctx, `    JMP ${loopStart}`);
   emit(ctx, `${loopEnd}:`);
 
   ctx.breakLabel = savedBreak;
+  ctx.breakStackDepth = savedBreakDepth;
   ctx.continueLabel = savedContinue;
+  ctx.continueStackDepth = savedContinueDepth;
 }
 
 function emitFor(
@@ -254,18 +319,25 @@ function emitFor(
   const loopEnd = newLabel(ctx);
   const loopContinue = newLabel(ctx);
   const savedBreak = ctx.breakLabel;
+  const savedBreakDepth = ctx.breakStackDepth;
   const savedContinue = ctx.continueLabel;
-  ctx.breakLabel = loopEnd;
-  ctx.continueLabel = loopContinue;
+  const savedContinueDepth = ctx.continueStackDepth;
 
   const savedLocalVarCount = ctx.localVarCount;
   const savedLocals = [...ctx.locals];
-  const savedStackDepth = ctx.stackDepth;
 
   if (stmt.init) {
     if (stmt.init.kind === 'var_decl') emitVarDecl(stmt.init as VarDecl, ctx);
     else emitExpr(stmt.init.expr, ctx);
   }
+
+  // Both break and continue target the same stackDepth (after init vars allocated).
+  // The for-epilogue at loopEnd handles deallocating init vars separately.
+  const loopBodyStackDepth = ctx.stackDepth;
+  ctx.breakLabel = loopEnd;
+  ctx.breakStackDepth = loopBodyStackDepth;  // break unwinds body locals only; epilogue handles init vars
+  ctx.continueLabel = loopContinue;
+  ctx.continueStackDepth = loopBodyStackDepth;  // continue keeps init vars
 
   emit(ctx, `${loopStart}:`);
   if (stmt.condition) {
@@ -273,7 +345,20 @@ function emitFor(
     emit(ctx, `    BEQL r1, r0, ${loopEnd}`);
   }
 
+  const bodyStartLocals = [...ctx.locals];
+  const bodyStartLocalVarCount = ctx.localVarCount;
+
   for (const s of stmt.body) emitStmt(s, ctx);
+
+  // Deallocate body-local variables at end of iteration (normal fallthrough path)
+  const bodyNewVars = ctx.localVarCount - bodyStartLocalVarCount;
+  if (bodyNewVars > 0) {
+    emitAddImm(ctx, 'r7', 'r7', bodyNewVars);
+  }
+  // Reset ctx to loop-body-start state regardless of body declarations
+  ctx.stackDepth = loopBodyStackDepth;
+  ctx.localVarCount = bodyStartLocalVarCount;
+  ctx.locals = [...bodyStartLocals];
 
   emit(ctx, `${loopContinue}:`);
   if (stmt.update) emitExpr(stmt.update, ctx);
@@ -290,7 +375,9 @@ function emitFor(
   }
 
   ctx.breakLabel = savedBreak;
+  ctx.breakStackDepth = savedBreakDepth;
   ctx.continueLabel = savedContinue;
+  ctx.continueStackDepth = savedContinueDepth;
 }
 
 // ---------------------------------------------------------------------------

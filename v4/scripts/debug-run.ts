@@ -20,9 +20,7 @@ const def: ProgramDefinition = {
   count: 1,
 };
 
-const rechargeAmt = parseInt(process.argv[4] ?? '200', 10);
-const invMeta = parseFloat(process.argv[5] ?? '1');
-const params = { ...DEFAULT_GAME_PARAMS, assembleEnergyTransfer: initialEnergy, rechargeAmount: rechargeAmt, inventoryMetabolismPerItem: invMeta };
+const params = { ...DEFAULT_GAME_PARAMS, assembleEnergyTransfer: initialEnergy };
 const engine = createEngine(params);
 const rng = createRng(42);
 let world = engine.createWorld(DEFAULT_WORLD_CONFIG, rng);
@@ -53,7 +51,8 @@ for (let t = 0; t < maxTicks; t++) {
   const actions = result.actions.get(charId) ?? [];
   const actionStr = actions.map(a => a.op+':'+(a.success?'OK':'F')).join(',');
   const mem = u.vm.memory;
-  console.log(`${t+1}\t${u.energy}\t${Math.round(u.durability)}\t${mem[2]}\t${mem[3]}\t${mem[4]}\t${actionStr}`);
+  const inv = Object.entries(u.inventory).map(([k,v]) => `${k}:${v}`).join(' ');
+  console.log(`${t+1}\t${u.energy}\t${Math.round(u.durability)}\t${mem[2]}\t${mem[3]}\t${mem[4]}\t${actionStr}\t${inv}`);
 
   // Check for births
   for (const ev of result.events) {

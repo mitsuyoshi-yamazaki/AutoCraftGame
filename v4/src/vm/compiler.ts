@@ -57,6 +57,20 @@ const BUILTIN_CONSTANTS = `
 
 #define RECIPE_METAL        0
 #define RECIPE_CIRCUIT      1
+
+#define ITEM_ORE            0
+#define ITEM_CRYSTAL        1
+#define ITEM_METAL          2
+#define ITEM_CIRCUIT        3
+#define ITEM_FRAME          4
+#define ITEM_ACTUATOR       5
+#define ITEM_HARVESTER      6
+#define ITEM_CHARGER        7
+#define ITEM_ASSEMBLER      8
+#define ITEM_PROCESSOR      9
+#define ITEM_SENSOR         10
+#define ITEM_DISASSEMBLER   11
+#define ITEM_MEMORYCORE     12
 `;
 
 // ---------------------------------------------------------------------------

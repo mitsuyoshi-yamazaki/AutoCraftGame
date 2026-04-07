@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { compile } from '../src/vm/compiler.js';
 import { assemble } from '../src/vm/assembler.js';
+import { createVm, loadProgram, executeOneTick } from '../src/vm/vm.js';
 
 // ---------------------------------------------------------------------------
 // Helper: compile and assert no errors
@@ -927,5 +928,155 @@ describe('compiler: error cases', () => {
     `);
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.assembly).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Stack management — break/continue unwind tests
+// ---------------------------------------------------------------------------
+
+function runProgram(source: string, ticks: number, memSize: number = 2048): {
+  vm: ReturnType<typeof createVm>;
+  labels: ReadonlyMap<string, number>;
+  ioWrites: { addr: number; value: number }[];
+} {
+  const compiled = compile(source);
+  expect(compiled.errors).toEqual([]);
+  const assembled = assemble(compiled.assembly);
+  expect(assembled.errors).toEqual([]);
+  let vm = createVm(memSize);
+  vm = loadProgram(vm, assembled.words);
+  const ioWrites: { addr: number; value: number }[] = [];
+  const ioRead = () => 0;
+  const ioWrite = (addr: number, value: number) => { ioWrites.push({ addr, value }); };
+  for (let t = 0; t < ticks; t++) {
+    vm = executeOneTick(vm, ioRead, ioWrite, 100000);
+  }
+  return { vm, labels: assembled.labels, ioWrites };
+}
+
+/** Read a global variable by its label name */
+function readGlobal(result: { vm: ReturnType<typeof createVm>; labels: ReadonlyMap<string, number> }, name: string): number {
+  const addr = result.labels.get(`_g_${name}`);
+  if (addr === undefined) throw new Error(`Global '_g_${name}' not found`);
+  return result.vm.memory[addr];
+}
+
+describe('compiler: stack management', () => {
+  it('continue in while with local vars does not leak stack', () => {
+    const result = runProgram(`
+      int counter = 0;
+      void main(void) {
+        while (1) {
+          int x = counter;
+          counter = counter + 1;
+          halt();
+          continue;
+        }
+      }
+    `, 5);
+    // After 5 ticks, SP should be stable (not growing downward each tick)
+    const sp = result.vm.registers[7];
+    const memSize = result.vm.memory.length;
+    // SP wraps around (starts at 0, decrements to 0xFFFF % memSize).
+    // With prologue push + 1 local, stable SP should be at memSize - 2 (mod memSize)
+    // If leaking, SP would be at memSize - 7 or lower
+    const spMod = sp % memSize;
+    expect(spMod).toBeGreaterThanOrEqual(memSize - 4);
+  });
+
+  it('break in while with local vars does not leak stack', () => {
+    const result = runProgram(`
+      int result = 0;
+      void main(void) {
+        while (1) {
+          int x = 10;
+          result = x;
+          break;
+        }
+        halt();
+      }
+    `, 1);
+    expect(readGlobal(result, 'result')).toBe(10);
+  });
+
+  it('continue in for loop preserves init var', () => {
+    const result = runProgram(`
+      int result = 0;
+      void main(void) {
+        for (int i = 0; i < 3; i++) {
+          int temp = i * 2;
+          result = result + temp;
+          continue;
+        }
+        halt();
+      }
+    `, 1);
+    // result = 0*2 + 1*2 + 2*2 = 0 + 2 + 4 = 6
+    expect(readGlobal(result, 'result')).toBe(6);
+  });
+
+  it('break in for loop unwinds init var', () => {
+    const result = runProgram(`
+      int result = 0;
+      void main(void) {
+        for (int i = 0; i < 10; i++) {
+          if (i == 3) { break; }
+          result = result + 1;
+        }
+        halt();
+      }
+    `, 1);
+    // result = 3 (i=0,1,2 increment, i=3 breaks)
+    expect(readGlobal(result, 'result')).toBe(3);
+  });
+
+  it('nested loops with continue/break unwind correctly', () => {
+    const result = runProgram(`
+      int result = 0;
+      void main(void) {
+        for (int i = 0; i < 3; i++) {
+          for (int j = 0; j < 3; j++) {
+            int tmp = i + j;
+            if (j == 1) { continue; }
+            if (j == 2) { break; }
+            result = result + tmp;
+          }
+        }
+        halt();
+      }
+    `, 1);
+    // i=0: j=0 add 0, j=1 continue, j=2 break → 0
+    // i=1: j=0 add 1, j=1 continue, j=2 break → 1
+    // i=2: j=0 add 2, j=1 continue, j=2 break → 2
+    // result = 0 + 1 + 2 = 3
+    expect(readGlobal(result, 'result')).toBe(3);
+  });
+
+  it('while with halt/continue does not corrupt memory over many ticks', () => {
+    const result = runProgram(`
+      int phase = 0;
+      int counter = 0;
+      void main(void) {
+        while (1) {
+          int energy = counter;
+          counter = counter + 1;
+          if (counter > 10) {
+            phase = 1;
+            break;
+          }
+          halt();
+          continue;
+        }
+        halt();
+      }
+    `, 11);
+    expect(readGlobal(result, 'phase')).toBe(1);
+    expect(readGlobal(result, 'counter')).toBe(11);
+    // SP should be stable (not deeply nested)
+    const sp = result.vm.registers[7];
+    const memSize = result.vm.memory.length;
+    const spMod = sp % memSize;
+    expect(spMod).toBeGreaterThanOrEqual(memSize - 5);
   });
 });

@@ -251,9 +251,9 @@ export function createActionEngine(
       case 'MOVE':
         return executeMove(world, character, reservation, forces);
       case 'HARVEST':
-        return executeHarvest(world, character, grid);
+        return executeHarvest(world, character, reservation, localIdTable, grid);
       case 'RECHARGE':
-        return executeRecharge(world, character, grid);
+        return executeRecharge(world, character, reservation, localIdTable, grid);
       case 'PROCESS':
         return executeProcess(world, character, reservation);
       case 'CRAFT':
@@ -303,16 +303,36 @@ export function createActionEngine(
     return { world, success: true, events: [] };
   }
 
+  function findResourceNodeById(
+    world: World,
+    character: Character,
+    systemId: string,
+  ): import('./types.js').ResourceNode | null {
+    const node = world.resourceNodes.find(n => n.id === systemId);
+    if (!node || node.remaining <= 0) return null;
+    if (distance(character.position, node.position) > params.interactRange) return null;
+    return node;
+  }
+
   function executeHarvest(
     world: World,
     character: Character,
+    reservation: HarvestReservation,
+    localIdTable: Map<number, string>,
     grid?: SpatialGrid,
   ): InnerResult {
     if (!hasComponent(character, 'Harvester')) {
       return { world, success: false, events: [] };
     }
 
-    const node = worldEngine.findNearestResourceNode(world, character.position, grid);
+    let node: import('./types.js').ResourceNode | null = null;
+    if (reservation.targetLocalId !== 0) {
+      const systemId = resolveLocalId(reservation.targetLocalId, localIdTable);
+      if (!systemId) return { world, success: false, events: [] };
+      node = findResourceNodeById(world, character, systemId);
+    } else {
+      node = worldEngine.findNearestResourceNode(world, character.position, grid);
+    }
     if (!node) return { world, success: false, events: [] };
 
     const item = node.type === 'OreNode' ? 'Ore' : 'Crystal';
@@ -322,16 +342,36 @@ export function createActionEngine(
     return { world: newWorld, success: true, events: [] };
   }
 
+  function findEnergyNodeById(
+    world: World,
+    character: Character,
+    systemId: string,
+  ): import('./types.js').EnergyNode | null {
+    const node = world.energyNodes.find(n => n.id === systemId);
+    if (!node || node.stored <= 0) return null;
+    if (distance(character.position, node.position) > params.interactRange) return null;
+    return node;
+  }
+
   function executeRecharge(
     world: World,
     character: Character,
+    reservation: RechargeReservation,
+    localIdTable: Map<number, string>,
     grid?: SpatialGrid,
   ): InnerResult {
     if (!hasComponent(character, 'Charger')) {
       return { world, success: false, events: [] };
     }
 
-    const node = worldEngine.findNearestEnergyNode(world, character.position, grid);
+    let node: import('./types.js').EnergyNode | null = null;
+    if (reservation.targetLocalId !== 0) {
+      const systemId = resolveLocalId(reservation.targetLocalId, localIdTable);
+      if (!systemId) return { world, success: false, events: [] };
+      node = findEnergyNodeById(world, character, systemId);
+    } else {
+      node = worldEngine.findNearestEnergyNode(world, character.position, grid);
+    }
     if (!node) return { world, success: false, events: [] };
 
     const amount = Math.min(params.rechargeAmount, node.stored);

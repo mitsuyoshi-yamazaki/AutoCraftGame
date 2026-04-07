@@ -53,7 +53,7 @@
 ```json
 {
   "name": "Replicator",
-  "components": ["Frame", "Actuator", "Harvester", "Charger", "Assembler", "Processor", "Sensor", "MemoryCore"],
+  "components": ["Frame", "Frame", "Frame", "Actuator", "Harvester", "Charger", "Assembler", "Processor", "Sensor", "MemoryCore", "MemoryCore"],
   "program": [4660, 22136, 43981, ...]
 }
 ```
@@ -93,6 +93,7 @@
 - MemoryCore × 1
 
 MemoryCoreは必須（VMメモリの提供に必要）。最低1個。
+Mini-Cコンパイラで生成されたプログラムは1000ワード以上になることが多いため、MemoryCore × 2（2048ワード）を推奨する。
 
 ## 6. 壁オブジェクトの生成
 

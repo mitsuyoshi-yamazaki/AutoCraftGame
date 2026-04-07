@@ -11,10 +11,6 @@ _g_recharging:
     .word 0
 _g_child_id:
     .word 0
-_g_energy:
-    .word 0
-_g_n:
-    .word 0
 _main:
     PUSH r6
 _L0:
@@ -22,8 +18,7 @@ _L0:
     BEQL r1, r0, _L1
     LI r2, 0
     IN r1, r2
-    LI r3, _g_energy
-    SW r1, r3, 0
+    PUSH r1
     LI r3, _g_recharging
     LW r1, r3, 0
     PUSH r1
@@ -37,8 +32,7 @@ _L4:
     LI r1, 1
 _L5:
     BEQL r1, r0, _L2
-    LI r3, _g_energy
-    LW r1, r3, 0
+    LW r1, r7, 0
     PUSH r1
     LI r1, 200
     MOV r2, r1
@@ -68,8 +62,7 @@ _L12:
     LI r1, 1
 _L13:
     BEQL r1, r0, _L10
-    LI r3, _g_energy
-    LW r1, r3, 0
+    LW r1, r7, 0
     PUSH r1
     LI r1, 600
     MOV r2, r1
@@ -99,10 +92,8 @@ _L14:
     OUT r2, r1
     LI r2, 24578
     IN r1, r2
-    LI r3, _g_n
-    SW r1, r3, 0
-    LI r3, _g_n
-    LW r1, r3, 0
+    PUSH r1
+    LW r1, r7, 0
     PUSH r1
     ADD r1, r0, r0
     MOV r2, r1
@@ -172,7 +163,9 @@ _L18:
     OUT r2, r1
 _L19:
     HALT
+    ADDI r7, r7, 2
     JMP _L0
+    ADDI r7, r7, 1
 _L15:
 _L10:
     LI r3, _g_phase
@@ -208,6 +201,7 @@ _L33:
     LI r3, _g_count
     SW r1, r3, 0
     HALT
+    ADDI r7, r7, 1
     JMP _L0
 _L30:
     LI r1, 1
@@ -220,10 +214,8 @@ _L30:
     OUT r2, r1
     LI r2, 24578
     IN r1, r2
-    LI r3, _g_n
-    SW r1, r3, 0
-    LI r3, _g_n
-    LW r1, r3, 0
+    PUSH r1
+    LW r1, r7, 0
     PUSH r1
     ADD r1, r0, r0
     MOV r2, r1
@@ -302,7 +294,9 @@ _L34:
     OUT r2, r1
 _L35:
     HALT
+    ADDI r7, r7, 2
     JMP _L0
+    ADDI r7, r7, 1
 _L26:
     LI r3, _g_phase
     LW r1, r3, 0
@@ -337,6 +331,7 @@ _L49:
     LI r3, _g_count
     SW r1, r3, 0
     HALT
+    ADDI r7, r7, 1
     JMP _L0
 _L46:
     LI r1, 2
@@ -349,10 +344,8 @@ _L46:
     OUT r2, r1
     LI r2, 24578
     IN r1, r2
-    LI r3, _g_n
-    SW r1, r3, 0
-    LI r3, _g_n
-    LW r1, r3, 0
+    PUSH r1
+    LW r1, r7, 0
     PUSH r1
     ADD r1, r0, r0
     MOV r2, r1
@@ -431,7 +424,9 @@ _L50:
     OUT r2, r1
 _L51:
     HALT
+    ADDI r7, r7, 2
     JMP _L0
+    ADDI r7, r7, 1
 _L42:
     LI r3, _g_phase
     LW r1, r3, 0
@@ -486,6 +481,7 @@ _L62:
     SW r1, r3, 0
 _L63:
     HALT
+    ADDI r7, r7, 1
     JMP _L0
 _L58:
     LI r3, _g_phase
@@ -541,6 +537,7 @@ _L70:
     SW r1, r3, 0
 _L71:
     HALT
+    ADDI r7, r7, 1
     JMP _L0
 _L66:
     LI r3, _g_phase
@@ -647,6 +644,7 @@ _L83:
     SW r1, r3, 0
 _L79:
     HALT
+    ADDI r7, r7, 1
     JMP _L0
 _L74:
     LI r3, _g_phase
@@ -662,8 +660,7 @@ _L92:
     LI r1, 1
 _L93:
     BEQL r1, r0, _L90
-    LI r3, _g_energy
-    LW r1, r3, 0
+    LW r1, r7, 0
     PUSH r1
     LI r1, 700
     MOV r2, r1
@@ -685,10 +682,8 @@ _L97:
     OUT r2, r1
     LI r2, 24578
     IN r1, r2
-    LI r3, _g_n
-    SW r1, r3, 0
-    LI r3, _g_n
-    LW r1, r3, 0
+    PUSH r1
+    LW r1, r7, 0
     PUSH r1
     ADD r1, r0, r0
     MOV r2, r1
@@ -757,6 +752,7 @@ _L98:
     LI r2, 4097
     OUT r2, r1
 _L99:
+    ADDI r7, r7, 1
     JMP _L95
 _L94:
     LI r1, 6
@@ -773,9 +769,6 @@ _L94:
     SW r1, r3, 0
     ADD r1, r0, r0
     LI r3, _g_child_id
-    SW r1, r3, 0
-    ADD r1, r0, r0
-    LI r3, _g_n
     SW r1, r3, 0
     LI r1, 2
     PUSH r1
@@ -855,6 +848,7 @@ _L94:
     OUT r2, r1
 _L95:
     HALT
+    ADDI r7, r7, 1
     JMP _L0
 _L90:
     LI r3, _g_phase
@@ -882,10 +876,15 @@ _L109:
     ADD r1, r0, r0
     LI r3, _g_phase
     SW r1, r3, 0
+    ADD r1, r0, r0
+    LI r3, _g_child_id
+    SW r1, r3, 0
     HALT
+    ADDI r7, r7, 1
     JMP _L0
 _L106:
     HALT
+    ADDI r7, r7, 1
     JMP _L0
 _L1:
 _main_epilogue:

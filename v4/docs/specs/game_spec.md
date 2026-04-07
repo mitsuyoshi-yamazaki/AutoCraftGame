@@ -203,14 +203,14 @@ VMプログラムがActuatorスロットのdirectionフィールドに角度（0
 
 - 前提: Harvesterコンポーネント保持、distance ≤ INTERACT_RANGE のResourceNode
 - 動作: 対象ノードから資源を採取しインベントリに追加
-- 対象選択: 3-3節に従う（最近接、ローカルID不使用）
+- 対象選択: ローカルID指定時はそのノード、未指定(0)時は3-3節に従い最近接を選択
 - 枯渇したResourceNodeは即座に除去
 
 ### 5-2. RECHARGE
 
 - 前提: Chargerコンポーネント保持、distance ≤ INTERACT_RANGE のEnergyNode
 - 動作: 対象ノードからエネルギーを取得
-- 対象選択: 3-3節に従う（最近接、ローカルID不使用）
+- 対象選択: ローカルID指定時はそのノード、未指定(0)時は3-3節に従い最近接を選択
 
 ### 5-3. PROCESS
 
@@ -281,6 +281,8 @@ ASSEMBLEのcommand書き込み時に、子のローカルIDが結果領域に即
 - 前提: Processorコンポーネント保持、対象が存在しINTERACT_RANGE内、対象がinactive
 - 動作: 対象のVMを起動（PC=0から実行開始）
 - 対象: ローカルIDで指定
+
+**制約**: WRITEとACTIVATEは同一Processorスロットを使用するため、同一tick内で両方を予約できない（後の予約が前の予約を上書きする）。子の生成フローは ASSEMBLE+WRITE → HALT → ACTIVATE の順で2tickにまたがる。
 
 ### 5-8. REPAIR
 
@@ -411,7 +413,7 @@ v4 ゲームループ:
     - 異なる種別: 同時実行可能
     - 同一コンポーネントスロットへの複数予約: 最後の予約のみ有効
     - MOVE: 力の蓄積（物理更新で適用）
-    - HARVEST/RECHARGE: 最近接対象に対して実行
+    - HARVEST/RECHARGE: ローカルID指定時はその対象、未指定時は最近接対象に対して実行
     - DISASSEMBLE/WRITE/ACTIVATE: ローカルIDで指定した対象に対して実行
     - PROCESS/CRAFT/ASSEMBLE/REPAIR: 実行
     - エネルギーチェック、消費、失敗ペナルティ
@@ -534,7 +536,7 @@ age > AGING_THRESHOLD_N の場合:
 
 | 定数名 | 意味 | 暫定値 |
 |--------|------|--------|
-| INSTRUCTIONS_PER_TICK | tickあたり最大実行命令数 | 200 |
+| INSTRUCTIONS_PER_TICK | tickあたり最大実行命令数 | 100000 |
 | MEMORYCORE_WORDS | MemoryCore 1個あたりのメモリワード数 | 1024 |
 | WRITE_COST_PER_WORD | WRITEの1ワードあたり追加コスト | 0 |
 

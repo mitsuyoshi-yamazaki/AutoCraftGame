@@ -1,4 +1,4 @@
-// Replicator v6 — all globals, no stack leak
+// Replicator v10 — v6 logic with local vars (stack leak fixed), halt-based WRITE/ACTIVATE split
 // Components: Frame×3, Actuator, Harvester, Charger, Assembler, Processor, Sensor, MemoryCore×2
 // Resources: Ore×30 → Metal×15, Crystal×26 → Circuit×13
 
@@ -12,19 +12,17 @@
 #define COPY_SIZE       1200
 #define CRAFT_STEPS     11
 
-// All variables are global to avoid stack leak with halt()/continue
+// phase: 0=ore, 1=crystal, 2=metal, 3=circuit, 4=craft, 5=assemble+write, 6=activate
 int phase = 0;
 int count = 0;
 int craft_step = 0;
 int wander_angle = 0;
 int recharging = 0;
 int child_id = 0;
-int energy = 0;
-int n = 0;
 
 void main(void) {
     while (1) {
-        energy = my_energy();
+        int energy = my_energy();
 
         // Hysteresis recharge
         if (recharging == 0) {
@@ -34,7 +32,7 @@ void main(void) {
             if (energy > ENERGY_EXIT_RECHARGE) {
                 recharging = 0;
             } else {
-                n = sense(FILTER_ENERGY);
+                int n = sense(FILTER_ENERGY);
                 if (n > 0) {
                     sense_select(0);
                     if (sense_distance() < 2) { recharge(); }
@@ -56,7 +54,7 @@ void main(void) {
                 halt();
                 continue;
             }
-            n = sense(FILTER_ORE);
+            int n = sense(FILTER_ORE);
             if (n > 0) {
                 sense_select(0);
                 if (sense_distance() < 2) {
@@ -79,7 +77,7 @@ void main(void) {
                 halt();
                 continue;
             }
-            n = sense(FILTER_CRYSTAL);
+            int n = sense(FILTER_CRYSTAL);
             if (n > 0) {
                 sense_select(0);
                 if (sense_distance() < 2) {
@@ -110,7 +108,7 @@ void main(void) {
             continue;
         }
 
-        // Craft
+        // Craft: 0-2=Frame, 3-8=Actuator..Sensor, 9-10=MemoryCore
         if (phase == 4) {
             if (craft_step >= CRAFT_STEPS) { phase = 5; }
             else {
@@ -126,7 +124,7 @@ void main(void) {
         // Assemble + Write
         if (phase == 5) {
             if (energy < ENERGY_ASSEMBLE) {
-                n = sense(FILTER_ENERGY);
+                int n = sense(FILTER_ENERGY);
                 if (n > 0) {
                     sense_select(0);
                     if (sense_distance() < 2) { recharge(); }
@@ -136,14 +134,12 @@ void main(void) {
                     move(wander_angle);
                 }
             } else {
-                // Reset globals BEFORE write
+                // Reset globals for child copy
                 phase = 6;
                 count = 0;
                 craft_step = 0;
                 recharging = 0;
                 child_id = 0;
-                n = 0;
-                // Assemble (Assembler slot) + Write (Processor slot)
                 assemble_ext(1, 0, 2);
                 child_id = assemble(3, 1, 1, 1, 1, 1);
                 write_memory(child_id, 0, 0, COPY_SIZE);
@@ -156,6 +152,7 @@ void main(void) {
         if (phase == 6) {
             activate(child_id);
             phase = 0;
+            child_id = 0;
             halt();
             continue;
         }

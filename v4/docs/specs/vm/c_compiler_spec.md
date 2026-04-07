@@ -154,6 +154,10 @@ while (1) {
 
 ループ（while, for）内でのみ使用可能。
 
+break/continueはジャンプ前にスタックの巻き戻しを行う。ループ本体内で宣言されたローカル変数はbreak/continueにより自動的に解放される。for文のinit変数はcontinueでは保持され、breakでは解放される（for文のepilogueが処理する）。
+
+同様に、if文のthen/elseブランチ内で宣言されたローカル変数は、ブランチ終了時に自動的に解放される。
+
 ### 5-5. return
 
 ```c
@@ -255,10 +259,16 @@ void move(int direction);
 // Actuator[0]にMOVEを予約。direction: 0-359
 
 void harvest(void);
-// Harvester[0]にHARVESTを予約
+// Harvester[0]にHARVESTを予約（最近接ResourceNode）
+
+void harvest_target(int local_id);
+// Harvester[0]にHARVESTを予約（ローカルIDで指定したResourceNode）
 
 void recharge(void);
-// Charger[0]にRECHARGEを予約
+// Charger[0]にRECHARGEを予約（最近接EnergyNode）
+
+void recharge_target(int local_id);
+// Charger[0]にRECHARGEを予約（ローカルIDで指定したEnergyNode）
 
 void process(int recipe);
 // Assembler[0]にPROCESSを予約
@@ -326,7 +336,16 @@ void release_id(int local_id);
 // ローカルIDを解放
 ```
 
-### 8-6. コンポーネントディスカバリ
+**注意**: release_idはVM実行中に即座に実行される。同一tick内でアクション予約にローカルIDを使用した場合（harvest_target, recharge_target, write_memory, activate, disassemble）、予約後・アクション実行前にrelease_idを呼ぶと、アクション実行時にIDが見つからず失敗する。release_idは対象アクションが実行された後のtickで呼ぶこと。
+
+### 8-6. インベントリクエリ
+
+```c
+int inventory_count(int item_type);
+// 指定アイテムの所持数を返す。item_type: ITEM_ORE(0)〜ITEM_MEMORYCORE(12)
+```
+
+### 8-7. コンポーネントディスカバリ
 
 ```c
 int component_count(int type);
@@ -339,7 +358,7 @@ bool component_status(int type, int index);
 // 指定スロットが存在するか
 ```
 
-### 8-7. プログラム制御
+### 8-8. プログラム制御
 
 ```c
 void halt(void);
@@ -404,11 +423,29 @@ void halt(void);
 #define PROP_REMAINING      8
 ```
 
-### 9-5. レシピ/コンポーネント
+### 9-5. レシピ
 
 ```c
 #define RECIPE_METAL        0
 #define RECIPE_CIRCUIT      1
+```
+
+### 9-6. アイテム種別（インベントリクエリ用）
+
+```c
+#define ITEM_ORE            0
+#define ITEM_CRYSTAL        1
+#define ITEM_METAL          2
+#define ITEM_CIRCUIT        3
+#define ITEM_FRAME          4
+#define ITEM_ACTUATOR       5
+#define ITEM_HARVESTER      6
+#define ITEM_CHARGER        7
+#define ITEM_ASSEMBLER      8
+#define ITEM_PROCESSOR      9
+#define ITEM_SENSOR         10
+#define ITEM_DISASSEMBLER   11
+#define ITEM_MEMORYCORE     12
 ```
 
 ## 10. コンパイラの出力
@@ -494,17 +531,16 @@ void main(void) {
 
 void replicate(void) {
     // 子の身体を組み立て（マクロで一括呼び出し）
-    child_id = assemble_full(3,1,1,1,1,1,1,0,1);
+    child_id = assemble_full(3,1,1,1,1,1,1,0,2);
     // frame=3, actuator=1, harvester=1, charger=1, assembler=1,
-    // processor=1, sensor=1, disassembler=0, memorycore=1
+    // processor=1, sensor=1, disassembler=0, memorycore=2
 
-    // 自身のメモリを子にコピー
+    // 自身のメモリを子にコピー（WRITEはProcessorスロット）
     write_memory(child_id, 0, 0, PROGRAM_SIZE);
 
-    // 変異: 特定パラメータを変更して上書き
-    // （省略: 変異ロジック）
-
-    // 子を起動
+    // WRITE→ACTIVATEは同一Processorスロットのため同一tickで予約できない
+    // HALTでtick境界を作り、次tickでACTIVATEを発行する
+    halt();
     activate(child_id);
 
     state = 0;  // 資源収集に戻る

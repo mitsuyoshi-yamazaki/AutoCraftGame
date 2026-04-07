@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createActionEngine } from '../src/actions.js';
 import type { ActionEngine } from '../src/actions.js';
-import type { MoveReservation, HarvestReservation, RechargeReservation, WriteReservation, AssembleReservation } from '../src/io.js';
+import type { MoveReservation, HarvestReservation, RechargeReservation, WriteReservation, AssembleReservation, DisassembleReservation } from '../src/io.js';
 import { createCharacterEngine } from '../src/character.js';
 import { createRecipeEngine } from '../src/recipes.js';
 import { createWorldEngine } from '../src/world.js';
@@ -157,7 +157,7 @@ describe('executeReservations — HARVEST', () => {
     });
     const forces = createForceMap();
 
-    const reservation: HarvestReservation = { op: 'HARVEST', slotIndex: 0 };
+    const reservation: HarvestReservation = { op: 'HARVEST', slotIndex: 0, targetLocalId: 0 };
     const result = actionEngine.executeReservations(
       world, 'c-001', [reservation], new Map(), forces,
     );
@@ -185,12 +185,199 @@ describe('executeReservations — HARVEST', () => {
     });
     const forces = createForceMap();
 
-    const reservation: HarvestReservation = { op: 'HARVEST', slotIndex: 0 };
+    const reservation: HarvestReservation = { op: 'HARVEST', slotIndex: 0, targetLocalId: 0 };
     const result = actionEngine.executeReservations(
       world, 'c-001', [reservation], new Map(), forces,
     );
 
     expect(result.records[0]).toMatchObject({ op: 'HARVEST', success: false });
+  });
+});
+
+// ============================================================
+// Tests: targeted HARVEST reservation
+// ============================================================
+
+describe('executeReservations — targeted HARVEST', () => {
+  it('harvests specific resource node by local ID', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      resourceNodes: [
+        {
+          id: 'rn-ore',
+          position: { x: 10.5, y: 10 },
+          type: 'OreNode',
+          remaining: 50,
+          createdAt: 0,
+        },
+        {
+          id: 'rn-crystal',
+          position: { x: 10.3, y: 10 },  // closer than Ore
+          type: 'CrystalNode',
+          remaining: 50,
+          createdAt: 0,
+        },
+      ],
+    });
+    const forces = createForceMap();
+    // Map local ID 5 to the Ore node
+    const localIdTable = new Map<number, string>([[5, 'rn-ore']]);
+
+    const reservation: HarvestReservation = {
+      op: 'HARVEST', slotIndex: 0, targetLocalId: 5,
+    };
+    const result = actionEngine.executeReservations(
+      world, 'c-001', [reservation], localIdTable, forces,
+    );
+
+    expect(result.records[0]).toMatchObject({ op: 'HARVEST', success: true });
+    const updated = result.world.characters.find(c => c.id === 'c-001')!;
+    // Should have Ore (targeted), not Crystal (nearest)
+    expect(updated.inventory['Ore']).toBe(1);
+    expect(updated.inventory['Crystal']).toBeUndefined();
+
+    // Ore node depleted
+    const oreNode = result.world.resourceNodes.find(n => n.id === 'rn-ore');
+    expect(oreNode!.remaining).toBe(49);
+    // Crystal node untouched
+    const crystalNode = result.world.resourceNodes.find(n => n.id === 'rn-crystal');
+    expect(crystalNode!.remaining).toBe(50);
+  });
+
+  it('targeted HARVEST fails when local ID not in table', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      resourceNodes: [{
+        id: 'rn-001',
+        position: { x: 10.5, y: 10 },
+        type: 'OreNode',
+        remaining: 50,
+        createdAt: 0,
+      }],
+    });
+    const forces = createForceMap();
+
+    const reservation: HarvestReservation = {
+      op: 'HARVEST', slotIndex: 0, targetLocalId: 99,
+    };
+    const result = actionEngine.executeReservations(
+      world, 'c-001', [reservation], new Map(), forces,
+    );
+
+    expect(result.records[0]).toMatchObject({ op: 'HARVEST', success: false });
+  });
+
+  it('targeted HARVEST fails when node is out of range', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      resourceNodes: [{
+        id: 'rn-far',
+        position: { x: 100, y: 100 },
+        type: 'OreNode',
+        remaining: 50,
+        createdAt: 0,
+      }],
+    });
+    const forces = createForceMap();
+    const localIdTable = new Map<number, string>([[1, 'rn-far']]);
+
+    const reservation: HarvestReservation = {
+      op: 'HARVEST', slotIndex: 0, targetLocalId: 1,
+    };
+    const result = actionEngine.executeReservations(
+      world, 'c-001', [reservation], localIdTable, forces,
+    );
+
+    expect(result.records[0]).toMatchObject({ op: 'HARVEST', success: false });
+  });
+
+  it('targetLocalId=0 harvests nearest (Crystal closer than Ore)', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      resourceNodes: [
+        {
+          id: 'rn-ore',
+          position: { x: 10.5, y: 10 },
+          type: 'OreNode',
+          remaining: 50,
+          createdAt: 0,
+        },
+        {
+          id: 'rn-crystal',
+          position: { x: 10.3, y: 10 },  // closer
+          type: 'CrystalNode',
+          remaining: 50,
+          createdAt: 0,
+        },
+      ],
+    });
+    const forces = createForceMap();
+
+    const reservation: HarvestReservation = {
+      op: 'HARVEST', slotIndex: 0, targetLocalId: 0,
+    };
+    const result = actionEngine.executeReservations(
+      world, 'c-001', [reservation], new Map(), forces,
+    );
+
+    expect(result.records[0]).toMatchObject({ op: 'HARVEST', success: true });
+    const updated = result.world.characters.find(c => c.id === 'c-001')!;
+    // Nearest is Crystal
+    expect(updated.inventory['Crystal']).toBe(1);
+    expect(updated.inventory['Ore']).toBeUndefined();
+  });
+});
+
+// ============================================================
+// Tests: targeted RECHARGE reservation
+// ============================================================
+
+describe('executeReservations — targeted RECHARGE', () => {
+  it('recharges from specific energy node by local ID', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 }, energy: 100 });
+    const world = makeWorld({
+      characters: [ch],
+      energyNodes: [
+        {
+          id: 'en-close',
+          position: { x: 10.2, y: 10 },  // closer
+          productionRate: 100,
+          stored: 50,
+          maxStored: 1000,
+          createdAt: 0,
+        },
+        {
+          id: 'en-target',
+          position: { x: 10.5, y: 10 },
+          productionRate: 100,
+          stored: 500,
+          maxStored: 1000,
+          createdAt: 0,
+        },
+      ],
+    });
+    const forces = createForceMap();
+    const localIdTable = new Map<number, string>([[3, 'en-target']]);
+
+    const reservation: RechargeReservation = {
+      op: 'RECHARGE', slotIndex: 0, targetLocalId: 3,
+    };
+    const result = actionEngine.executeReservations(
+      world, 'c-001', [reservation], localIdTable, forces,
+    );
+
+    expect(result.records[0]).toMatchObject({ op: 'RECHARGE', success: true });
+    // The targeted node (en-target with stored=500) should be drained
+    const targetNode = result.world.energyNodes.find(n => n.id === 'en-target')!;
+    const gained = Math.min(params.rechargeAmount, 500);
+    expect(targetNode.stored).toBe(500 - gained);
+    // The closer node should be untouched
+    const closeNode = result.world.energyNodes.find(n => n.id === 'en-close')!;
+    expect(closeNode.stored).toBe(50);
   });
 });
 
@@ -214,7 +401,7 @@ describe('executeReservations — RECHARGE', () => {
     });
     const forces = createForceMap();
 
-    const reservation: RechargeReservation = { op: 'RECHARGE', slotIndex: 0 };
+    const reservation: RechargeReservation = { op: 'RECHARGE', slotIndex: 0, targetLocalId: 0 };
     const result = actionEngine.executeReservations(
       world, 'c-001', [reservation], new Map(), forces,
     );
@@ -247,7 +434,7 @@ describe('executeReservations — RECHARGE', () => {
     });
     const forces = createForceMap();
 
-    const reservation: RechargeReservation = { op: 'RECHARGE', slotIndex: 0 };
+    const reservation: RechargeReservation = { op: 'RECHARGE', slotIndex: 0, targetLocalId: 0 };
     const result = actionEngine.executeReservations(
       world, 'c-001', [reservation], new Map(), forces,
     );
@@ -424,7 +611,7 @@ describe('executeReservations — failure penalty', () => {
     const world = makeWorld({ characters: [ch] });
     const forces = createForceMap();
 
-    const reservation: HarvestReservation = { op: 'HARVEST', slotIndex: 0 };
+    const reservation: HarvestReservation = { op: 'HARVEST', slotIndex: 0, targetLocalId: 0 };
     const result = actionEngine.executeReservations(
       world, 'c-001', [reservation], new Map(), forces,
     );

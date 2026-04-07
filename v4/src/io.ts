@@ -31,6 +31,11 @@ const IO_TICK       = 0x0006;
 
 const COMP_DISC_BASE = 0x0010;
 
+const INVENTORY_BASE   = 0x0020;
+const INVENTORY_TYPE   = 0x0020;
+const INVENTORY_CMD    = 0x0021;
+const INVENTORY_RESULT = 0x0022;
+
 const BASE_ACTUATOR      = 0x1000;
 const BASE_HARVESTER     = 0x2000;
 const BASE_CHARGER       = 0x3000;
@@ -64,6 +69,13 @@ const TYPE_REMAINS          = 6;
 const TYPE_ACTIVE_CHAR      = 7;
 const TYPE_INACTIVE_CHAR    = 8;
 
+// Item type mapping for inventory query (0-12)
+const INVENTORY_ITEM_NAMES: readonly string[] = [
+  'Ore', 'Crystal', 'Metal', 'Circuit',
+  'Frame', 'Actuator', 'Harvester', 'Charger',
+  'Assembler', 'Processor', 'Sensor', 'Disassembler', 'MemoryCore',
+];
+
 // Component type index used in ASSEMBLE I/O and discovery
 const COMPONENT_ORDER: readonly ComponentType[] = [
   'Frame', 'Actuator', 'Harvester', 'Charger',
@@ -82,11 +94,13 @@ export interface MoveReservation {
 export interface HarvestReservation {
   readonly op: 'HARVEST';
   readonly slotIndex: number;
+  readonly targetLocalId: number;  // 0 = nearest, non-zero = specific node by local ID
 }
 
 export interface RechargeReservation {
   readonly op: 'RECHARGE';
   readonly slotIndex: number;
+  readonly targetLocalId: number;  // 0 = nearest, non-zero = specific energy node by local ID
 }
 
 export interface ProcessReservation {
@@ -232,6 +246,10 @@ export function createIoHandler(
   let discCmd = 0;
   let discIndex = 0;
   let discResult = 0;
+
+  // Inventory query state
+  let invQueryType = 0;
+  let invQueryResult = 0;
 
   // Component counts
   const componentCounts: Map<ComponentType, number[]> = new Map();
@@ -599,6 +617,9 @@ export function createIoHandler(
     // Discovery area
     if (addr === COMP_DISC_BASE + 2) return discResult & 0xFFFF;
 
+    // Inventory query result
+    if (addr === INVENTORY_RESULT) return invQueryResult & 0xFFFF;
+
     // Query area
     if (addr === QUERY_BASE + 0) return queryTargetId & 0xFFFF;
     if (addr === QUERY_BASE + 2) return queryValid;
@@ -675,6 +696,18 @@ export function createIoHandler(
     }
     if (addr === COMP_DISC_BASE + 3) {
       discIndex = v;
+      return;
+    }
+
+    // Inventory query writes
+    if (addr === INVENTORY_TYPE) {
+      invQueryType = v;
+      return;
+    }
+    if (addr === INVENTORY_CMD) {
+      if (v === 1) {
+        handleInventoryQuery();
+      }
       return;
     }
 
@@ -798,13 +831,17 @@ export function createIoHandler(
       }
       case 'Harvester': {
         if (cmd === 1) {
-          reservationMap.set(key, { op: 'HARVEST', slotIndex: index });
+          const data = harvesterSlots.get(index) ?? {};
+          const targetLocalId = data[2] ?? 0;
+          reservationMap.set(key, { op: 'HARVEST', slotIndex: index, targetLocalId });
         }
         break;
       }
       case 'Charger': {
         if (cmd === 1) {
-          reservationMap.set(key, { op: 'RECHARGE', slotIndex: index });
+          const data = chargerSlots.get(index) ?? {};
+          const targetLocalId = data[2] ?? 0;
+          reservationMap.set(key, { op: 'RECHARGE', slotIndex: index, targetLocalId });
         }
         break;
       }
@@ -940,6 +977,15 @@ export function createIoHandler(
         break;
       }
     }
+  }
+
+  function handleInventoryQuery(): void {
+    const itemName = INVENTORY_ITEM_NAMES[invQueryType];
+    if (itemName === undefined) {
+      invQueryResult = 0;
+      return;
+    }
+    invQueryResult = (character.inventory[itemName] ?? 0);
   }
 
   function handleDiscovery(): void {
