@@ -8,8 +8,8 @@
 // === Evolvable parameters (globals, copied to child via write_memory) ===
 int param_recharge_enter = 250;
 int param_recharge_exit = 700;
-int param_repair_enter = 2000;
-int param_repair_exit = 4000;
+int param_repair_enter = 400;
+int param_repair_exit = 800;
 int param_assemble_energy = 700;
 int param_wander_step = 90;
 int param_frame_count = 2;
@@ -129,8 +129,8 @@ void do_replicate(void) {
     // 2. Mutate for child
     param_recharge_enter = mutate(param_recharge_enter, 30, 100, 600);
     param_recharge_exit = mutate(param_recharge_exit, 50, 400, 1500);
-    param_repair_enter = mutate(param_repair_enter, 200, 500, 4000);
-    param_repair_exit = mutate(param_repair_exit, 300, 2000, 8000);
+    param_repair_enter = mutate(param_repair_enter, 40, 100, 800);
+    param_repair_exit = mutate(param_repair_exit, 60, 400, 1100);
     param_assemble_energy = mutate(param_assemble_energy, 50, 400, 1500);
     param_wander_step = mutate(param_wander_step, 15, 15, 180);
     param_frame_count = mutate(param_frame_count, 1, 1, 4);

@@ -188,7 +188,7 @@ _L29:
     BEQL r1, r0, _L26
     LW r1, r7, 0
     PUSH r1
-    LI r1, 2000
+    LI r1, 400
     MOV r2, r1
     POP r1
     BLTL r1, r2, _L32
@@ -218,7 +218,7 @@ _L37:
     BEQL r1, r0, _L34
     LW r1, r7, 0
     PUSH r1
-    LI r1, 5000
+    LI r1, 1000
     MOV r2, r1
     POP r1
     MOV r3, r1

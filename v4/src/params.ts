@@ -1,4 +1,4 @@
-import type { ComponentType, ProcessRecipe, CraftRecipe } from './types.js';
+import type { ComponentType, ProcessRecipe, CraftRecipe } from "./types.js";
 
 // ============================================================
 // GameParams — all tunable parameters that affect simulation determinism
@@ -53,7 +53,9 @@ export interface GameParams {
   // Resource regeneration
   readonly remainsAbsorptionTicks: number;
   readonly nodeRegenerationThreshold: number;
-  readonly disassembleSpillage: Readonly<Record<ComponentType, Readonly<Record<string, number>>>>;
+  readonly disassembleSpillage: Readonly<
+    Record<ComponentType, Readonly<Record<string, number>>>
+  >;
 
   // Recipes
   readonly processRecipes: readonly ProcessRecipe[];
@@ -98,13 +100,13 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   energyMetabolismThreshold: 3000,
   energyMetabolismScale: 9_000_000,
 
-  rechargeAmount: 800,
+  rechargeAmount: 400,
   assembleEnergyTransfer: 500,
   repairAmount: 100,
 
-  frameDurability: 3000,
-  durabilityDecayNormal: 4,
-  durabilityDecayStarving: 2,
+  frameDurability: 600,
+  durabilityDecayNormal: 2,
+  durabilityDecayStarving: 6,
 
   moveForce: 80.0,
   frictionCoefficient: 0.8,
@@ -124,8 +126,8 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   instructionsPerTick: 100000,
   writeCostPerWord: 0,
 
-  agingThresholdN: 3000,
-  agingThresholdM: 6000,
+  agingThresholdN: 1800,
+  agingThresholdM: 3600,
 
   remainsAbsorptionTicks: 600,
   nodeRegenerationThreshold: 50,
@@ -142,19 +144,19 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   },
 
   processRecipes: [
-    { output: 'Metal', inputs: { Ore: 2 } },
-    { output: 'Circuit', inputs: { Crystal: 2 } },
+    { output: "Metal", inputs: { Ore: 2 } },
+    { output: "Circuit", inputs: { Crystal: 2 } },
   ],
   craftRecipes: [
-    { output: 'Frame', inputs: { Metal: 3 } },
-    { output: 'Actuator', inputs: { Metal: 1, Circuit: 1 } },
-    { output: 'Sensor', inputs: { Circuit: 2 } },
-    { output: 'Processor', inputs: { Circuit: 3 } },
-    { output: 'Harvester', inputs: { Metal: 2 } },
-    { output: 'Assembler', inputs: { Metal: 2, Circuit: 1 } },
-    { output: 'Disassembler', inputs: { Metal: 2, Circuit: 1 } },
-    { output: 'Charger', inputs: { Metal: 1, Circuit: 2 } },
-    { output: 'MemoryCore', inputs: { Circuit: 2 } },
+    { output: "Frame", inputs: { Metal: 3 } },
+    { output: "Actuator", inputs: { Metal: 1, Circuit: 1 } },
+    { output: "Sensor", inputs: { Circuit: 2 } },
+    { output: "Processor", inputs: { Circuit: 3 } },
+    { output: "Harvester", inputs: { Metal: 2 } },
+    { output: "Assembler", inputs: { Metal: 2, Circuit: 1 } },
+    { output: "Disassembler", inputs: { Metal: 2, Circuit: 1 } },
+    { output: "Charger", inputs: { Metal: 1, Circuit: 2 } },
+    { output: "MemoryCore", inputs: { Circuit: 2 } },
   ],
 
   rawMaterialMass: {
@@ -180,7 +182,7 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
 // Helper: get energy cost for an action
 // ============================================================
 export function getActionEnergyCost(params: GameParams, op: string): number {
-  if (op === 'ASSEMBLE') {
+  if (op === "ASSEMBLE") {
     return (params.energyCosts[op] ?? 0) + params.assembleEnergyTransfer;
   }
   return params.energyCosts[op] ?? 0;

@@ -7,12 +7,12 @@ import type {
   Character,
   ComponentType,
   Inventory,
-} from './types.js';
-import type { GameParams } from './params.js';
-import { createGroundGrid, groundGridDimensions } from './ground.js';
-import type { SpatialGrid } from './spatial-grid.js';
-import { queryRange } from './spatial-grid.js';
-import { isActive } from './character.js';
+} from "./types.js";
+import type { GameParams } from "./params.js";
+import { createGroundGrid, groundGridDimensions } from "./ground.js";
+import type { SpatialGrid } from "./spatial-grid.js";
+import { queryRange } from "./spatial-grid.js";
+import { isActive } from "./character.js";
 
 // ============================================================
 // Seeded PRNG — mulberry32
@@ -55,7 +55,7 @@ export function circlesOverlap(
 // ============================================================
 export interface WorldEngine {
   getObjectRadius(
-    kind: 'character' | 'resourceNode' | 'energyNode' | 'remains',
+    kind: "character" | "resourceNode" | "energyNode" | "remains",
   ): number;
   collidesWithAny(
     world: World,
@@ -95,16 +95,16 @@ export interface WorldEngine {
 
 export function createWorldEngine(params: GameParams): WorldEngine {
   function getObjectRadius(
-    kind: 'character' | 'resourceNode' | 'energyNode' | 'remains',
+    kind: "character" | "resourceNode" | "energyNode" | "remains",
   ): number {
     switch (kind) {
-      case 'character':
+      case "character":
         return params.characterRadius;
-      case 'resourceNode':
+      case "resourceNode":
         return params.resourceNodeRadius;
-      case 'energyNode':
+      case "energyNode":
         return params.energyNodeRadius;
-      case 'remains':
+      case "remains":
         return params.remainsRadius;
     }
   }
@@ -162,7 +162,7 @@ export function createWorldEngine(params: GameParams): WorldEngine {
       let best: ResourceNode | null = null;
       let bestDist = Infinity;
       for (const entry of nearby) {
-        if (entry.kind !== 'resourceNode') continue;
+        if (entry.kind !== "resourceNode") continue;
         const d = distance(pos, entry.position);
         if (d > params.interactRange || d >= bestDist) continue;
         const node = world.resourceNodes.find((n) => n.id === entry.id);
@@ -196,7 +196,7 @@ export function createWorldEngine(params: GameParams): WorldEngine {
       let best: EnergyNode | null = null;
       let bestDist = Infinity;
       for (const entry of nearby) {
-        if (entry.kind !== 'energyNode') continue;
+        if (entry.kind !== "energyNode") continue;
         const d = distance(pos, entry.position);
         if (d > params.interactRange || d >= bestDist) continue;
         const node = world.energyNodes.find((n) => n.id === entry.id);
@@ -230,7 +230,7 @@ export function createWorldEngine(params: GameParams): WorldEngine {
       let best: Remains | null = null;
       let bestDist = Infinity;
       for (const entry of nearby) {
-        if (entry.kind !== 'remains') continue;
+        if (entry.kind !== "remains") continue;
         const d = distance(pos, entry.position);
         if (d > params.interactRange || d >= bestDist) continue;
         const r = world.remains.find((rm) => rm.id === entry.id);
@@ -264,7 +264,7 @@ export function createWorldEngine(params: GameParams): WorldEngine {
       let best: Character | null = null;
       let bestDist = Infinity;
       for (const entry of nearby) {
-        if (entry.kind !== 'character' || entry.id === selfId) continue;
+        if (entry.kind !== "character" || entry.id === selfId) continue;
         const d = distance(pos, entry.position);
         if (d > params.interactRange || d >= bestDist) continue;
         const c = world.characters.find((ch) => ch.id === entry.id);
@@ -429,7 +429,7 @@ export function getCharacter(world: World, id: string): Character | undefined {
 }
 
 export function nextCharacterId(world: World): { id: string; world: World } {
-  const id = `char-${String(world.nextCharacterId).padStart(3, '0')}`;
+  const id = `char-${String(world.nextCharacterId).padStart(3, "0")}`;
   return {
     id,
     world: { ...world, nextCharacterId: world.nextCharacterId + 1 },
@@ -437,7 +437,7 @@ export function nextCharacterId(world: World): { id: string; world: World } {
 }
 
 export function nextObjectId(world: World): { id: string; world: World } {
-  const id = `obj-${String(world.nextObjectId).padStart(3, '0')}`;
+  const id = `obj-${String(world.nextObjectId).padStart(3, "0")}`;
   return { id, world: { ...world, nextObjectId: world.nextObjectId + 1 } };
 }
 
@@ -456,13 +456,13 @@ export interface WorldConfig {
 }
 
 export const DEFAULT_WORLD_CONFIG: WorldConfig = {
-  width: 60,
-  height: 60,
-  oreNodeCount: 50,
-  crystalNodeCount: 50,
+  width: 120,
+  height: 80,
+  oreNodeCount: 100,
+  crystalNodeCount: 100,
   nodeRemaining: 150,
-  energyNodeCount: 50,
-  energyProductionRate: 200,
+  energyNodeCount: 100,
+  energyProductionRate: 100,
   energyMaxStored: 1600,
 };
 
@@ -513,8 +513,8 @@ export function createWorld(
   };
 
   const margin = 1.0;
-  const resourceNodeRadius = worldEngine.getObjectRadius('resourceNode');
-  const energyNodeRadius = worldEngine.getObjectRadius('energyNode');
+  const resourceNodeRadius = worldEngine.getObjectRadius("resourceNode");
+  const energyNodeRadius = worldEngine.getObjectRadius("energyNode");
 
   // Place OreNodes
   for (let i = 0; i < config.oreNodeCount; i++) {
@@ -533,7 +533,7 @@ export function createWorld(
         {
           id,
           position: pos,
-          type: 'OreNode',
+          type: "OreNode",
           remaining: config.nodeRemaining,
           createdAt: 0,
         },
@@ -558,7 +558,7 @@ export function createWorld(
         {
           id,
           position: pos,
-          type: 'CrystalNode',
+          type: "CrystalNode",
           remaining: config.nodeRemaining,
           createdAt: 0,
         },

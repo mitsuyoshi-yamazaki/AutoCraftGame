@@ -4,9 +4,9 @@ _g_param_recharge_enter:
 _g_param_recharge_exit:
     .word 700
 _g_param_repair_enter:
-    .word 2000
+    .word 400
 _g_param_repair_exit:
-    .word 4000
+    .word 800
 _g_param_assemble_energy:
     .word 700
 _g_param_wander_step:
@@ -651,11 +651,11 @@ _do_replicate:
     JALR r6, r5
     LI r3, _g_param_recharge_exit
     SW r1, r3, 0
-    LI r1, 4000
+    LI r1, 800
     PUSH r1
-    LI r1, 500
+    LI r1, 100
     PUSH r1
-    LI r1, 200
+    LI r1, 40
     PUSH r1
     LI r3, _g_param_repair_enter
     LW r1, r3, 0
@@ -668,11 +668,11 @@ _do_replicate:
     JALR r6, r5
     LI r3, _g_param_repair_enter
     SW r1, r3, 0
-    LI r1, 8000
+    LI r1, 1100
     PUSH r1
-    LI r1, 2000
+    LI r1, 400
     PUSH r1
-    LI r1, 300
+    LI r1, 60
     PUSH r1
     LI r3, _g_param_repair_exit
     LW r1, r3, 0
