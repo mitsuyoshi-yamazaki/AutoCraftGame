@@ -12,7 +12,7 @@ const noIo = {
 
 const run = (program: readonly number[], memSize = 1024) => {
   const vm = loadProgram(createVm(memSize), program);
-  return executeOneTick(vm, noIo.read, noIo.write);
+  return executeOneTick(vm, noIo.read, noIo.write).vm;
 };
 
 describe('createVm', () => {
@@ -213,7 +213,7 @@ describe('memory operations', () => {
     ];
     // Need memSize large enough to hold the program (7 words), then check wrapping
     const vm = loadProgram(createVm(1024), program);
-    const result = executeOneTick(vm, noIo.read, noIo.write);
+    const result = executeOneTick(vm, noIo.read, noIo.write).vm;
     expect(result.memory[10]).toBe(77);
   });
 });
@@ -227,7 +227,7 @@ describe('I/O operations', () => {
       encodeHalt(),
     ];
     const vm = loadProgram(createVm(1024), program);
-    const result = executeOneTick(vm, ioRead, noIo.write);
+    const result = executeOneTick(vm, ioRead, noIo.write).vm;
     expect(result.registers[2]).toBe(999);
   });
 
@@ -432,13 +432,13 @@ describe('HALT', () => {
     const vm1 = executeOneTick(
       loadProgram(createVm(1024), program),
       noIo.read, noIo.write,
-    );
+    ).vm;
     expect(vm1.registers[1]).toBe(10);
     expect(vm1.registers[2]).toBe(0);
     expect(vm1.pc).toBe(3);
 
     // Second tick: resumes from PC=3
-    const vm2 = executeOneTick(vm1, noIo.read, noIo.write);
+    const vm2 = executeOneTick(vm1, noIo.read, noIo.write).vm;
     expect(vm2.registers[2]).toBe(20);
     expect(vm2.pc).toBe(6);
   });
@@ -458,7 +458,9 @@ describe('instruction limit', () => {
     );
     // Each loop iteration = 2 instructions (ADDI + JMP)
     // 10 instructions max, so 5 complete loops
-    expect(result.registers[1]).toBe(5);
+    expect(result.vm.registers[1]).toBe(5);
+    expect(result.hitLimit).toBe(true);
+    expect(result.instructionsExecuted).toBe(10);
   });
 
   it('defaults to INSTRUCTIONS_PER_TICK', () => {
@@ -499,7 +501,7 @@ describe('memory wrapping for PC', () => {
     // Put HALT at address 0 (PC wraps to 0 after executing LI)
     mem[0] = encodeHalt();
     const vmWithProgram: typeof vm = { ...vm, memory: mem, pc: 6 };
-    const result = executeOneTick(vmWithProgram, noIo.read, noIo.write);
+    const result = executeOneTick(vmWithProgram, noIo.read, noIo.write).vm;
     expect(result.registers[1]).toBe(42);
     expect(result.pc).toBe(1); // after HALT at addr 0
   });

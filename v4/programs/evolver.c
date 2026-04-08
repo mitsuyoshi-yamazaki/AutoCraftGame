@@ -1,9 +1,10 @@
-// Evolver — self-replicator with parameter mutation
-// Components: Frame×2, Actuator, Harvester, Charger, Assembler, Processor, Sensor, MemoryCore×2
+// Evolver v2 — self-replicator with parameter mutation, smart recharge, resource exploration
+// Components: Frame×2, Actuator, Harvester, Charger, Assembler, Processor, Sensor, MemoryCore×3
 // Strategy: Pioneer-based behavior with evolvable parameters
 // On replication, parameters are mutated slightly before write_memory, then restored.
 
-#define COPY_SIZE       1700
+#define COPY_SIZE       2100
+#define RECHARGE_AMOUNT 400
 
 // === Evolvable parameters (globals, copied to child via write_memory) ===
 int param_recharge_enter = 250;
@@ -25,6 +26,7 @@ int wander_angle = 0;
 int recharging = 0;
 int child_id = 0;
 int repairing = 0;
+int move_target = 0;
 
 // --- PRNG (16-bit LCG) ---
 int next_rng(void) {
@@ -48,39 +50,48 @@ int mutate(int value, int half_range, int lo, int hi) {
 
 // --- Dynamic material calculation based on param_frame_count ---
 int calc_metal_needed(void) {
-    // Frame=3metal each, Actuator=1M+1C, Harvester=2M, Charger=1M+2C,
-    // Assembler=2M+1C, Processor=3C, Sensor=2C, MemoryCore=2C×2
-    // Metal total: frame_count*3 + 1 + 2 + 1 + 2 = frame_count*3 + 6
     return param_frame_count * 3 + 6;
 }
 
 int calc_circuit_needed(void) {
-    // Circuit total: 1 + 2 + 1 + 3 + 2 + 2*2 = 13 (Frame-independent)
-    return 13;
-}
-
-int calc_ore_needed(void) {
-    return calc_metal_needed() * 2;
-}
-
-int calc_crystal_needed(void) {
-    return calc_circuit_needed() * 2;
+    // Actuator(1)+Charger(2)+Assembler(1)+Processor(3)+Sensor(2)+MemoryCore×3(6) = 15
+    return 15;
 }
 
 int calc_craft_steps(void) {
-    // Frame×N + Actuator + Harvester + Charger + Assembler + Processor + Sensor + MemoryCore×2
-    return param_frame_count + 8;
+    // Frame×N + Actuator+Harvester+Charger+Assembler+Processor+Sensor+MemoryCore×3
+    return param_frame_count + 9;
+}
+
+void do_wander(void) {
+    wander_angle = wander_angle + param_wander_step;
+    move(wander_angle);
 }
 
 void do_recharge(void) {
+    if (move_target != 0) {
+        int type = sense_id(move_target);
+        if (type == 0) { move_target = 0; }
+        else if (sense_distance() < 2) { move_target = 0; recharge(); return; }
+        else { move(sense_angle()); return; }
+    }
     int n = sense(FILTER_ENERGY);
     if (n > 0) {
         sense_select(0);
-        if (sense_distance() < 2) { recharge(); }
-        else { move(sense_angle()); }
+        if (sense_distance() < 2) {
+            if (sense_amount() < RECHARGE_AMOUNT && n > 1) {
+                sense_select(1);
+                move_target = sense_register();
+                recharge();
+                move(sense_angle());
+            } else {
+                recharge();
+            }
+        } else {
+            move(sense_angle());
+        }
     } else {
-        wander_angle = wander_angle + param_wander_step;
-        move(wander_angle);
+        do_wander();
     }
 }
 
@@ -92,14 +103,30 @@ void do_harvest(int filter) {
             harvest();
             count = count + 1;
         } else { move(sense_angle()); }
-    } else {
-        wander_angle = wander_angle + param_wander_step;
-        move(wander_angle);
+        return;
     }
+    // No resources — continue navigation or start exploring
+    if (move_target != 0) {
+        int type = sense_id(move_target);
+        if (type == 0) { move_target = 0; }
+        else if (sense_distance() < 2) { move_target = 0; }
+        else { move(sense_angle()); return; }
+    }
+    int n2 = sense(FILTER_ENERGY);
+    if (n2 > 0) {
+        if (my_energy() > param_recharge_exit) {
+            sense_select(n2 - 1);
+            move_target = sense_register();
+            move(sense_angle());
+        } else {
+            sense_select(0);
+            if (sense_distance() < 2) { recharge(); }
+            else { move(sense_angle()); }
+        }
+    } else { do_wander(); }
 }
 
 void do_craft(void) {
-    // Craft in order: Frame×N, then fixed components
     int non_frame = craft_step - param_frame_count;
     if (craft_step < param_frame_count) {
         craft(COMP_FRAME);
@@ -114,7 +141,6 @@ void do_craft(void) {
 }
 
 void do_replicate(void) {
-    // Seed RNG from current tick
     rng_state = current_tick();
 
     // 1. Save current params
@@ -136,7 +162,7 @@ void do_replicate(void) {
     param_frame_count = mutate(param_frame_count, 1, 1, 4);
 
     // 3. Assemble child + write mutated memory
-    assemble_ext(1, 0, 2);
+    assemble_ext(1, 0, 3);
     child_id = assemble(sv_fc, 1, 1, 1, 1, 1);
     write_memory(child_id, 0, 0, COPY_SIZE);
 
@@ -164,8 +190,7 @@ void main(void) {
                 recharging = 0;
             } else {
                 do_recharge();
-                halt();
-                continue;
+                halt(); continue;
             }
         }
 
@@ -177,65 +202,56 @@ void main(void) {
             if (durability > param_repair_exit) {
                 repairing = 0;
             } else {
-                repair();
-                halt();
-                continue;
+                repair(); halt(); continue;
             }
         }
 
-        // Phase 0: Gather ore
         if (phase == 0) {
-            if (count >= calc_ore_needed()) {
+            if (count >= calc_metal_needed() * 2) {
                 phase = 1; count = 0; halt(); continue;
             }
             do_harvest(FILTER_ORE);
             halt(); continue;
         }
 
-        // Phase 1: Gather crystal
         if (phase == 1) {
-            if (count >= calc_crystal_needed()) {
+            if (count >= calc_circuit_needed() * 2) {
                 phase = 2; count = 0; halt(); continue;
             }
             do_harvest(FILTER_CRYSTAL);
             halt(); continue;
         }
 
-        // Phase 2: Process metal
         if (phase == 2) {
             if (count >= calc_metal_needed()) { phase = 3; count = 0; }
             else { process(RECIPE_METAL); count = count + 1; }
             halt(); continue;
         }
 
-        // Phase 3: Process circuit
         if (phase == 3) {
             if (count >= calc_circuit_needed()) { phase = 4; craft_step = 0; }
             else { process(RECIPE_CIRCUIT); count = count + 1; }
             halt(); continue;
         }
 
-        // Phase 4: Craft components
         if (phase == 4) {
             if (craft_step >= calc_craft_steps()) { phase = 5; }
             else { do_craft(); }
             halt(); continue;
         }
 
-        // Phase 5: Assemble + Write (wait for enough energy)
         if (phase == 5) {
             if (energy < param_assemble_energy) {
                 do_recharge();
             } else {
                 phase = 6;
                 count = 0; craft_step = 0;
-                recharging = 0; repairing = 0; child_id = 0;
+                recharging = 0; repairing = 0; child_id = 0; move_target = 0;
                 do_replicate();
             }
             halt(); continue;
         }
 
-        // Phase 6: Activate child
         if (phase == 6) {
             activate(child_id);
             phase = 0; child_id = 0;

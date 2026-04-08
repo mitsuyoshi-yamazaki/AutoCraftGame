@@ -46,6 +46,7 @@ interface UIState {
   totalBirths: number;
   totalDeaths: number;
   characterActions: ReadonlyMap<string, readonly ActionRecord[]>;
+  instructionLimitHits: ReadonlySet<string>;
   sessionStartedAt: string;
   resumedAt: string | null;
   recentSavedEvents: SavedEvent[];
@@ -134,6 +135,7 @@ function createInitialState(seed?: number): UIState {
     totalBirths: 0,
     totalDeaths: 0,
     characterActions: new Map(),
+    instructionLimitHits: new Set(),
     sessionStartedAt: formatTimestamp(new Date()),
     resumedAt: null,
     recentSavedEvents: [],
@@ -242,6 +244,7 @@ function step(): void {
     totalBirths: state.totalBirths + births,
     totalDeaths: state.totalDeaths + deaths,
     characterActions: result.actions,
+    instructionLimitHits: result.instructionLimitHits,
     recentSavedEvents,
   };
 
@@ -338,7 +341,8 @@ function render(): void {
 }
 
 function updateStats(): void {
-  tickDisplay.textContent = `Tick: ${state.world.tick}`;
+  const limitCount = state.instructionLimitHits.size;
+  tickDisplay.textContent = `Tick: ${state.world.tick}` + (limitCount > 0 ? ` [LIMIT HIT: ${limitCount}]` : '');
   statCharacters.textContent = String(state.world.characters.length);
   statBirths.textContent = String(state.totalBirths);
   statDeaths.textContent = String(state.totalDeaths);
@@ -405,6 +409,7 @@ function updateSelected(): void {
       : 'empty';
 
     const age = state.world.tick - char.createdAt;
+    const limitHit = state.instructionLimitHits.has(char.id);
     selectedContent.innerHTML = `
       <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
       <div>Species: ${char.species}</div>
@@ -414,6 +419,7 @@ function updateSelected(): void {
       <div>Durability: ${char.durability} / ${maxDur}</div>
       <div>Energy: ${char.energy}</div>
       <div>Actions: ${actionText}</div>
+      ${limitHit ? '<div style="color:red"><strong>INSTRUCTION LIMIT HIT</strong></div>' : ''}
       <div>Components: ${char.components.join(', ')}</div>
       <div>Inventory: ${invText}</div>
     `;
@@ -604,6 +610,7 @@ fileInput.addEventListener('change', () => {
         totalBirths: data.stats.totalBirths,
         totalDeaths: data.stats.totalDeaths,
         characterActions: new Map(),
+        instructionLimitHits: new Set(),
         sessionStartedAt: data.sessionStartedAt,
         resumedAt: formatTimestamp(new Date()),
         recentSavedEvents: [...data.recentEvents],

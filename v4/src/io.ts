@@ -174,6 +174,7 @@ interface SenseEntry {
   readonly angle: number;
   readonly distance: number;
   readonly systemId: string;
+  readonly amount: number;
 }
 
 // ============================================================
@@ -196,11 +197,29 @@ interface SlotData {
 // ============================================================
 // Create I/O handler
 // ============================================================
+/** Pre-built lookup maps for O(1) ID resolution. Build once per tick. */
+export interface WorldLookup {
+  readonly characterById: ReadonlyMap<string, Character>;
+  readonly resourceNodeById: ReadonlyMap<string, World['resourceNodes'][number]>;
+  readonly energyNodeById: ReadonlyMap<string, World['energyNodes'][number]>;
+  readonly remainsById: ReadonlyMap<string, World['remains'][number]>;
+}
+
+export function buildWorldLookup(world: World): WorldLookup {
+  return {
+    characterById: new Map(world.characters.map(c => [c.id, c])),
+    resourceNodeById: new Map(world.resourceNodes.map(n => [n.id, n])),
+    energyNodeById: new Map(world.energyNodes.map(n => [n.id, n])),
+    remainsById: new Map(world.remains.map(r => [r.id, r])),
+  };
+}
+
 export function createIoHandler(
   character: Character,
   world: World,
   params: GameParams,
   grid?: SpatialGrid,
+  lookup?: WorldLookup,
 ): {
   ioRead: (addr: number) => number;
   ioWrite: (addr: number, value: number) => void;
@@ -229,6 +248,10 @@ export function createIoHandler(
 
   // SENSE results per sensor slot
   const senseResults: Map<number, SenseEntry[]> = new Map();
+
+  // Object lookup maps (O(1) by system ID) — shared across characters when provided
+  const { characterById, resourceNodeById, energyNodeById, remainsById } =
+    lookup ?? buildWorldLookup(world);
 
   // Query state
   let queryTargetId = 0;
@@ -360,6 +383,7 @@ export function createIoHandler(
         angle: Math.round(angleDeg) % 360,
         distance: Math.round(dist),
         systemId: t.id,
+        amount: t.amount,
       });
     }
 
@@ -373,19 +397,85 @@ export function createIoHandler(
       slotData[4] = entries[0].type;
       slotData[5] = entries[0].angle;
       slotData[6] = entries[0].distance;
+      slotData[9] = entries[0].amount;
     } else {
       slotData[4] = 0;
       slotData[5] = 0;
       slotData[6] = 0;
+      slotData[9] = 0;
     }
     slotData[7] = 0; // register_cmd
     slotData[8] = 0; // registered_id
+  }
+
+  function executeSenseById(sensorIndex: number, localId: number): void {
+    const slotData = getOrCreateSlotData(sensorSlots, sensorIndex);
+
+    const systemId = localIdTable.get(localId);
+    if (systemId === undefined) {
+      slotData[4] = 0;
+      slotData[5] = 0;
+      slotData[6] = 0;
+      slotData[9] = 0;
+      return;
+    }
+
+    const target = findSenseByIdTarget(systemId);
+    if (!target) {
+      slotData[4] = 0;
+      slotData[5] = 0;
+      slotData[6] = 0;
+      slotData[9] = 0;
+      return;
+    }
+
+    const d = distance(character.position, target.position);
+    if (d > params.senseRange) {
+      slotData[4] = 0;
+      slotData[5] = 0;
+      slotData[6] = 0;
+      slotData[9] = 0;
+      return;
+    }
+
+    const dx = target.position.x - character.position.x;
+    const dy = target.position.y - character.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const angleDeg = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360;
+
+    slotData[4] = target.type;
+    slotData[5] = Math.round(angleDeg) % 360;
+    slotData[6] = Math.round(dist);
+    slotData[9] = target.amount;
+  }
+
+  function findSenseByIdTarget(systemId: string): { position: Position; type: number; amount: number } | null {
+    const char = characterById.get(systemId);
+    if (char) {
+      const tc = isActive(char) ? TYPE_ACTIVE_CHAR : TYPE_INACTIVE_CHAR;
+      return { position: char.position, type: tc, amount: 0 };
+    }
+    const rn = resourceNodeById.get(systemId);
+    if (rn) {
+      const tc = rn.type === 'OreNode' ? TYPE_ORE_NODE : TYPE_CRYSTAL_NODE;
+      return { position: rn.position, type: tc, amount: rn.remaining };
+    }
+    const en = energyNodeById.get(systemId);
+    if (en) {
+      return { position: en.position, type: TYPE_ENERGY_NODE, amount: en.stored };
+    }
+    const rm = remainsById.get(systemId);
+    if (rm) {
+      return { position: rm.position, type: TYPE_REMAINS, amount: 0 };
+    }
+    return null;
   }
 
   interface SenseTarget {
     readonly id: string;
     readonly position: Position;
     readonly type: number;
+    readonly amount: number;
   }
 
   function gatherSenseTargets(filterValue: number): SenseTarget[] {
@@ -416,19 +506,23 @@ export function createIoHandler(
         if (d > range) continue;
 
         if (entry.kind === 'resourceNode') {
-          const node = world.resourceNodes.find(n => n.id === entry.id);
+          const node = resourceNodeById.get(entry.id);
           if (!node) continue;
           const tc = node.type === 'OreNode' ? TYPE_ORE_NODE : TYPE_CRYSTAL_NODE;
-          if (shouldInclude(tc)) results.push({ id: entry.id, position: entry.position, type: tc });
+          if (shouldInclude(tc)) results.push({ id: entry.id, position: entry.position, type: tc, amount: node.remaining });
         } else if (entry.kind === 'energyNode') {
-          if (shouldInclude(TYPE_ENERGY_NODE)) results.push({ id: entry.id, position: entry.position, type: TYPE_ENERGY_NODE });
+          if (shouldInclude(TYPE_ENERGY_NODE)) {
+            const node = energyNodeById.get(entry.id);
+            const amt = node ? node.stored : 0;
+            results.push({ id: entry.id, position: entry.position, type: TYPE_ENERGY_NODE, amount: amt });
+          }
         } else if (entry.kind === 'remains') {
-          if (shouldInclude(TYPE_REMAINS)) results.push({ id: entry.id, position: entry.position, type: TYPE_REMAINS });
+          if (shouldInclude(TYPE_REMAINS)) results.push({ id: entry.id, position: entry.position, type: TYPE_REMAINS, amount: 0 });
         } else if (entry.kind === 'character') {
-          const c = world.characters.find(ch => ch.id === entry.id);
+          const c = characterById.get(entry.id);
           if (!c) continue;
           const tc = isActive(c) ? TYPE_ACTIVE_CHAR : TYPE_INACTIVE_CHAR;
-          if (shouldInclude(tc)) results.push({ id: entry.id, position: entry.position, type: tc });
+          if (shouldInclude(tc)) results.push({ id: entry.id, position: entry.position, type: tc, amount: 0 });
         }
       }
     } else {
@@ -436,24 +530,24 @@ export function createIoHandler(
         const d = distance(character.position, node.position);
         if (d > range) continue;
         const tc = node.type === 'OreNode' ? TYPE_ORE_NODE : TYPE_CRYSTAL_NODE;
-        if (shouldInclude(tc)) results.push({ id: node.id, position: node.position, type: tc });
+        if (shouldInclude(tc)) results.push({ id: node.id, position: node.position, type: tc, amount: node.remaining });
       }
       for (const node of world.energyNodes) {
         const d = distance(character.position, node.position);
         if (d > range) continue;
-        if (shouldInclude(TYPE_ENERGY_NODE)) results.push({ id: node.id, position: node.position, type: TYPE_ENERGY_NODE });
+        if (shouldInclude(TYPE_ENERGY_NODE)) results.push({ id: node.id, position: node.position, type: TYPE_ENERGY_NODE, amount: node.stored });
       }
       for (const r of world.remains) {
         const d = distance(character.position, r.position);
         if (d > range) continue;
-        if (shouldInclude(TYPE_REMAINS)) results.push({ id: r.id, position: r.position, type: TYPE_REMAINS });
+        if (shouldInclude(TYPE_REMAINS)) results.push({ id: r.id, position: r.position, type: TYPE_REMAINS, amount: 0 });
       }
       for (const c of world.characters) {
         if (c.id === character.id) continue;
         const d = distance(character.position, c.position);
         if (d > range) continue;
         const tc = isActive(c) ? TYPE_ACTIVE_CHAR : TYPE_INACTIVE_CHAR;
-        if (shouldInclude(tc)) results.push({ id: c.id, position: c.position, type: tc });
+        if (shouldInclude(tc)) results.push({ id: c.id, position: c.position, type: tc, amount: 0 });
       }
     }
 
@@ -507,8 +601,7 @@ export function createIoHandler(
   }
 
   function findTargetObject(systemId: string): TargetInfo | null {
-    // Check characters
-    const char = world.characters.find(c => c.id === systemId);
+    const char = characterById.get(systemId);
     if (char) {
       const tc = isActive(char) ? TYPE_ACTIVE_CHAR : TYPE_INACTIVE_CHAR;
       if (isActive(char)) {
@@ -518,7 +611,7 @@ export function createIoHandler(
           prop0: char.energy & 0xFFFF,
           prop1: char.durability & 0xFFFF,
           prop2: char.components.length & 0xFFFF,
-          prop3: 0, // species could be encoded but spec is vague
+          prop3: 0,
         };
       }
       return {
@@ -531,8 +624,7 @@ export function createIoHandler(
       };
     }
 
-    // Check resource nodes
-    const rn = world.resourceNodes.find(n => n.id === systemId);
+    const rn = resourceNodeById.get(systemId);
     if (rn) {
       const tc = rn.type === 'OreNode' ? TYPE_ORE_NODE : TYPE_CRYSTAL_NODE;
       return {
@@ -545,8 +637,7 @@ export function createIoHandler(
       };
     }
 
-    // Check energy nodes
-    const en = world.energyNodes.find(n => n.id === systemId);
+    const en = energyNodeById.get(systemId);
     if (en) {
       return {
         position: en.position,
@@ -558,8 +649,7 @@ export function createIoHandler(
       };
     }
 
-    // Check remains
-    const rm = world.remains.find(r => r.id === systemId);
+    const rm = remainsById.get(systemId);
     if (rm) {
       return {
         position: rm.position,
@@ -643,7 +733,7 @@ export function createIoHandler(
     // Sensor result reads
     if (slot.type === 'Sensor' && hasSlot('Sensor', slot.index)) {
       const data = sensorSlots.get(slot.index);
-      if (data && slot.offset >= 2 && slot.offset <= 8) {
+      if (data && slot.offset >= 2 && slot.offset <= 9) {
         return (data[slot.offset] ?? 0) & 0xFFFF;
       }
     }
@@ -793,10 +883,12 @@ export function createIoHandler(
       data[4] = entries[idx].type;
       data[5] = entries[idx].angle;
       data[6] = entries[idx].distance;
+      data[9] = entries[idx].amount;
     } else {
       data[4] = 0;
       data[5] = 0;
       data[6] = 0;
+      data[9] = 0;
     }
   }
 
@@ -859,6 +951,13 @@ export function createIoHandler(
           const filter = data[2] ?? 0;
           // SENSE executes immediately (results available within same tick)
           executeSense(index, filter);
+          // Register reservation for energy cost tracking
+          reservationMap.set(key, { op: 'SENSE', slotIndex: index });
+        } else if (cmd === 2) {
+          const data = sensorSlots.get(index) ?? {};
+          const localId = data[2] ?? 0;
+          // ID SENSE executes immediately
+          executeSenseById(index, localId);
           // Register reservation for energy cost tracking
           reservationMap.set(key, { op: 'SENSE', slotIndex: index });
         }

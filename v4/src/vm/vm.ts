@@ -414,18 +414,25 @@ const executeInstruction = (
 
 // --- Tick execution ---
 
+export interface TickExecResult {
+  readonly vm: VmState;
+  readonly instructionsExecuted: number;
+  readonly hitLimit: boolean;
+}
+
 /**
  * Execute up to maxInstructions instructions in one tick.
- * Stops early on HALT. Returns updated VmState.
+ * Stops early on HALT. Returns updated VmState and execution stats.
  */
 export const executeOneTick = (
   vm: VmState,
   ioRead: (addr: number) => number,
   ioWrite: (addr: number, value: number) => void,
   maxInstructions: number = INSTRUCTIONS_PER_TICK,
-): VmState => {
+): TickExecResult => {
   let { memory, registers, pc } = vm;
   let count = 0;
+  let halted = false;
 
   while (count < maxInstructions) {
     const result = executeInstruction(memory, registers, pc, ioRead, ioWrite);
@@ -434,10 +441,14 @@ export const executeOneTick = (
     pc = result.pc;
     count++;
 
-    if (result.halted) break;
+    if (result.halted) { halted = true; break; }
   }
 
-  return { ...vm, memory, registers, pc };
+  return {
+    vm: { ...vm, memory, registers, pc },
+    instructionsExecuted: count,
+    hitLimit: !halted,
+  };
 };
 
 // --- Instruction encoding helpers (for tests and program assembly) ---

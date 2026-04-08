@@ -214,7 +214,13 @@ function emitVarDecl(decl: VarDecl, ctx: Ctx): void {
 
 function emitReturn(stmt: { readonly value: Expr | null }, ctx: Ctx): void {
   if (stmt.value) emitExpr(stmt.value, ctx);
-  emit(ctx, `    JMP _${ctx.currentFunc!.name}_epilogue`);
+  // Unwind current locals (stackDepth - 1 items; the 1 is the saved r6)
+  const localsOnStack = ctx.stackDepth - 1;
+  if (localsOnStack > 0) {
+    emitAddImm(ctx, 'r7', 'r7', localsOnStack);
+  }
+  emit(ctx, '    POP r6');
+  emit(ctx, '    JALR r0, r6');
 }
 
 function emitIf(

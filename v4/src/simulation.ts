@@ -39,7 +39,7 @@ import {
 import { buildGrid } from './spatial-grid.js';
 import { absorbOldRemains, regenerateNodes } from './ground.js';
 import { executeOneTick } from './vm/vm.js';
-import { createIoHandler } from './io.js';
+import { createIoHandler, buildWorldLookup } from './io.js';
 import type { IoResult, ActionReservation } from './io.js';
 
 // ============================================================
@@ -74,10 +74,13 @@ export function createSimulationEngine(
     // Step 1: EnergyNode production
     currentWorld = produceEnergy(currentWorld);
 
-    // Build spatial grid (used in steps 2-5)
+    // Build spatial grid and lookup maps (used in steps 2-5)
     const grid = buildGrid(currentWorld, params.senseRange);
+    const lookup = buildWorldLookup(currentWorld);
 
     // Step 2: VM execution for all active characters
+    const instructionLimitHits: Set<string> = new Set();
+
     // Collect I/O results (reservations + updated local IDs)
     const characterIoResults: {
       characterId: string;
@@ -90,15 +93,19 @@ export function createSimulationEngine(
       if (!isActive(character)) continue;
 
       // Create I/O handler for this character
-      const ioHandler = createIoHandler(character, currentWorld, params, grid);
+      const ioHandler = createIoHandler(character, currentWorld, params, grid, lookup);
 
       // Run VM
-      const updatedVm = executeOneTick(
+      const execResult = executeOneTick(
         character.vm,
         ioHandler.ioRead,
         ioHandler.ioWrite,
         params.instructionsPerTick,
       );
+
+      if (execResult.hitLimit) {
+        instructionLimitHits.add(character.id);
+      }
 
       // Get I/O results (reservations, updated local ID state)
       const ioResult = ioHandler.getResult();
@@ -106,7 +113,7 @@ export function createSimulationEngine(
       // Update VM state on character (pc, registers, memory persisted;
       // localIdTable and localIdCounter updated from I/O handler)
       const updatedCharacter = setVmState(character, {
-        ...updatedVm,
+        ...execResult.vm,
         localIdTable: ioResult.updatedVmLocalIdTable,
         localIdCounter: ioResult.updatedVmLocalIdCounter,
       });
@@ -195,7 +202,7 @@ export function createSimulationEngine(
     // Step 12: tick++
     currentWorld = { ...currentWorld, tick: currentWorld.tick + 1 };
 
-    return { world: currentWorld, events: allEvents, actions: allActions };
+    return { world: currentWorld, events: allEvents, actions: allActions, instructionLimitHits };
   }
 
   function runSimulation(

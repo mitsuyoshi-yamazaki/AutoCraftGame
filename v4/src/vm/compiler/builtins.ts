@@ -57,14 +57,15 @@ const PRC0_LEN       = 0x5005;
 
 // Sensor[0] — base 0x6000
 const SEN0_CMD       = 0x6001;
-const SEN0_FILTER    = 0x6002;
-const SEN0_COUNT     = 0x6002;  // result after SENSE
+const SEN0_FILTER    = 0x6002;  // filter (write) / local_id (write, cmd=2)
+const SEN0_COUNT     = 0x6002;  // result after SENSE (cmd=1)
 const SEN0_INDEX     = 0x6003;
 const SEN0_TYPE      = 0x6004;
 const SEN0_ANGLE     = 0x6005;
 const SEN0_DIST      = 0x6006;
 const SEN0_REG_CMD   = 0x6007;
 const SEN0_REG_ID    = 0x6008;
+const SEN0_AMOUNT    = 0x6009;
 
 // Disassembler[0] — base 0x7000
 const DIS0_CMD       = 0x7001;
@@ -270,6 +271,18 @@ export const BUILTINS: readonly BuiltinDef[] = [
       ...constOut(SEN0_REG_CMD, 1),     // register command
       ...inp('r1', SEN0_REG_ID),        // registered local ID
     ], pops: 0 }) },
+
+  // --- sense_amount() ---
+  { name: 'sense_amount', argCount: 0, returnsValue: true,
+    emit: () => ({ lines: inp('r1', SEN0_AMOUNT), pops: 0 }) },
+
+  // --- sense_id(local_id) ---
+  { name: 'sense_id', argCount: 1, returnsValue: true,
+    emit: () => ({ lines: [
+      ...popOut(SEN0_FILTER),           // local_id (written to +0x02)
+      ...constOut(SEN0_CMD, 2),         // cmd = ID SENSE (immediate)
+      ...inp('r1', SEN0_TYPE),          // result: entry_type (0=not found)
+    ], pops: 1 }) },
 
   // --- query(local_id, property) ---
   { name: 'query', argCount: 2, returnsValue: true,

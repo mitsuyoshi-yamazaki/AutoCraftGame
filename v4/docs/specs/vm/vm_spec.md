@@ -412,14 +412,14 @@ WRITEによる書き込みは、対象のメモリに対してもラッピング
 
 SENSEは他のアクションとは異なり、command書き込み時に**即座に実行される**。SENSEはワールドの状態を変更しないため、世界更新フェーズでの一括実行を待つ必要がない。
 
+2つのモードを持つ: フィルタSENSE（command=1）とID指定SENSE（command=2）。
+
 ```
 +0x00  status
-+0x01  command          ; 1=SENSE
++0x01  command          ; 1=フィルタSENSE, 2=ID指定SENSE
++0x02  filter/local_id  ; command=1: フィルタ値, command=2: ローカルID
 
-引数:
-  +0x02  filter          ; フィルタ値（後述）。command書き込み前に設定する
-
-結果（command書き込みと同時に即座に格納）:
+フィルタSENSE結果（command=1書き込みと同時に即座に格納）:
   +0x02  result_count    ; 検出件数（0-4）
   +0x03  entry_index     ; 選択中のエントリ番号（書き込みで切替）
   +0x04  entry_type      ; 選択エントリの種別（読み取り専用）
@@ -427,12 +427,21 @@ SENSEは他のアクションとは異なり、command書き込み時に**即座
   +0x06  entry_distance  ; 選択エントリの距離（読み取り専用）
   +0x07  register_cmd    ; 1を書き込む → 選択エントリを登録
   +0x08  registered_id   ; 登録結果のローカルID（読み取り専用）
+  +0x09  entry_amount    ; 選択エントリの残量（読み取り専用）
+
+ID指定SENSE結果（command=2書き込みと同時に即座に格納）:
+  +0x04  entry_type      ; 対象の種別（0=未発見、読み取り専用）
+  +0x05  entry_angle     ; 対象への角度（読み取り専用）
+  +0x06  entry_distance  ; 対象への距離（読み取り専用）
+  +0x09  entry_amount    ; 対象の残量（読み取り専用）
 ```
 
-SENSEの即時実行により、同一tick内で以下のシーケンスが可能:
+##### フィルタSENSE（command=1）
+
+同一tick内で以下のシーケンスが可能:
 1. filterを書き込む
 2. commandに1を書き込む → SENSEが即座に実行され、結果が格納される
-3. result_count、entry_type、entry_angle、entry_distanceを読み出す
+3. result_count、entry_type、entry_angle、entry_distance、entry_amountを読み出す
 4. entry_indexを書き込んでエントリを切り替える
 5. register_cmdを書き込んでエントリを登録する
 6. registered_idを読み出してローカルIDを取得する
@@ -454,6 +463,32 @@ SENSEフィルタ値:
 
 SENSE結果は近い順に最大4件。自分自身は結果に含まれない。
 検知範囲: SENSE_RANGE。
+
+##### ID指定SENSE（command=2）
+
+登録済みローカルIDを指定して、対象の現在情報を取得する。
+
+同一tick内で以下のシーケンスが可能:
+1. +0x02にローカルIDを書き込む
+2. commandに2を書き込む → ID指定SENSEが即座に実行され、結果が格納される
+3. entry_type（0=未発見）、entry_angle、entry_distance、entry_amountを読み出す
+
+対象が以下のいずれかに該当する場合は未発見（entry_type=0、他フィールドも0）:
+- ローカルIDが無効
+- 対象が消滅している
+- 対象がSENSE_RANGE外にいる
+
+Sensorコンポーネント必須。エネルギーコストはフィルタSENSEと同じ。
+
+##### entry_amount（残量）
+
+フィルタSENSE・ID指定SENSEの両方で取得可能。
+
+| 対象種別 | 返される値 |
+|---------|-----------|
+| リソースノード（Ore/Crystal） | ノードの残量（残り採取回数） |
+| エネルギーノード | ノードの蓄積エネルギー量 |
+| その他（キャラクター、残骸等） | 0 |
 
 #### Disassembler — DISASSEMBLE
 

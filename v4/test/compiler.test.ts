@@ -302,7 +302,8 @@ describe('compiler: full pipeline', () => {
       `);
       expect(asm).toContain('_square:');
       expect(asm).toContain('MUL r1, r1, r2');
-      expect(asm).toContain('JMP _square_epilogue');
+      // return inlines stack cleanup + JALR instead of jumping to epilogue
+      expect(asm).toContain('JALR r0, r6');
     });
 
     it('compiles void function call', () => {
@@ -950,7 +951,7 @@ function runProgram(source: string, ticks: number, memSize: number = 2048): {
   const ioRead = () => 0;
   const ioWrite = (addr: number, value: number) => { ioWrites.push({ addr, value }); };
   for (let t = 0; t < ticks; t++) {
-    vm = executeOneTick(vm, ioRead, ioWrite, 100000);
+    vm = executeOneTick(vm, ioRead, ioWrite, 100000).vm;
   }
   return { vm, labels: assembled.labels, ioWrites };
 }
@@ -1078,5 +1079,71 @@ describe('compiler: stack management', () => {
     const memSize = result.vm.memory.length;
     const spMod = sp % memSize;
     expect(spMod).toBeGreaterThanOrEqual(memSize - 5);
+  });
+
+  it('early return in function with later locals does not corrupt stack', () => {
+    // Bug: if a function has return before all locals are declared,
+    // the epilogue pops too many items (uses final localVarCount).
+    const result = runProgram(`
+      int result = 0;
+      void foo(int flag) {
+        if (flag > 0) {
+          result = 1;
+          return;
+        }
+        int x = 10;
+        int y = 20;
+        result = x + y;
+      }
+      void main(void) {
+        foo(1);
+        halt();
+      }
+    `, 1);
+    expect(readGlobal(result, 'result')).toBe(1);
+  });
+
+  it('early return from nested if with later locals returns correctly', () => {
+    // Caller must receive control back properly after early return
+    const result2 = runProgram(`
+      int a = 0;
+      int b = 0;
+      void bar(int flag) {
+        if (flag == 1) {
+          a = 10;
+          return;
+        }
+        int x = 99;
+        a = x;
+      }
+      void main(void) {
+        bar(1);
+        b = 20;
+        halt();
+      }
+    `, 1);
+    expect(readGlobal(result2, 'a')).toBe(10);
+    expect(readGlobal(result2, 'b')).toBe(20);
+  });
+
+  it('return after all locals declared works correctly', () => {
+    // Control case: return at the end with all locals in scope should still work
+    const result = runProgram(`
+      int result = 0;
+      void baz(int flag) {
+        int x = 5;
+        int y = 10;
+        if (flag > 0) {
+          result = x + y;
+          return;
+        }
+        result = 0;
+      }
+      void main(void) {
+        baz(1);
+        halt();
+      }
+    `, 1);
+    expect(readGlobal(result, 'result')).toBe(15);
   });
 });

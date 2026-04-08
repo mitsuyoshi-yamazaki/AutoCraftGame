@@ -305,7 +305,7 @@ void repair(void);
 
 ```c
 int sense(int filter);
-// Sensor[0]にSENSEを即時実行。戻り値: 検出件数
+// Sensor[0]にフィルタSENSEを即時実行。戻り値: 検出件数
 
 void sense_select(int index);
 // 結果バッファのindex番エントリを選択
@@ -313,9 +313,14 @@ void sense_select(int index);
 int sense_type(void);      // 選択エントリの種別
 int sense_angle(void);     // 選択エントリの角度
 int sense_distance(void);  // 選択エントリの距離
+int sense_amount(void);    // 選択エントリの残量（リソース/エネルギーノードの残量、その他は0）
 
 int sense_register(void);
 // 選択エントリを登録。戻り値: ローカルID
+
+int sense_id(int local_id);
+// Sensor[0]にID指定SENSEを即時実行。戻り値: 対象の種別（0=未発見）
+// 発見時は sense_angle(), sense_distance(), sense_amount() で情報取得可能
 ```
 
 ### 8-4. 個別クエリ

@@ -117,6 +117,7 @@ export interface TickResult {
   readonly world: World;
   readonly events: readonly SimulationEvent[];
   readonly actions: ReadonlyMap<string, readonly ActionRecord[]>;
+  readonly instructionLimitHits: ReadonlySet<string>;
 }
 
 // === Recipes ===

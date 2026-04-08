@@ -579,3 +579,222 @@ describe('ioWrite/ioRead — inventory query', () => {
     expect(handler.ioRead(INVENTORY_RESULT)).toBe(0);
   });
 });
+
+// ============================================================
+// Tests: sense_amount (entry_amount at offset +0x09)
+// ============================================================
+
+describe('SENSE — entry_amount', () => {
+  it('returns remaining for resource node', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      resourceNodes: [{
+        id: 'rn-001',
+        position: { x: 12, y: 10 },
+        type: 'OreNode',
+        remaining: 42,
+        createdAt: 0,
+      }],
+    });
+    const handler = createIoHandler(ch, world, params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 1); // filter = ORE
+    handler.ioWrite(BASE_SENSOR + 1, 1); // command = SENSE
+
+    expect(handler.ioRead(BASE_SENSOR + 4)).toBe(1); // TYPE_ORE_NODE
+    expect(handler.ioRead(BASE_SENSOR + 9)).toBe(42); // amount = remaining
+  });
+
+  it('returns stored for energy node', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      energyNodes: [{
+        id: 'en-001',
+        position: { x: 12, y: 10 },
+        productionRate: 100,
+        stored: 750,
+        maxStored: 1000,
+        createdAt: 0,
+      }],
+    });
+    const handler = createIoHandler(ch, world, params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 3); // filter = ENERGY
+    handler.ioWrite(BASE_SENSOR + 1, 1);
+
+    expect(handler.ioRead(BASE_SENSOR + 4)).toBe(3); // TYPE_ENERGY_NODE
+    expect(handler.ioRead(BASE_SENSOR + 9)).toBe(750);
+  });
+
+  it('returns 0 for character targets', () => {
+    const ch = makeCharacter({ id: 'c-001', position: { x: 10, y: 10 } });
+    const other = makeCharacter({ id: 'c-002', position: { x: 12, y: 10 } });
+    const world = makeWorld({ characters: [ch, other] });
+    const handler = createIoHandler(ch, world, params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 7); // filter = ACTIVE_CHAR
+    handler.ioWrite(BASE_SENSOR + 1, 1);
+
+    expect(handler.ioRead(BASE_SENSOR + 4)).toBe(7); // TYPE_ACTIVE_CHAR
+    expect(handler.ioRead(BASE_SENSOR + 9)).toBe(0);
+  });
+
+  it('updates amount when switching entry_index', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      energyNodes: [
+        { id: 'en-001', position: { x: 11, y: 10 }, productionRate: 100, stored: 100, maxStored: 1000, createdAt: 0 },
+        { id: 'en-002', position: { x: 12, y: 10 }, productionRate: 100, stored: 200, maxStored: 1000, createdAt: 0 },
+      ],
+    });
+    const handler = createIoHandler(ch, world, params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 3); // filter = ENERGY
+    handler.ioWrite(BASE_SENSOR + 1, 1);
+
+    expect(handler.ioRead(BASE_SENSOR + 9)).toBe(100); // first entry (nearest)
+
+    handler.ioWrite(BASE_SENSOR + 3, 1); // switch to index 1
+    expect(handler.ioRead(BASE_SENSOR + 9)).toBe(200); // second entry
+  });
+});
+
+// ============================================================
+// Tests: ID SENSE (command=2)
+// ============================================================
+
+describe('SENSE — ID SENSE (command=2)', () => {
+  it('returns type/angle/distance/amount for a known energy node', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      energyNodes: [{
+        id: 'en-001',
+        position: { x: 13, y: 10 },
+        productionRate: 100,
+        stored: 500,
+        maxStored: 1000,
+        createdAt: 0,
+      }],
+    });
+    // Pre-register local ID 1 -> en-001
+    const chWithId: Character = {
+      ...ch,
+      vm: { ...ch.vm, localIdTable: new Map([[1, 'en-001']]), localIdCounter: 2 },
+    };
+    const handler = createIoHandler(chWithId, makeWorld({
+      ...world,
+      characters: [chWithId],
+    }), params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 1); // local_id = 1
+    handler.ioWrite(BASE_SENSOR + 1, 2); // command = 2 (ID SENSE)
+
+    expect(handler.ioRead(BASE_SENSOR + 4)).toBe(3); // TYPE_ENERGY_NODE
+    expect(handler.ioRead(BASE_SENSOR + 5)).toBe(0); // angle = 0 (east)
+    expect(handler.ioRead(BASE_SENSOR + 6)).toBe(3); // distance = 3
+    expect(handler.ioRead(BASE_SENSOR + 9)).toBe(500); // amount = stored
+  });
+
+  it('returns type/amount for a resource node', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      resourceNodes: [{
+        id: 'rn-001',
+        position: { x: 12, y: 10 },
+        type: 'CrystalNode',
+        remaining: 77,
+        createdAt: 0,
+      }],
+    });
+    const chWithId: Character = {
+      ...ch,
+      vm: { ...ch.vm, localIdTable: new Map([[1, 'rn-001']]), localIdCounter: 2 },
+    };
+    const handler = createIoHandler(chWithId, makeWorld({
+      ...world,
+      characters: [chWithId],
+    }), params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 1); // local_id = 1
+    handler.ioWrite(BASE_SENSOR + 1, 2); // command = 2
+
+    expect(handler.ioRead(BASE_SENSOR + 4)).toBe(2); // TYPE_CRYSTAL_NODE
+    expect(handler.ioRead(BASE_SENSOR + 9)).toBe(77); // amount = remaining
+  });
+
+  it('returns 0 (not found) for invalid local ID', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({ characters: [ch] });
+    const handler = createIoHandler(ch, world, params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 99); // invalid local_id
+    handler.ioWrite(BASE_SENSOR + 1, 2);
+
+    expect(handler.ioRead(BASE_SENSOR + 4)).toBe(0); // not found
+    expect(handler.ioRead(BASE_SENSOR + 5)).toBe(0);
+    expect(handler.ioRead(BASE_SENSOR + 6)).toBe(0);
+    expect(handler.ioRead(BASE_SENSOR + 9)).toBe(0);
+  });
+
+  it('returns 0 (not found) when target is out of SENSE_RANGE', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({
+      characters: [ch],
+      energyNodes: [{
+        id: 'en-001',
+        position: { x: 100, y: 100 }, // far away
+        productionRate: 100,
+        stored: 500,
+        maxStored: 1000,
+        createdAt: 0,
+      }],
+    });
+    const chWithId: Character = {
+      ...ch,
+      vm: { ...ch.vm, localIdTable: new Map([[1, 'en-001']]), localIdCounter: 2 },
+    };
+    const handler = createIoHandler(chWithId, makeWorld({
+      ...world,
+      characters: [chWithId],
+    }), params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 1); // local_id = 1
+    handler.ioWrite(BASE_SENSOR + 1, 2);
+
+    expect(handler.ioRead(BASE_SENSOR + 4)).toBe(0); // not found (out of range)
+  });
+
+  it('returns 0 (not found) when target object no longer exists', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    // local ID points to en-001 but no such node exists in world
+    const chWithId: Character = {
+      ...ch,
+      vm: { ...ch.vm, localIdTable: new Map([[1, 'en-001']]), localIdCounter: 2 },
+    };
+    const world = makeWorld({ characters: [chWithId] });
+    const handler = createIoHandler(chWithId, world, params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 1);
+    handler.ioWrite(BASE_SENSOR + 1, 2);
+
+    expect(handler.ioRead(BASE_SENSOR + 4)).toBe(0); // not found
+  });
+
+  it('creates a SENSE reservation for energy cost', () => {
+    const ch = makeCharacter({ position: { x: 10, y: 10 } });
+    const world = makeWorld({ characters: [ch] });
+    const handler = createIoHandler(ch, world, params);
+
+    handler.ioWrite(BASE_SENSOR + 2, 99);
+    handler.ioWrite(BASE_SENSOR + 1, 2);
+
+    const result = handler.getResult();
+    expect(result.reservations).toHaveLength(1);
+    expect(result.reservations[0].op).toBe('SENSE');
+  });
+});
