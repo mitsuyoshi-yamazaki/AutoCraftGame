@@ -62,6 +62,7 @@ const PROGRAM_DEF_FILES = [
   './survivor_def.json',
   './evolver_def.json',
   './explorer_def.json',
+  './guardian_def.json',
 ];
 
 async function loadProgramDefs(): Promise<void> {
