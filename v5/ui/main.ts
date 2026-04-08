@@ -12,6 +12,7 @@ import { GAME_VERSION } from '@/version.js';
 import { positionToCell, groundGridDimensions } from '@/ground.js';
 import { createRemains, addRemains, nextObjectId } from '@/world.js';
 import type { ComponentType } from '@/types.js';
+import { corruptCharacterMemory } from '@/corruption.js';
 
 // ============================================================
 // Constants (UI only)
@@ -47,6 +48,7 @@ interface UIState {
   totalDeaths: number;
   characterActions: ReadonlyMap<string, readonly ActionRecord[]>;
   instructionLimitHits: ReadonlySet<string>;
+  checkpointHits: ReadonlySet<string>;
   sessionStartedAt: string;
   resumedAt: string | null;
   recentSavedEvents: SavedEvent[];
@@ -84,7 +86,7 @@ function formatTimestamp(date: Date): string {
 
 function buildSaveFileName(sessionStartedAt: string, resumedAt: string | null, tick: number): string {
   const base = resumedAt ?? sessionStartedAt;
-  return `autocraft-v4-${base}-tick${tick}.json`;
+  return `autocraft-v5-${base}-tick${tick}.json`;
 }
 
 // ============================================================
@@ -137,6 +139,7 @@ function createInitialState(seed?: number): UIState {
     totalDeaths: 0,
     characterActions: new Map(),
     instructionLimitHits: new Set(),
+    checkpointHits: new Set(),
     sessionStartedAt: formatTimestamp(new Date()),
     resumedAt: null,
     recentSavedEvents: [],
@@ -246,6 +249,7 @@ function step(): void {
     totalDeaths: state.totalDeaths + deaths,
     characterActions: result.actions,
     instructionLimitHits: result.instructionLimitHits,
+    checkpointHits: result.checkpointHits,
     recentSavedEvents,
   };
 
@@ -411,6 +415,7 @@ function updateSelected(): void {
 
     const age = state.world.tick - char.createdAt;
     const limitHit = state.instructionLimitHits.has(char.id);
+    const checkpointHit = state.checkpointHits.has(char.id);
     selectedContent.innerHTML = `
       <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
       <div>Species: ${char.species}</div>
@@ -420,10 +425,31 @@ function updateSelected(): void {
       <div>Durability: ${char.durability} / ${maxDur}</div>
       <div>Energy: ${char.energy}</div>
       <div>Actions: ${actionText}</div>
+      <div>Checkpoint: ${checkpointHit ? '<span style="color:green"><strong>HIT</strong></span>' : '<span style="color:gray">miss</span>'}</div>
       ${limitHit ? '<div style="color:red"><strong>INSTRUCTION LIMIT HIT</strong></div>' : ''}
       <div>Components: ${char.components.join(', ')}</div>
       <div>Inventory: ${invText}</div>
+      <div style="margin-top: 8px;">
+        <label>Corrupt:
+          <input type="number" id="corrupt-count" value="5" min="1" max="1000" style="width: 50px;" />
+          <button id="btn-corrupt" type="button">破損</button>
+        </label>
+      </div>
     `;
+
+    // Wire up the corrupt button (created dynamically with innerHTML)
+    const btnCorrupt = document.getElementById('btn-corrupt') as HTMLButtonElement | null;
+    const corruptCountInput = document.getElementById('corrupt-count') as HTMLInputElement | null;
+    if (btnCorrupt && corruptCountInput) {
+      btnCorrupt.onclick = () => {
+        const count = parseInt(corruptCountInput.value, 10) || 0;
+        if (count <= 0) return;
+        const seed = (Date.now() ^ (state.world.tick * 1000)) >>> 0;
+        const newWorld = corruptCharacterMemory(state.world, char.id, count, seed);
+        state = { ...state, world: newWorld };
+        render();
+      };
+    }
 
     // VM Panel
     const regs = char.vm.registers;
@@ -612,6 +638,7 @@ fileInput.addEventListener('change', () => {
         totalDeaths: data.stats.totalDeaths,
         characterActions: new Map(),
         instructionLimitHits: new Set(),
+        checkpointHits: new Set(),
         sessionStartedAt: data.sessionStartedAt,
         resumedAt: formatTimestamp(new Date()),
         recentSavedEvents: [...data.recentEvents],

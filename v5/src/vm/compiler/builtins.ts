@@ -340,6 +340,13 @@ export const BUILTINS: readonly BuiltinDef[] = [
   // --- halt() ---
   { name: 'halt', argCount: 0, returnsValue: false,
     emit: () => ({ lines: ['    HALT'], pops: 0 }) },
+
+  // --- checkpoint() ---
+  // Emits CHECKPOINT instruction. The VM updates cp = PC+1 and cpSet = true.
+  // At tick start, if cpSet is true, PC is reset to cp. This guarantees that
+  // execution resumes from the most recently executed checkpoint() call.
+  { name: 'checkpoint', argCount: 0, returnsValue: false,
+    emit: () => ({ lines: ['    CHECKPOINT'], pops: 0 }) },
 ];
 
 /** Map for quick lookup */

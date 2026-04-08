@@ -589,7 +589,7 @@ export function createActionEngine(
 
     const updatedTarget: Character = {
       ...target,
-      vm: { ...target.vm, active: true, pc: 0 },
+      vm: { ...target.vm, active: true, pc: 0, cp: 0, cpSet: false },
     };
     return { world: updateCharacter(world, updatedTarget), success: true, events: [] };
   }

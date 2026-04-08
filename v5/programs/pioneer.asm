@@ -743,6 +743,7 @@ _main:
 _L92:
     LI r1, 1
     BEQL r1, r0, _L93
+    CHECKPOINT
     LI r2, 0
     IN r1, r2
     PUSH r1

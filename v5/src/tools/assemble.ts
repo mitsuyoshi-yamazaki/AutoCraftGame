@@ -1,5 +1,5 @@
 /**
- * CLI entry point for the v4 assembler.
+ * CLI entry point for the v5 assembler.
  *
  * Usage: npx tsx src/tools/assemble.ts <input.asm>
  *

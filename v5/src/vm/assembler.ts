@@ -1,5 +1,5 @@
 /**
- * Two-pass assembler for the v4 VM.
+ * Two-pass assembler for the v5 VM.
  *
  * Pass 1: collect labels and .equ constants, compute addresses.
  * Pass 2: emit binary 16-bit words.
@@ -14,6 +14,7 @@ import {
   OP_LI, OP_JMP,
   OP_BEQL, OP_BNEL, OP_BLTL, OP_BGEL,
   OP_HALT,
+  OP_CHECKPOINT,
 } from './opcodes.js';
 
 // ---------------------------------------------------------------------------
@@ -31,7 +32,7 @@ interface Token {
   readonly line: number;
 }
 
-type InstructionFormat = 'R' | 'I' | 'B' | 'W' | 'BL' | 'HALT';
+type InstructionFormat = 'R' | 'I' | 'B' | 'W' | 'BL' | 'HALT' | 'CKPT';
 
 interface InstructionDef {
   readonly opcode: number;
@@ -89,6 +90,7 @@ const INSTRUCTION_TABLE: ReadonlyMap<string, InstructionDef> = new Map([
 
   // Special
   ['HALT', { opcode: OP_HALT, format: 'HALT' }],
+  ['CHECKPOINT', { opcode: OP_CHECKPOINT, format: 'CKPT' }],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -403,6 +405,7 @@ function instructionSize(format: InstructionFormat): number {
     case 'W': return 2;
     case 'BL': return 2;
     case 'HALT': return 1;
+    case 'CKPT': return 1;
   }
 }
 
@@ -471,6 +474,13 @@ function emitInstruction(
     case 'HALT': {
       // HALT: opcode 63, rest zeros
       words.push((OP_HALT & 0x3F) << 10);
+      break;
+    }
+    case 'CKPT': {
+      // CHECKPOINT: opcode 13 + magic operand pattern 0x2A5
+      // Magic operand reduces accidental triggering from corrupted memory
+      // (1/65536 chance instead of 1/64)
+      words.push(((OP_CHECKPOINT & 0x3F) << 10) | 0x2A5);
       break;
     }
   }

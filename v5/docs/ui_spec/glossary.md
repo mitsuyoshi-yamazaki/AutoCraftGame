@@ -1,4 +1,4 @@
-# GUI 用語集 — v4
+# GUI 用語集 — v5
 
 UIコンポーネント、状態、アクションの名前を統一するための用語集。
 
@@ -27,6 +27,8 @@ UIコンポーネント、状態、アクションの名前を統一するため
 | SelectedContent | `#selected-content` | 選択オブジェクト詳細の内容領域 |
 | VMPanel | `#vm-panel` | VM状態デバッグセクション（キャラクター選択時のみ表示） |
 | VMContent | `#vm-content` | VM状態デバッグの内容領域 |
+| CorruptButton | `#btn-corrupt` | 選択中キャラクターのメモリをNワード破損（キャラクター選択時のみ表示） |
+| CorruptCountInput | `#corrupt-count` | 破損するワード数の入力フィールド |
 | EventLog | `#event-log` | 画面下部のイベントログ領域 |
 | EventLogContent | `#event-log-content` | イベントログのスクロール可能な内容領域 |
 
@@ -76,6 +78,7 @@ UIコンポーネント、状態、アクションの名前を統一するため
 |------|---------|------|
 | ToggleRunning | PlayPauseButton click / Space key | 一時停止⇔再開を切り替える |
 | Step | StepButton click | 一時停止中に1tick進める |
+| CorruptMemory | CorruptButton click | 選択中キャラクターのメモリをCorruptCountInputの値に従って破損 |
 | SpeedUp | SpeedUpButton click | tick/sを+1する |
 | SpeedDown | SpeedDownButton click | tick/sを-1する |
 | Reset | ResetButton click | ランダムシードで新規ゲーム開始 |
@@ -132,14 +135,17 @@ UIコンポーネント、状態、アクションの名前を統一するため
 
 ---
 
-## v4固有の用語
+## v4/v5固有の用語
 
 | 用語 | 説明 |
 |------|------|
-| VMState | キャラクターのVM実行状態（PC, レジスタ, メモリ） |
+| VMState | キャラクターのVM実行状態（PC, レジスタ, メモリ, cp, cpSet） |
 | ActionReservation | VMプログラムによるアクション予約 |
 | ActionFailureReason | アクション失敗理由の列挙型 |
 | LocalID | キャラクターごとのオブジェクト参照ID |
+| CheckpointRegister (cp) | 直近の CHECKPOINT 命令実行時のPC（次tick開始時の再開点） |
+| CheckpointHit | 直近tickで CHECKPOINT 命令が実行されたか（SelectedContent表示） |
+| MemoryCorruption | デバッグ/評価用にキャラクターのメモリを意図的に破損させる操作 |
 
 ## v3から廃止された用語
 

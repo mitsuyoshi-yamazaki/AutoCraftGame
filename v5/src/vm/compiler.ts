@@ -1,5 +1,5 @@
 /**
- * Mini-C compiler for the v4 VM.
+ * Mini-C compiler for the v5 VM.
  *
  * Translates Mini-C source (.c) into assembly (.asm) that can be
  * assembled into binary by the assembler.

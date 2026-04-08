@@ -105,6 +105,7 @@ void do_craft(void) {
 
 void main(void) {
     while (1) {
+        checkpoint();  // 各tickここから再開する。PC迷走時の安全な復帰点
         int energy = my_energy();
         int durability = my_durability();
 

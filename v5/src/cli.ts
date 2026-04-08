@@ -5,6 +5,15 @@ import type { WorldConfig } from './world.js';
 import { DEFAULT_WORLD_CONFIG } from './world.js';
 import { createEngine } from './engine.js';
 import { DEFAULT_GAME_PARAMS } from './params.js';
+import { corruptCharacterMemory } from './corruption.js';
+
+interface CorruptionOpts {
+  readonly atTick: number;
+  readonly count: number;
+  readonly targetId: string | null;  // null = first active character
+  readonly seed: number;
+  readonly periodic: number;  // 0 = one-time; >0 = re-inject every N ticks
+}
 
 function parseArgs(args: string[]) {
   let ticks = 100;
@@ -13,6 +22,11 @@ function parseArgs(args: string[]) {
   let seed = 42;
   let worldSize: { width: number; height: number } | null = null;
   let countPerSpecies = 3;
+  let corruptAtTick = -1;
+  let corruptCount = 0;
+  let corruptTargetId: string | null = null;
+  let corruptSeed = 12345;
+  let corruptPeriodic = 0;
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -26,10 +40,19 @@ function parseArgs(args: string[]) {
         worldSize = { width: w, height: h };
         break;
       }
+      case '--corrupt-at-tick': corruptAtTick = parseInt(args[++i], 10); break;
+      case '--corrupt-count': corruptCount = parseInt(args[++i], 10); break;
+      case '--corrupt-target': corruptTargetId = args[++i]; break;
+      case '--corrupt-seed': corruptSeed = parseInt(args[++i], 10); break;
+      case '--corrupt-periodic': corruptPeriodic = parseInt(args[++i], 10); break;
     }
   }
 
-  return { ticks, programPaths, output, seed, worldSize, countPerSpecies };
+  const corruption: CorruptionOpts | null = corruptAtTick >= 0 && corruptCount > 0
+    ? { atTick: corruptAtTick, count: corruptCount, targetId: corruptTargetId, seed: corruptSeed, periodic: corruptPeriodic }
+    : null;
+
+  return { ticks, programPaths, output, seed, worldSize, countPerSpecies, corruption };
 }
 
 function loadProgramDefinition(path: string, count: number): ProgramDefinition {
@@ -64,10 +87,47 @@ function main() {
   let world = engine.createWorld(config, rng);
   world = engine.spawnInitialCharacters(world, definitions, rng);
 
-  console.error(`v4 simulation: ${definitions.map(d => `${d.name}x${d.count}`).join(', ')}`);
+  console.error(`v5 simulation: ${definitions.map(d => `${d.name}x${d.count}`).join(', ')}`);
   console.error(`World: ${world.width}x${world.height}, ${world.characters.length} characters, ${world.resourceNodes.length} nodes`);
+  if (opts.corruption) {
+    console.error(`Corruption: ${opts.corruption.count} words at tick ${opts.corruption.atTick}` +
+      (opts.corruption.periodic > 0 ? ` (periodic every ${opts.corruption.periodic} ticks)` : ''));
+  }
 
-  const { world: finalWorld, allEvents } = engine.runSimulation(world, opts.ticks, (result) => {
+  // Run tick by tick so we can inject corruption mid-simulation
+  let currentWorld = world;
+  const allEvents = [];
+  let corruptionTriggered = false;
+  let corruptSeedCounter = opts.corruption?.seed ?? 0;
+
+  for (let i = 0; i < opts.ticks; i++) {
+    // Inject corruption at the configured tick (one-time or periodic)
+    const corr = opts.corruption;
+    if (corr) {
+      const periodicHit = corr.periodic > 0
+        && currentWorld.tick >= corr.atTick
+        && (currentWorld.tick - corr.atTick) % corr.periodic === 0;
+      const oneTimeHit = corr.periodic === 0 && currentWorld.tick === corr.atTick && !corruptionTriggered;
+      if (periodicHit || oneTimeHit) {
+        const targetId = corr.targetId
+          ?? currentWorld.characters.find((c) => c.vm.active)?.id
+          ?? null;
+        if (targetId) {
+          const before = currentWorld;
+          currentWorld = corruptCharacterMemory(currentWorld, targetId, corr.count, corruptSeedCounter);
+          corruptSeedCounter++;
+          if (currentWorld !== before) {
+            console.error(`[tick ${currentWorld.tick}] Corrupted ${corr.count} words in character ${targetId}`);
+          }
+        }
+        corruptionTriggered = true;
+      }
+    }
+
+    const result = engine.executeTick(currentWorld);
+    currentWorld = result.world;
+    allEvents.push(...result.events);
+
     if (opts.output === 'tick') {
       const charCount = result.world.characters.length;
       const speciesCounts: Record<string, number> = {};
@@ -79,6 +139,8 @@ function main() {
         characters: charCount,
         species: speciesCounts,
         events: result.events.length,
+        instructionLimitHits: result.instructionLimitHits.size,
+        checkpointHits: result.checkpointHits.size,
       }));
     } else if (opts.output === 'events') {
       for (const e of result.events) {
@@ -89,7 +151,10 @@ function main() {
         }
       }
     }
-  });
+
+    if (currentWorld.characters.length === 0) break;
+  }
+  const finalWorld = currentWorld;
 
   if (opts.output === 'final') {
     const speciesCounts: Record<string, number> = {};

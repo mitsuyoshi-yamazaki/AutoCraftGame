@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   Opcode, createVm, loadProgram, executeOneTick,
-  encodeR, encodeI, encodeW, encodeB, encodeBL, encodeHalt,
+  encodeR, encodeI, encodeW, encodeB, encodeBL, encodeHalt, encodeCheckpoint,
   WORD_MASK, INSTRUCTIONS_PER_TICK,
 } from '../src/vm/vm.js';
 
@@ -23,6 +23,8 @@ describe('createVm', () => {
     expect(vm.registers.length).toBe(8);
     expect(vm.registers.every(v => v === 0)).toBe(true);
     expect(vm.pc).toBe(0);
+    expect(vm.cp).toBe(0);
+    expect(vm.cpSet).toBe(false);
     expect(vm.active).toBe(false);
   });
 });
@@ -441,6 +443,122 @@ describe('HALT', () => {
     const vm2 = executeOneTick(vm1, noIo.read, noIo.write).vm;
     expect(vm2.registers[2]).toBe(20);
     expect(vm2.pc).toBe(6);
+  });
+});
+
+describe('CHECKPOINT', () => {
+  it('sets cp to PC + 1 after CHECKPOINT instruction', () => {
+    const program = [
+      ...encodeW(Opcode.LI, 1, 0, 10),  // 0-1
+      encodeCheckpoint(),                 // 2
+      ...encodeW(Opcode.LI, 2, 0, 20),  // 3-4
+      encodeHalt(),                       // 5
+    ];
+    const result = executeOneTick(
+      loadProgram(createVm(1024), program),
+      noIo.read, noIo.write,
+    );
+    expect(result.vm.cpSet).toBe(true);
+    expect(result.vm.cp).toBe(3);  // PC after CHECKPOINT
+    expect(result.checkpointHit).toBe(true);
+    expect(result.vm.registers[1]).toBe(10);
+    expect(result.vm.registers[2]).toBe(20);
+  });
+
+  it('does not set cpSet if CHECKPOINT is not executed', () => {
+    const program = [
+      ...encodeW(Opcode.LI, 1, 0, 10),
+      encodeHalt(),
+    ];
+    const result = executeOneTick(
+      loadProgram(createVm(1024), program),
+      noIo.read, noIo.write,
+    );
+    expect(result.vm.cpSet).toBe(false);
+    expect(result.vm.cp).toBe(0);
+    expect(result.checkpointHit).toBe(false);
+  });
+
+  it('next tick resumes from cp when cpSet is true', () => {
+    const program = [
+      ...encodeW(Opcode.LI, 1, 0, 10),  // 0-1
+      encodeCheckpoint(),                 // 2 -> sets cp = 3
+      ...encodeW(Opcode.LI, 2, 0, 20),  // 3-4
+      encodeHalt(),                       // 5
+      ...encodeW(Opcode.LI, 3, 0, 30),  // 6-7: should NOT execute next tick
+      encodeHalt(),                       // 8
+    ];
+    const vm0 = loadProgram(createVm(1024), program);
+    const result1 = executeOneTick(vm0, noIo.read, noIo.write);
+    expect(result1.vm.pc).toBe(6);  // After HALT at 5
+    expect(result1.vm.cp).toBe(3);
+
+    // Tick 2: PC should be reset to cp = 3, not continue from 6
+    const result2 = executeOneTick(result1.vm, noIo.read, noIo.write);
+    // r2 should be set again (LI r2, 20 at addr 3)
+    expect(result2.vm.registers[2]).toBe(20);
+    // r3 should NOT be set (PC was reset to 3 instead of continuing at 6)
+    expect(result2.vm.registers[3]).toBe(0);
+  });
+
+  it('PCトラップ回復シナリオ: 不正なJMPでPC迷走後、CHECKPOINT復帰', () => {
+    // Program:
+    //   addr 0-1: LI r1, 100         (set r1=100, useful work)
+    //   addr 2: CHECKPOINT            (cp = 3)
+    //   addr 3-4: LI r2, 200         (set r2=200, useful work)
+    //   addr 5-6: JMP 800            (corrupted: jump to invalid place)
+    //   addr 7: HALT                  (would normally end tick here)
+    //   addr 800-: random data treated as instructions, eventually wraps
+    const program = new Array(1024).fill(0);
+    const li_r1_100 = encodeW(Opcode.LI, 1, 0, 100);
+    const li_r2_200 = encodeW(Opcode.LI, 2, 0, 200);
+    const jmp_800 = encodeW(Opcode.JMP, 0, 0, 800);
+    program[0] = li_r1_100[0];
+    program[1] = li_r1_100[1];
+    program[2] = encodeCheckpoint();
+    program[3] = li_r2_200[0];
+    program[4] = li_r2_200[1];
+    program[5] = jmp_800[0];
+    program[6] = jmp_800[1];
+    program[7] = encodeHalt();
+    // Place a HALT at 800 so the wandering PC stops
+    program[800] = encodeHalt();
+
+    const vm0 = loadProgram(createVm(1024), program);
+    // Tick 1: should set r1, set checkpoint, set r2, then jump to 800 and HALT
+    const result1 = executeOneTick(vm0, noIo.read, noIo.write);
+    expect(result1.vm.registers[1]).toBe(100);
+    expect(result1.vm.registers[2]).toBe(200);
+    expect(result1.vm.cp).toBe(3);
+    expect(result1.vm.cpSet).toBe(true);
+    // PC after HALT at 800
+    expect(result1.vm.pc).toBe(801);
+
+    // Tick 2: PC should be reset to cp = 3 (not 801!)
+    // Then execute LI r2, 200 again, jump to 800, HALT
+    const result2 = executeOneTick(result1.vm, noIo.read, noIo.write);
+    // r2 was set again successfully
+    expect(result2.vm.registers[2]).toBe(200);
+    // PC ended at 801 again
+    expect(result2.vm.pc).toBe(801);
+    // The character recovered: it executes useful work each tick despite the corrupted JMP
+  });
+
+  it('CHECKPOINT再実行で同じcpを保持する', () => {
+    const program = [
+      encodeCheckpoint(),  // 0 -> sets cp = 1
+      ...encodeW(Opcode.LI, 1, 0, 10),  // 1-2
+      encodeHalt(),         // 3
+    ];
+    const vm0 = loadProgram(createVm(1024), program);
+    const result1 = executeOneTick(vm0, noIo.read, noIo.write);
+    expect(result1.vm.cp).toBe(1);
+
+    // Tick 2: PC ← cp = 1, executes LI then HALT (no CHECKPOINT this time)
+    const result2 = executeOneTick(result1.vm, noIo.read, noIo.write);
+    expect(result2.vm.cp).toBe(1);  // unchanged
+    expect(result2.vm.cpSet).toBe(true);
+    expect(result2.checkpointHit).toBe(false);  // no CHECKPOINT executed this tick
   });
 });
 

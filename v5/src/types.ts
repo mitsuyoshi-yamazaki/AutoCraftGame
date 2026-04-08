@@ -49,6 +49,8 @@ export interface VmState {
   readonly memory: readonly number[];
   readonly registers: readonly number[];  // r0-r7 (r0 always 0)
   readonly pc: number;
+  readonly cp: number;        // Checkpoint register (last CHECKPOINT target)
+  readonly cpSet: boolean;    // true if CHECKPOINT has been executed at least once
   readonly active: boolean;
   readonly localIdTable: ReadonlyMap<number, string>;
   readonly localIdCounter: number;
@@ -118,6 +120,7 @@ export interface TickResult {
   readonly events: readonly SimulationEvent[];
   readonly actions: ReadonlyMap<string, readonly ActionRecord[]>;
   readonly instructionLimitHits: ReadonlySet<string>;
+  readonly checkpointHits: ReadonlySet<string>;  // Characters that executed CHECKPOINT this tick
 }
 
 // === Recipes ===

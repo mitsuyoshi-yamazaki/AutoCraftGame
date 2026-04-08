@@ -1,4 +1,4 @@
-# GUI 要件定義 — v4
+# GUI 要件定義 — v5
 
 ## 目的
 
@@ -31,11 +31,15 @@ CLIベースの連続空間シミュレーションを2Dビジュアルで表示
 - 同じオブジェクトを再クリックすると選択解除される
 - 何もないマップ上の地面をクリックすると、その位置のGroundGridセルが選択される
 - 選択中のオブジェクトが消滅した場合（Character死亡、Remains吸収等）、選択は自動解除される
-- **Character詳細（SelectedPanel）**: ID, active/inactive, 種族名, Age, 位置, 質量, 耐久値/最大耐久値, エネルギー, 前tickの予約アクション一覧（複数可）, コンポーネント一覧, インベントリ
+- **Character詳細（SelectedPanel）**: ID, active/inactive, 種族名, Age, 位置, 質量, 耐久値/最大耐久値, エネルギー, 前tickの予約アクション一覧（複数可）, **CheckpointHit（直近tickでCHECKPOINT命令が実行されたかの真偽値）**, コンポーネント一覧, インベントリ
 - **Character VM状態（VMPanel）**: SelectedPanelの下に表示。キャラクター選択時のみ表示される
   - PC, VMレジスタ r0-r7, メモリサイズ, VM Active
   - 前tickの予約アクション一覧（SelectedPanelと同内容）
   - 失敗アクション一覧: 失敗したアクションのop名と失敗理由（ActionFailureReason）を表示
+- **メモリ破損操作（CorruptButton）**: キャラクター選択時、SelectedContent 内に「破損: Nワード」ボタンを表示する
+  - CorruptCountInput で破損ワード数を指定（デフォルト 1）
+  - クリック時、選択中キャラクターのメモリ全域からランダムなN個のワードを別のランダム値に変更する
+  - プログラム破損に対するロバスト性の評価用
 - **ResourceNode詳細**: type, 位置, remaining, 生成tick
 - **EnergyNode詳細**: 位置, stored/maxStored, productionRate, 生成tick
 - **Remains詳細**: 位置, 吸収までの残りtick数, コンポーネント一覧, インベントリ

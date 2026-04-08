@@ -80,6 +80,7 @@ export function createSimulationEngine(
 
     // Step 2: VM execution for all active characters
     const instructionLimitHits: Set<string> = new Set();
+    const checkpointHits: Set<string> = new Set();
 
     // Collect I/O results (reservations + updated local IDs)
     const characterIoResults: {
@@ -105,6 +106,9 @@ export function createSimulationEngine(
 
       if (execResult.hitLimit) {
         instructionLimitHits.add(character.id);
+      }
+      if (execResult.checkpointHit) {
+        checkpointHits.add(character.id);
       }
 
       // Get I/O results (reservations, updated local ID state)
@@ -202,7 +206,7 @@ export function createSimulationEngine(
     // Step 12: tick++
     currentWorld = { ...currentWorld, tick: currentWorld.tick + 1 };
 
-    return { world: currentWorld, events: allEvents, actions: allActions, instructionLimitHits };
+    return { world: currentWorld, events: allEvents, actions: allActions, instructionLimitHits, checkpointHits };
   }
 
   function runSimulation(

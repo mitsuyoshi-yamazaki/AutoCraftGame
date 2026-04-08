@@ -8,7 +8,7 @@ import {
   OP_BEQ, OP_BNE, OP_BLT, OP_BGE,
   OP_LI, OP_JMP,
   OP_BEQL, OP_BNEL, OP_BLTL, OP_BGEL,
-  OP_HALT,
+  OP_HALT, OP_CHECKPOINT,
 } from '../src/vm/opcodes.js';
 
 /** Decode Format R from a 16-bit word */
@@ -276,6 +276,18 @@ start:
       expect(result.errors).toEqual([]);
       expect(result.words).toHaveLength(1);
       expect((result.words[0] >> 10) & 0x3F).toBe(OP_HALT);
+    });
+  });
+
+  describe('CHECKPOINT', () => {
+    it('assembles CHECKPOINT', () => {
+      const result = assemble('CHECKPOINT');
+      expect(result.errors).toEqual([]);
+      expect(result.words).toHaveLength(1);
+      expect((result.words[0] >> 10) & 0x3F).toBe(OP_CHECKPOINT);
+      // CHECKPOINT uses a magic operand pattern (0x2A5) to resist
+      // accidental triggering from corrupted memory
+      expect(result.words[0] & 0x3FF).toBe(0x2A5);
     });
   });
 

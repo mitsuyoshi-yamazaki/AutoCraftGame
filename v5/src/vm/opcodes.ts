@@ -1,4 +1,4 @@
-// Shared opcode definitions for v4 VM
+// Shared opcode definitions for v5 VM
 // Both the VM executor and the assembler import from this file.
 
 // Format R opcodes (1-word: [opcode:6][rd:3][rs1:3][rs2:3][x:1])
@@ -15,6 +15,11 @@ export const OP_SHR = 9;
 export const OP_IN = 10;
 export const OP_OUT = 11;
 export const OP_JALR = 12;
+
+// Checkpoint instruction (1-word, no operands, opcode 13)
+// When executed: cp = PC + 1, cpSet = true, PC += 1
+// At tick start: if cpSet is true, PC is reset to cp
+export const OP_CHECKPOINT = 13;
 
 // Format I opcodes (1-word: [opcode:6][rd:3][rs:3][imm4:4])
 export const OP_ADDI = 16;

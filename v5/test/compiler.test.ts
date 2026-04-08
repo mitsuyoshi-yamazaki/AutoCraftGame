@@ -53,6 +53,31 @@ describe('compiler: full pipeline', () => {
     });
   });
 
+  describe('checkpoint() builtin', () => {
+    it('compiles checkpoint() to CHECKPOINT instruction', () => {
+      const asm = compileOk(`
+        void main(void) {
+          checkpoint();
+          halt();
+        }
+      `);
+      expect(asm).toContain('CHECKPOINT');
+      expect(asm).toContain('HALT');
+    });
+
+    it('compiles checkpoint() inside while loop', () => {
+      const asm = compileOk(`
+        void main(void) {
+          while (1) {
+            checkpoint();
+            halt();
+          }
+        }
+      `);
+      expect(asm).toContain('CHECKPOINT');
+    });
+  });
+
   describe('variable declarations and assignments', () => {
     it('compiles local variable declaration with initializer', () => {
       const asm = compileOk(`

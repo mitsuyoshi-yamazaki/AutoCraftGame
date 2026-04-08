@@ -1,4 +1,4 @@
-# C言語コンパイラ仕様書 — v4
+# C言語コンパイラ仕様書 — v5
 
 本VM向けのC言語サブセットと、それをアセンブリに変換するコンパイラの仕様。
 
@@ -368,7 +368,37 @@ bool component_status(int type, int index);
 ```c
 void halt(void);
 // HALT命令を発行。このtickの実行を終了
+
+void checkpoint(void);
+// CHECKPOINT命令を発行。現在位置を「安全な再開点」として登録する
+// 以降、次tick開始時に必ずこの位置から再開する
+// PCが迷走した場合でも、次tickで確実にこの位置に戻る
 ```
+
+**checkpoint() の使用例:**
+
+```c
+void main(void) {
+    while (1) {
+        checkpoint();  // ← 毎tickこの位置から再開される
+        int energy = my_energy();
+        if (energy < 300) {
+            do_recharge();
+            halt();
+            continue;
+        }
+        // phase判定
+        if (phase == 0) {
+            do_harvest(FILTER_ORE);
+            halt();
+            continue;
+        }
+        // ...
+    }
+}
+```
+
+while ループの先頭に `checkpoint()` を配置することで、各tickは必ずこの位置から実行を開始する。プログラム内のいずれかの命令が破損して制御フローが迷走しても、次tickで確実にこの位置に復帰するため、迷走は1tickに限定される。
 
 ## 9. 定数
 

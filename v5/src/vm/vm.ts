@@ -14,6 +14,13 @@ export const INSTRUCTIONS_PER_TICK = 200;
 export const WORD_MASK = 0xFFFF;
 export const REGISTER_COUNT = 8;
 
+// Magic operand pattern for CHECKPOINT.
+// Random data has 1/1024 chance of matching this.
+// Combined with the 1/64 opcode chance, accidental CHECKPOINT triggering
+// has probability 1/65536 instead of 1/64.
+export const CHECKPOINT_MAGIC = 0x2A5;
+export const CHECKPOINT_WORD = (13 << 10) | CHECKPOINT_MAGIC;
+
 // --- Opcode mapping (re-exported from opcodes.ts for compatibility) ---
 
 export const Opcode = {
@@ -46,6 +53,7 @@ export const Opcode = {
   PUSH: OP.OP_PUSH,
   POP:  OP.OP_POP,
   HALT: OP.OP_HALT,
+  CHECKPOINT: OP.OP_CHECKPOINT,
 } as const;
 
 export type OpcodeValue = (typeof Opcode)[keyof typeof Opcode];
@@ -120,6 +128,8 @@ export const createVm = (memorySize: number): VmState => ({
   memory: new Array(memorySize).fill(0),
   registers: new Array(REGISTER_COUNT).fill(0),
   pc: 0,
+  cp: 0,
+  cpSet: false,
   active: false,
   localIdTable: new Map(),
   localIdCounter: 1,
@@ -146,6 +156,7 @@ interface ExecResult {
   readonly memory: readonly number[];
   readonly pc: number;
   readonly halted: boolean;
+  readonly cpUpdate?: number;  // If set, this was a CHECKPOINT instruction; value is the new cp
 }
 
 /**
@@ -405,6 +416,21 @@ const executeInstruction = (
       return { registers, memory, pc: wrapPc(pc + 1, memSize), halted: true };
     }
 
+    // --- CHECKPOINT ---
+    // To minimize accidental triggering by corrupted memory,
+    // CHECKPOINT requires a magic operand pattern (lower 10 bits = 0x2A5).
+    // The full word value is (13 << 10) | 0x2A5 = 0x36A5.
+    // Any opcode-13 word that does NOT match this magic pattern is treated as NOP.
+    // This reduces the random-trigger probability from 1/64 to 1/65536.
+    case Opcode.CHECKPOINT: {
+      if ((word & 0x3FF) !== CHECKPOINT_MAGIC) {
+        // Not a real CHECKPOINT — treat as NOP
+        return { registers, memory, pc: wrapPc(pc + 1, memSize), halted: false };
+      }
+      const nextPc = wrapPc(pc + 1, memSize);
+      return { registers, memory, pc: nextPc, halted: false, cpUpdate: nextPc };
+    }
+
     // --- Invalid opcode = NOP ---
     default: {
       return { registers, memory, pc: wrapPc(pc + 1, memSize), halted: false };
@@ -418,10 +444,16 @@ export interface TickExecResult {
   readonly vm: VmState;
   readonly instructionsExecuted: number;
   readonly hitLimit: boolean;
+  readonly checkpointHit: boolean;  // Whether CHECKPOINT was executed this tick
 }
 
 /**
  * Execute up to maxInstructions instructions in one tick.
+ *
+ * Tick start behavior (方式A):
+ *   If vm.cpSet is true, PC is reset to vm.cp at the start of the tick.
+ *   Otherwise, PC continues from its previous value.
+ *
  * Stops early on HALT. Returns updated VmState and execution stats.
  */
 export const executeOneTick = (
@@ -430,24 +462,35 @@ export const executeOneTick = (
   ioWrite: (addr: number, value: number) => void,
   maxInstructions: number = INSTRUCTIONS_PER_TICK,
 ): TickExecResult => {
-  let { memory, registers, pc } = vm;
+  let { memory, registers } = vm;
+  // Tick-start PC reset: if a checkpoint has been set, resume from there
+  let pc = vm.cpSet ? vm.cp : vm.pc;
+  let cp = vm.cp;
+  let cpSet = vm.cpSet;
   let count = 0;
   let halted = false;
+  let checkpointHit = false;
 
   while (count < maxInstructions) {
     const result = executeInstruction(memory, registers, pc, ioRead, ioWrite);
     memory = result.memory;
     registers = result.registers;
     pc = result.pc;
+    if (result.cpUpdate !== undefined) {
+      cp = result.cpUpdate;
+      cpSet = true;
+      checkpointHit = true;
+    }
     count++;
 
     if (result.halted) { halted = true; break; }
   }
 
   return {
-    vm: { ...vm, memory, registers, pc },
+    vm: { ...vm, memory, registers, pc, cp, cpSet },
     instructionsExecuted: count,
     hitLimit: !halted,
+    checkpointHit,
   };
 };
 
@@ -489,3 +532,6 @@ export const encodeBL = (
 
 /** Encode HALT instruction */
 export const encodeHalt = (): number => (Opcode.HALT & 0x3F) << 10;
+
+/** Encode CHECKPOINT instruction (uses magic operand pattern to resist random triggering) */
+export const encodeCheckpoint = (): number => CHECKPOINT_WORD;
