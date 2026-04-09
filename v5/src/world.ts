@@ -462,8 +462,8 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   crystalNodeCount: 100,
   nodeRemaining: 150,
   energyNodeCount: 100,
-  energyProductionRate: 100,
-  energyMaxStored: 1600,
+  energyProductionRate: 20,
+  energyMaxStored: 3200,
 };
 
 function randomPosition(

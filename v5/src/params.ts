@@ -136,7 +136,7 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   senseRange: 10.0,
 
   memoryCoreWords: 1024,
-  instructionsPerTick: 1000,
+  instructionsPerTick: 1600,
   writeCostPerWord: 0,
 
   agingThresholdN: 1800,
