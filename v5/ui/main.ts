@@ -61,11 +61,9 @@ interface UIState {
 let PROGRAM_DEFS: ProgramDefinition[] = [];
 
 const PROGRAM_DEF_FILES = [
-  './pioneer_def.json',
-  './survivor_def.json',
-  './evolver_def.json',
-  './explorer_def.json',
-  './guardian_def.json',
+  './asex_evolver_def.json',
+  './sex_evolver_def.json',
+  './patroller_def.json',
 ];
 
 async function loadProgramDefs(): Promise<void> {

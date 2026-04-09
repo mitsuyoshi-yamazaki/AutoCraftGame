@@ -712,8 +712,12 @@ function emitAddImm(ctx: Ctx, dest: string, src: string, imm: number): void {
   }
   if (imm >= -8 && imm <= 7) {
     emit(ctx, `    ADDI ${dest}, ${src}, ${imm}`);
-  } else {
-    emit(ctx, `    LI ${dest}, ${imm & 0xFFFF}`);
-    emit(ctx, `    ADD ${dest}, ${src}, ${dest}`);
+    return;
   }
+  // Need a scratch register to hold the immediate. Use r3 (general scratch).
+  // If dest happens to be r3, fall through and overwrite is OK because we
+  // load and add in two steps, but src must not equal r3 either.
+  const scratch = (dest === 'r3' || src === 'r3') ? 'r4' : 'r3';
+  emit(ctx, `    LI ${scratch}, ${imm & 0xFFFF}`);
+  emit(ctx, `    ADD ${dest}, ${src}, ${scratch}`);
 }
