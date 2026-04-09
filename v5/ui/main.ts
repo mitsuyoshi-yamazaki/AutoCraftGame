@@ -49,6 +49,7 @@ interface UIState {
   characterActions: ReadonlyMap<string, readonly ActionRecord[]>;
   instructionLimitHits: ReadonlySet<string>;
   checkpointHits: ReadonlySet<string>;
+  reflexHits: ReadonlySet<string>;
   sessionStartedAt: string;
   resumedAt: string | null;
   recentSavedEvents: SavedEvent[];
@@ -140,6 +141,7 @@ function createInitialState(seed?: number): UIState {
     characterActions: new Map(),
     instructionLimitHits: new Set(),
     checkpointHits: new Set(),
+    reflexHits: new Set(),
     sessionStartedAt: formatTimestamp(new Date()),
     resumedAt: null,
     recentSavedEvents: [],
@@ -250,6 +252,7 @@ function step(): void {
     characterActions: result.actions,
     instructionLimitHits: result.instructionLimitHits,
     checkpointHits: result.checkpointHits,
+    reflexHits: result.reflexHits,
     recentSavedEvents,
   };
 
@@ -416,6 +419,7 @@ function updateSelected(): void {
     const age = state.world.tick - char.createdAt;
     const limitHit = state.instructionLimitHits.has(char.id);
     const checkpointHit = state.checkpointHits.has(char.id);
+    const reflexHit = state.reflexHits.has(char.id);
     selectedContent.innerHTML = `
       <div><strong>${char.id}</strong> ${isActive(char) ? '(active)' : '(inactive)'}</div>
       <div>Species: ${char.species}</div>
@@ -426,6 +430,7 @@ function updateSelected(): void {
       <div>Energy: ${char.energy}</div>
       <div>Actions: ${actionText}</div>
       <div>Checkpoint: ${checkpointHit ? '<span style="color:green"><strong>HIT</strong></span>' : '<span style="color:gray">miss</span>'}</div>
+      <div>Reflex: ${reflexHit ? '<span style="color:orange"><strong>FIRED</strong></span>' : '<span style="color:gray">idle</span>'}</div>
       ${limitHit ? '<div style="color:red"><strong>INSTRUCTION LIMIT HIT</strong></div>' : ''}
       <div>Components: ${char.components.join(', ')}</div>
       <div>Inventory: ${invText}</div>

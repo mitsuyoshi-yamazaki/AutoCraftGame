@@ -24,7 +24,7 @@ import type {
 } from './types.js';
 import type { GameParams } from './params.js';
 import type { CharacterEngine } from './character.js';
-import { isActive, isDead, setVmState } from './character.js';
+import { isActive, isDead, setVmState, updateApoptosisCounters, shouldApoptose } from './character.js';
 import type { ActionEngine } from './actions.js';
 import type { PhysicsEngine } from './physics.js';
 import { createForceMap } from './physics.js';
@@ -41,6 +41,7 @@ import { absorbOldRemains, regenerateNodes } from './ground.js';
 import { executeOneTick } from './vm/vm.js';
 import { createIoHandler, buildWorldLookup } from './io.js';
 import type { IoResult, ActionReservation } from './io.js';
+import type { ReflexEngine } from './reflexes.js';
 
 // ============================================================
 // SimulationEngine
@@ -58,13 +59,14 @@ export interface SimulationEngineDeps {
   characterEngine: CharacterEngine;
   actionEngine: ActionEngine;
   physicsEngine: PhysicsEngine;
+  reflexEngine: ReflexEngine;
 }
 
 export function createSimulationEngine(
   params: GameParams,
   deps: SimulationEngineDeps,
 ): SimulationEngine {
-  const { characterEngine, actionEngine, physicsEngine } = deps;
+  const { characterEngine, actionEngine, physicsEngine, reflexEngine } = deps;
 
   function executeTick(world: World): TickResult {
     let currentWorld = world;
@@ -81,6 +83,7 @@ export function createSimulationEngine(
     // Step 2: VM execution for all active characters
     const instructionLimitHits: Set<string> = new Set();
     const checkpointHits: Set<string> = new Set();
+    const reflexHits: Set<string> = new Set();
 
     // Collect I/O results (reservations + updated local IDs)
     const characterIoResults: {
@@ -123,9 +126,22 @@ export function createSimulationEngine(
       });
       currentWorld = updateCharacter(currentWorld, updatedCharacter);
 
+      // Step 2.5: Reflex injection (M2)
+      // Append synthetic reservations for survival actions if the program
+      // has not already issued the corresponding action.
+      const reflexResult = reflexEngine.injectReflexes(
+        updatedCharacter,
+        currentWorld,
+        ioResult.reservations,
+        grid,
+      );
+      if (reflexResult.fired) {
+        reflexHits.add(character.id);
+      }
+
       characterIoResults.push({
         characterId: character.id,
-        reservations: ioResult.reservations,
+        reservations: reflexResult.reservations,
         localIdTable: ioResult.updatedVmLocalIdTable,
         localIdCounter: ioResult.updatedVmLocalIdCounter,
       });
@@ -178,6 +194,32 @@ export function createSimulationEngine(
       }),
     };
 
+    // Step 8.5: Apoptosis counter update + judgment (M3)
+    // Each character's idle/instr_limit counters are updated based on this
+    // tick's outcomes. If either counter reaches its threshold, durability
+    // is set to 0 so the character dies in step 9.
+    const apoptosisDeaths: Set<string> = new Set();
+    currentWorld = {
+      ...currentWorld,
+      characters: currentWorld.characters.map((c) => {
+        const records = allActions.get(c.id) ?? [];
+        const hadAction = records.length > 0;
+        const hitInstrLimit = instructionLimitHits.has(c.id);
+        const updated = updateApoptosisCounters(c, hadAction, hitInstrLimit);
+        if (
+          shouldApoptose(
+            updated,
+            params.apoptosisIdleTickLimit,
+            params.apoptosisInstrLimitTickLimit,
+          )
+        ) {
+          apoptosisDeaths.add(updated.id);
+          return { ...updated, durability: 0 };
+        }
+        return updated;
+      }),
+    };
+
     // Step 9: Death check -> remains
     const deadIds: string[] = [];
     for (const character of currentWorld.characters) {
@@ -206,7 +248,7 @@ export function createSimulationEngine(
     // Step 12: tick++
     currentWorld = { ...currentWorld, tick: currentWorld.tick + 1 };
 
-    return { world: currentWorld, events: allEvents, actions: allActions, instructionLimitHits, checkpointHits };
+    return { world: currentWorld, events: allEvents, actions: allActions, instructionLimitHits, checkpointHits, reflexHits, apoptosisDeaths };
   }
 
   function runSimulation(

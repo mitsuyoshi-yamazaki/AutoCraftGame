@@ -136,6 +136,16 @@ export interface WriteReservation {
   readonly length: number;
 }
 
+export interface CrossWriteReservation {
+  readonly op: 'CROSS_WRITE';
+  readonly slotIndex: number;
+  readonly targetLocalId: number;
+  readonly parent2LocalId: number;
+  readonly srcAddr: number;
+  readonly dstAddr: number;
+  readonly length: number;
+}
+
 export interface ActivateReservation {
   readonly op: 'ACTIVATE';
   readonly slotIndex: number;
@@ -162,6 +172,7 @@ export type ActionReservation =
   | AssembleReservation
   | RepairReservation
   | WriteReservation
+  | CrossWriteReservation
   | ActivateReservation
   | DisassembleReservation
   | SenseReservation;
@@ -1073,6 +1084,25 @@ export function createIoHandler(
         });
         const slotData = getOrCreateSlotData(processorSlots, index);
         slotData[2] = 0;
+        break;
+      }
+      case 3: { // CROSS_WRITE (M5)
+        const targetLocalId = data[2] ?? 0;
+        const srcAddr = data[3] ?? 0;
+        const dstAddr = data[4] ?? 0;
+        const length = data[5] ?? 0;
+        const parent2LocalId = data[6] ?? 0;
+        reservationMap.set(key, {
+          op: 'CROSS_WRITE',
+          slotIndex: index,
+          targetLocalId,
+          parent2LocalId,
+          srcAddr,
+          dstAddr,
+          length,
+        });
+        const slotData = getOrCreateSlotData(processorSlots, index);
+        for (let i = 2; i <= 6; i++) slotData[i] = 0;
         break;
       }
     }

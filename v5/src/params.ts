@@ -50,6 +50,18 @@ export interface GameParams {
   readonly agingThresholdN: number;
   readonly agingThresholdM: number;
 
+  // Reflexes (M2)
+  readonly reflexEnergyThreshold: number;
+  readonly reflexDurabilityThreshold: number;
+
+  // Apoptosis (M3)
+  readonly apoptosisIdleTickLimit: number;
+  readonly apoptosisInstrLimitTickLimit: number;
+
+  // Sexual reproduction (M5)
+  readonly crossWriteBlockSize: number;
+  readonly crossWriteCostPerWord: number;
+
   // Resource regeneration
   readonly remainsAbsorptionTicks: number;
   readonly nodeRegenerationThreshold: number;
@@ -78,6 +90,7 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
     CRAFT: 20,
     ASSEMBLE: 50,
     WRITE: 10,
+    CROSS_WRITE: 20,
     ACTIVATE: 10,
     SENSE: 5,
     REPAIR: 200,
@@ -128,6 +141,15 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
 
   agingThresholdN: 1800,
   agingThresholdM: 3600,
+
+  reflexEnergyThreshold: 200,
+  reflexDurabilityThreshold: 300,
+
+  apoptosisIdleTickLimit: 500,
+  apoptosisInstrLimitTickLimit: 300,
+
+  crossWriteBlockSize: 64,
+  crossWriteCostPerWord: 0,
 
   remainsAbsorptionTicks: 600,
   nodeRegenerationThreshold: 50,

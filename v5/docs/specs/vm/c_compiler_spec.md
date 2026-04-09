@@ -289,6 +289,13 @@ void assemble_ext(int sensor, int disassembler, int memorycore);
 void write_memory(int target_id, int src_addr, int dst_addr, int length);
 // Processor[0]にWRITEを予約
 
+void cross_write(int target_id, int parent2_id, int src_addr, int dst_addr, int length);
+// Processor[0]にCROSS_WRITE（有性生殖）を予約
+// 自身（親A）と parent2（親B）のメモリを block_size 単位で交互に
+// target （子）のメモリにコピーする。
+// 自身-target と 自身-parent2 の両方が interactRange 内である必要がある。
+// block_size はゲームパラメータ crossWriteBlockSize で決定される（プログラムからは指定不可）。
+
 void activate(int target_id);
 // Processor[0]にACTIVATEを予約
 

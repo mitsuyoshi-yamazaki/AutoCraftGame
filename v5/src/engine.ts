@@ -26,6 +26,7 @@ import { createActionEngine } from './actions.js';
 import type { ActionEngine } from './actions.js';
 import { createSimulationEngine } from './simulation.js';
 import type { SimulationEngine } from './simulation.js';
+import { createReflexEngine } from './reflexes.js';
 
 // ============================================================
 // Engine — top-level API
@@ -77,10 +78,12 @@ export function createEngine(params: GameParams): Engine {
     worldEngine,
     characterEngine,
   });
+  const reflexEngine = createReflexEngine(params);
   const simulation = createSimulationEngine(params, {
     characterEngine,
     actionEngine,
     physicsEngine,
+    reflexEngine,
   });
 
   function spawnInitialCharacters(

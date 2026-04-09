@@ -53,6 +53,7 @@ import type {
   AssembleReservation,
   RepairReservation,
   WriteReservation,
+  CrossWriteReservation,
   ActivateReservation,
   DisassembleReservation,
   SenseReservation,
@@ -232,6 +233,10 @@ export function createActionEngine(
       const base = params.energyCosts['WRITE'] ?? 0;
       return base + Math.ceil(r.length * params.writeCostPerWord);
     }
+    if (r.op === 'CROSS_WRITE') {
+      const base = params.energyCosts['CROSS_WRITE'] ?? 0;
+      return base + Math.ceil(r.length * params.crossWriteCostPerWord);
+    }
     return getActionEnergyCost(params, r.op);
   }
 
@@ -267,6 +272,8 @@ export function createActionEngine(
         return executeRepair(world, character);
       case 'WRITE':
         return executeWrite(world, character, reservation, localIdTable, grid);
+      case 'CROSS_WRITE':
+        return executeCrossWrite(world, character, reservation, localIdTable);
       case 'ACTIVATE':
         return executeActivate(world, character, reservation, localIdTable, grid);
       case 'DISASSEMBLE':
@@ -556,6 +563,67 @@ export function createActionEngine(
     const updatedTarget: Character = {
       ...target,
       vm: { ...target.vm, memory: dstMemory },
+    };
+    return { world: updateCharacter(world, updatedTarget), success: true, events: [] };
+  }
+
+  function executeCrossWrite(
+    world: World,
+    character: Character,
+    reservation: CrossWriteReservation,
+    localIdTable: Map<number, string>,
+  ): InnerResult {
+    if (!hasComponent(character, 'Processor')) {
+      return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
+    }
+
+    // Resolve target (child)
+    const targetSystemId = resolveLocalId(reservation.targetLocalId, localIdTable);
+    if (!targetSystemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
+    const target = getCharacter(world, targetSystemId);
+    if (!target) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
+    if (distance(character.position, target.position) > params.interactRange) {
+      return { world, success: false, reason: 'OUT_OF_RANGE', events: [] };
+    }
+    if (!target.components.includes('MemoryCore')) {
+      return { world, success: false, reason: 'INVALID_TARGET', events: [] };
+    }
+
+    // Resolve parent2
+    const parent2SystemId = resolveLocalId(reservation.parent2LocalId, localIdTable);
+    if (!parent2SystemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
+    const parent2 = getCharacter(world, parent2SystemId);
+    if (!parent2) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
+    if (distance(character.position, parent2.position) > params.interactRange) {
+      return { world, success: false, reason: 'OUT_OF_RANGE', events: [] };
+    }
+
+    // Block-interleaved memory mixing
+    const srcA = character.vm.memory;
+    const srcB = parent2.vm.memory;
+    const dstMem = [...target.vm.memory];
+    const srcASize = srcA.length;
+    const srcBSize = srcB.length;
+    const dstSize = dstMem.length;
+
+    if (srcASize === 0 || srcBSize === 0 || dstSize === 0) {
+      return { world, success: false, reason: 'INVALID_TARGET', events: [] };
+    }
+
+    const blockSize = params.crossWriteBlockSize;
+    for (let i = 0; i < reservation.length; i++) {
+      const block = Math.floor(i / blockSize);
+      const useA = (block % 2 === 0);
+      const src = useA ? srcA : srcB;
+      const srcSize = useA ? srcASize : srcBSize;
+      const srcAddr = ((reservation.srcAddr + i) % srcSize + srcSize) % srcSize;
+      const dstAddr = ((reservation.dstAddr + i) % dstSize + dstSize) % dstSize;
+      dstMem[dstAddr] = src[srcAddr];
+    }
+
+    const updatedTarget: Character = {
+      ...target,
+      vm: { ...target.vm, memory: dstMem },
     };
     return { world: updateCharacter(world, updatedTarget), success: true, events: [] };
   }

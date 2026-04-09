@@ -54,6 +54,7 @@ const PRC0_TARGET    = 0x5002;
 const PRC0_SRC       = 0x5003;
 const PRC0_DST       = 0x5004;
 const PRC0_LEN       = 0x5005;
+const PRC0_PARENT2   = 0x5006;  // M5: second parent for CROSS_WRITE
 
 // Sensor[0] — base 0x6000
 const SEN0_CMD       = 0x6001;
@@ -222,6 +223,19 @@ export const BUILTINS: readonly BuiltinDef[] = [
       ...popOut(PRC0_LEN),              // length
       ...constOut(PRC0_CMD, 1),         // cmd = WRITE
     ], pops: 4 }) },
+
+  // --- cross_write(target_id, parent2_id, src_addr, dst_addr, length) ---
+  // M5: sexual reproduction. Mixes self memory and parent2's memory in
+  // alternating blocks (block size = params.crossWriteBlockSize).
+  { name: 'cross_write', argCount: 5, returnsValue: false,
+    emit: () => ({ lines: [
+      ...popOut(PRC0_TARGET),           // target_id
+      ...popOut(PRC0_PARENT2),          // parent2_id
+      ...popOut(PRC0_SRC),              // src_addr
+      ...popOut(PRC0_DST),              // dst_addr
+      ...popOut(PRC0_LEN),              // length
+      ...constOut(PRC0_CMD, 3),         // cmd = CROSS_WRITE
+    ], pops: 5 }) },
 
   // --- activate(target_id) ---
   { name: 'activate', argCount: 1, returnsValue: false,

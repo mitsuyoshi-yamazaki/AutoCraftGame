@@ -396,11 +396,11 @@ command=4 (REPAIR) の場合:
   結果: なし
 ```
 
-#### Processor — WRITE / ACTIVATE
+#### Processor — WRITE / ACTIVATE / CROSS_WRITE
 
 ```
 +0x00  status
-+0x01  command         ; 1=WRITE, 2=ACTIVATE
++0x01  command         ; 1=WRITE, 2=ACTIVATE, 3=CROSS_WRITE
 
 command=1 (WRITE) の場合:
   引数:
@@ -414,11 +414,22 @@ command=2 (ACTIVATE) の場合:
   引数:
     +0x02  target_id      ; 対象のローカルID
   結果: +0x02 → 0
+
+command=3 (CROSS_WRITE) の場合:
+  引数:
+    +0x02  target_id      ; 対象（子）のローカルID
+    +0x03  src_addr       ; 両親メモリの読み出し開始アドレス
+    +0x04  dst_addr       ; 対象メモリの書き込み開始アドレス
+    +0x05  length         ; コピー長（ワード数）
+    +0x06  parent2_id     ; 第2親のローカルID
+  結果: +0x02~ → 0
 ```
 
 WRITEによる書き込みは、対象のメモリに対してもラッピング規則が適用される。dst_addrからlengthワード分を書き込む際、アドレスが対象のメモリサイズを超える場合はラップアラウンドする。自身のメモリからの読み出し（src_addr）についても同様にラッピングが適用される。
 
-**制約: WRITEとACTIVATEは同一tick内で同一Processorスロットに予約できない。** 同一スロットへの複数コマンドは最後の予約のみ有効であるため、WRITEの後にACTIVATEを発行するとWRITE予約が上書きされる。WRITEとACTIVATEを順次行うには、WRITEの後にHALT（tick境界）を挟み、次tickでACTIVATEを発行する。
+**CROSS_WRITE (有性生殖)**: WRITEと同様だが、自身（親A）と parent2（親B）のメモリを **block_size ワード単位で交互に** 子のメモリにコピーする。block_size はゲームパラメータ `crossWriteBlockSize` で固定（プログラムからは変更不可）。距離制約として、自身-子 と 自身-parent2 の両方が `interactRange` 内である必要がある。詳細は [game_spec.md 7-5](../game_spec.md#7-5-有性生殖-sexual-reproduction) を参照。
+
+**制約: WRITE/CROSS_WRITE と ACTIVATE は同一tick内で同一Processorスロットに予約できない。** 同一スロットへの複数コマンドは最後の予約のみ有効であるため、WRITEの後にACTIVATEを発行するとWRITE予約が上書きされる。WRITE/CROSS_WRITE と ACTIVATE を順次行うには、WRITE/CROSS_WRITE の後にHALT（tick境界）を挟み、次tickでACTIVATEを発行する。
 
 #### Sensor — SENSE
 

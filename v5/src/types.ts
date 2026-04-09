@@ -68,6 +68,9 @@ export interface Character {
   readonly energy: number;
   readonly createdAt: number;
   readonly vm: VmState;
+  // M3 (apoptosis) counters — incremented per tick by simulation step 8.5
+  readonly idleTickCount: number;        // consecutive ticks with no action reservation
+  readonly instrLimitTickCount: number;  // consecutive ticks hitting instructionsPerTick limit
 }
 
 // === World ===
@@ -88,7 +91,7 @@ export interface World {
 export type ActionOp =
   | 'MOVE' | 'HARVEST' | 'RECHARGE'
   | 'PROCESS' | 'CRAFT' | 'ASSEMBLE'
-  | 'WRITE' | 'ACTIVATE' | 'SENSE'
+  | 'WRITE' | 'CROSS_WRITE' | 'ACTIVATE' | 'SENSE'
   | 'REPAIR' | 'DISASSEMBLE';
 
 export type ActionFailureReason =
@@ -121,6 +124,8 @@ export interface TickResult {
   readonly actions: ReadonlyMap<string, readonly ActionRecord[]>;
   readonly instructionLimitHits: ReadonlySet<string>;
   readonly checkpointHits: ReadonlySet<string>;  // Characters that executed CHECKPOINT this tick
+  readonly reflexHits: ReadonlySet<string>;       // Characters whose reflex fired this tick
+  readonly apoptosisDeaths: ReadonlySet<string>;  // Characters that died via apoptosis this tick
 }
 
 // === Recipes ===

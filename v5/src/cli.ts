@@ -141,6 +141,8 @@ function main() {
         events: result.events.length,
         instructionLimitHits: result.instructionLimitHits.size,
         checkpointHits: result.checkpointHits.size,
+        reflexHits: result.reflexHits.size,
+        apoptosisDeaths: result.apoptosisDeaths.size,
       }));
     } else if (opts.output === 'events') {
       for (const e of result.events) {

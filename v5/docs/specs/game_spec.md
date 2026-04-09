@@ -398,16 +398,141 @@ inventory も components も同一ルールで変換。吸収先はRemains位置
 キャラクター生成時に設定され、ASSEMBLEの際に親から子へ継承される。
 初期キャラクターのspeciesはプログラム定義ファイルのname属性から決定される。
 
+### 7-3. 反射 (reflexes)
+
+プログラムを介さない**自動的な生存行動**。プログラムが破損して何も指示できない状態でも最低限の生存活動を継続できるようにするための、ゲーム法則として一律に適用される機構。
+
+#### 反射の種類
+
+| 反射 | 発火条件 | 効果 |
+|------|--------|------|
+| **auto-recharge** | `energy < reflexEnergyThreshold` かつ `interactRange` 内に `EnergyNode` が存在し、かつ当tickに `RECHARGE` 予約がない かつ `Charger` を所持している | 最寄りの `EnergyNode` に対して `RECHARGE` を実行 |
+| **auto-repair** | `durability < reflexDurabilityThreshold` かつ `inventory` に `Frame` を持ち、かつ当tickに `REPAIR` 予約がない かつ `Assembler` を所持している | `REPAIR` を実行 |
+
+#### 反射の挙動仕様
+
+- **タイミング**: VM実行直後・アクション実行前に、反射条件を満たすキャラクターに対して合成 `ActionReservation` を追加する
+- **競合**: プログラムが既に同種のアクションを予約している場合、反射は発火しない
+- **コスト**: 反射により発行されるアクションのエネルギーコストは通常アクションと同額
+- **失敗**: 反射で生成された予約も通常の予約と同じ失敗判定を受ける（範囲外、コンポーネント不在等で失敗しうる）
+- **記録**: 反射が発火したキャラクターは `TickResult.reflexHits` に記録される
+- **対象範囲**: 反射は `auto-recharge` と `auto-repair` の 2 種類のみ。移動・収穫・複製などの戦略的行動は反射の対象としない
+
+#### パラメータ
+
+| パラメータ | デフォルト | 意味 |
+|----------|----------|------|
+| `reflexEnergyThreshold` | 200 | この値未満で `auto-recharge` が発火する |
+| `reflexDurabilityThreshold` | 300 | この値未満で `auto-repair` が発火する |
+
+### 7-4. アポトーシス (apoptosis)
+
+機能不全に陥ったキャラクターを**自発的に死亡させる**機構。リソースの無駄な消費を防ぎ、集団内のターンオーバーを促進する。
+
+#### 検出条件
+
+以下のいずれかが満たされた場合、キャラクターは機能不全と判定され、当tickの死亡判定で死亡する。
+
+| 条件 | 意味 |
+|------|------|
+| **idle 連続 N tick** | `apoptosisIdleTickLimit` tick 連続でアクション予約がゼロ（反射含めて何も発行していない） |
+| **instruction limit 連続 M tick** | `apoptosisInstrLimitTickLimit` tick 連続で `instructionsPerTick` 上限に到達（無限ループ） |
+
+#### カウンタの更新ルール
+
+各キャラクターは 2 つのカウンタを持つ:
+- `idleTickCount`: アクション予約があれば 0 にリセット、なければ +1
+- `instrLimitTickCount`: 命令上限到達で +1、HALT 達成で 0 にリセット
+
+両カウンタは tick 間で保持される。
+
+#### 死亡フロー
+
+機能不全と判定されたキャラクターは以下の処理を受ける:
+1. `durability` を 0 に設定
+2. ステップ 9 (死亡判定) で通常死亡として処理される（残骸生成、`character_died` イベント発火）
+3. `TickResult.apoptosisDeaths` に ID が記録される (通常死との識別用)
+
+通常死とアポトーシス死は残骸生成等の挙動は同一。違いは `apoptosisDeaths` セットによる識別のみ。
+
+#### 反射との関係
+
+反射 (7-3) によって発行されるアクション予約も「アクション予約あり」としてカウントされる。したがって、反射でかろうじて生存している個体は idle カウンタが 0 にリセットされ、アポトーシスしない。
+
+これは階層的な生存戦略を表現する:
+- M1 (CHECKPOINT): PC 迷走からの回復
+- M2 (反射): 完全破損下での最低限の自律機能
+- M3 (アポトーシス): 反射すら効かない個体の除去
+
+#### パラメータ
+
+| パラメータ | デフォルト | 意味 |
+|----------|----------|------|
+| `apoptosisIdleTickLimit` | 500 | idle 連続tick数の閾値 |
+| `apoptosisInstrLimitTickLimit` | 300 | instruction limit 連続tick数の閾値 |
+
+### 7-5. 有性生殖 (sexual reproduction)
+
+2 親のメモリを **block 交互** で混合して子のメモリを構築する機構。プログラムが `cross_write` 組み込み関数を呼ぶことで使用する。集団遺伝学的多様性の維持と劣性致死変異の遮蔽を可能にする。
+
+#### CROSS_WRITE の動作
+
+`cross_write(target, parent2, src_addr, dst_addr, length)` を呼び出すと、Processor スロットに `CROSS_WRITE` 予約が登録される。実行時:
+
+1. 親A (caller) が Processor を所持していることを確認
+2. 子 (`target` ローカルID) を解決し、`interactRange` 内かつ MemoryCore 所持を確認
+3. 親B (`parent2` ローカルID) を解決し、`interactRange` 内であることを確認
+4. `length` ワードを以下のルールでコピー:
+   - 各 word の index `i` について、`block = floor(i / crossWriteBlockSize)`
+   - `block` が偶数なら親Aの `(src_addr + i)` から、奇数なら親Bの `(src_addr + i)` から読み込む
+   - 子の `(dst_addr + i)` に書き込み (アドレスは対象メモリサイズでラップ)
+
+```
+親A メモリ:  [aaaa aaaa aaaa aaaa ...]
+親B メモリ:  [bbbb bbbb bbbb bbbb ...]
+                ↓ (block_size=4)
+子 メモリ:    [aaaa bbbb aaaa bbbb ...]
+              ←4→  ←4→  ←4→  ←4→
+```
+
+#### 制約と挙動
+
+- **距離**: 親A-子 と 親A-親B の両方が `interactRange` 内である必要がある
+- **親B の同意**: 不要 (caller が能動的に取得)
+- **親B の状態**: active / inactive どちらでも可
+- **親B の種族**: 制限なし (異種族交配可。互換性はプログラム側の責任)
+- **エネルギーコスト**: `energyCosts.CROSS_WRITE` (基本コスト) + `length × crossWriteCostPerWord`
+- **失敗条件**: Processor 不在 (`MISSING_COMPONENT`)、親B/子の解決失敗 (`INVALID_TARGET`)、距離範囲外 (`OUT_OF_RANGE`)、子に MemoryCore 不在 (`INVALID_TARGET`)
+- **既存 WRITE との関係**: `CROSS_WRITE` は新規アクションであり、既存の `write_memory` (1 親) は変更されない
+
+#### パラメータ
+
+| パラメータ | デフォルト | 意味 |
+|----------|----------|------|
+| `crossWriteBlockSize` | 64 | 交互ブロックの幅 (word) |
+| `crossWriteCostPerWord` | 0 | ワードあたりのエネルギーコスト |
+| `energyCosts.CROSS_WRITE` | 20 | 基本エネルギーコスト |
+
+#### 進化的意義
+
+- 1 親の致死的破損が他親により遮蔽される
+- 異なる進化系統の遺伝子の組み合わせ
+- 集団内の遺伝的多様性の維持
+- 子のコンポーネント構成は親A の `assemble` 引数で決まる (混合されるのはメモリのみ)
+
 ---
 
 ## 8. ゲームループ
 
 ```
-v4 ゲームループ:
+v5 ゲームループ:
 
 1.  EnergyNodeのエネルギー生産
 2.  全activeキャラクターのVM実行（最大 INSTRUCTIONS_PER_TICK 命令）
     → アクション予約が確定する（SENSEのみ即時実行）
+2.5 反射の注入（7-3節）
+    各キャラクターについて、反射条件を満たし、かつプログラムが
+    対応するアクションを予約していない場合、合成 ActionReservation を追加
 3.  予約されたアクションの一括実行
     - 実行順: キャラクターIDの昇順
     - 異なる種別: 同時実行可能
@@ -422,6 +547,9 @@ v4 ゲームループ:
 6.  物理更新（力の合成 → 加速度 → 速度更新 → 位置更新）
 7.  エネルギー基礎代謝の適用（加齢代謝係数を含む）
 8.  耐久度自然減衰（全キャラクター -1）
+8.5 アポトーシス判定（7-4節）
+    各キャラクターのカウンタを更新し、機能不全条件を満たすキャラの
+    durability を 0 に設定（次ステップで死亡）
 9.  死亡判定（耐久度 ≤ 0 → 残骸生成 + キャラクター除去）
 10. 残骸の地面吸収（6-4節）
 11. リソースノード再生（6-5節）

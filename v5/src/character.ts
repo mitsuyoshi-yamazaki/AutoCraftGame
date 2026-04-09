@@ -98,6 +98,8 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
       energy,
       createdAt,
       vm: createActiveVmState(memorySize, program),
+      idleTickCount: 0,
+      instrLimitTickCount: 0,
     };
   }
 
@@ -122,6 +124,8 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
       energy,
       createdAt,
       vm: createInactiveVmState(memorySize),
+      idleTickCount: 0,
+      instrLimitTickCount: 0,
     };
   }
 
@@ -197,4 +201,42 @@ export function setInventory(character: Character, inventory: Inventory): Charac
 
 export function setVmState(character: Character, vm: VmState): Character {
   return { ...character, vm };
+}
+
+// ============================================================
+// M3 (apoptosis) — counter updates and judgment
+// ============================================================
+
+/**
+ * Update the apoptosis counters for a character based on this tick's outcomes.
+ * - idleTickCount: incremented if no action was reserved this tick (reflexes
+ *   counted as actions); reset to 0 otherwise.
+ * - instrLimitTickCount: incremented if the VM hit instructionsPerTick this
+ *   tick; reset to 0 if HALT was reached normally.
+ */
+export function updateApoptosisCounters(
+  character: Character,
+  hadAction: boolean,
+  hitInstrLimit: boolean,
+): Character {
+  return {
+    ...character,
+    idleTickCount: hadAction ? 0 : character.idleTickCount + 1,
+    instrLimitTickCount: hitInstrLimit ? character.instrLimitTickCount + 1 : 0,
+  };
+}
+
+/**
+ * Returns true if the character has reached the apoptosis threshold and
+ * should be marked for death this tick.
+ */
+export function shouldApoptose(
+  character: Character,
+  idleLimit: number,
+  instrLimitLimit: number,
+): boolean {
+  return (
+    character.idleTickCount >= idleLimit ||
+    character.instrLimitTickCount >= instrLimitLimit
+  );
 }
