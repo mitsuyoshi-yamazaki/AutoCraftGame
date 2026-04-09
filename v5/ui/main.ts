@@ -89,9 +89,44 @@ function buildSaveFileName(sessionStartedAt: string, resumedAt: string | null, t
 }
 
 // ============================================================
+// GUI parameter overrides
+// ----------------------------------------------------------------
+// These overrides are derived from the best-performing iteration in
+// docs/tuning/long_coexistence_iterations.md (iter5 / "best combo").
+// They produced the longest 3-species coexistence (10000 tick run with
+// 66 individuals across 2 species and 1482 total reproductions).
+// ============================================================
+const GUI_WORLD_CONFIG = {
+  ...DEFAULT_WORLD_CONFIG,
+  width: 80,
+  height: 60,
+  oreNodeCount: 200,
+  crystalNodeCount: 200,
+  energyNodeCount: 200,
+  nodeRemaining: 300,
+  energyMaxStored: 3200,
+};
+
+const GUI_GAME_PARAMS = {
+  ...DEFAULT_GAME_PARAMS,
+  nodeRegenerationThreshold: 100,
+  metabolism: {
+    Frame: 0,
+    Actuator: 1,
+    Sensor: 1,
+    Processor: 2,
+    Harvester: 1,
+    Assembler: 2,
+    Disassembler: 1,
+    Charger: 1,
+    MemoryCore: 0,
+  },
+};
+
+// ============================================================
 // Engine (mutable — replaced on load)
 // ============================================================
-let engine: Engine = createEngine(DEFAULT_GAME_PARAMS);
+let engine: Engine = createEngine(GUI_GAME_PARAMS);
 
 // Initial remains for Scavenger bootstrapping
 const INITIAL_REMAINS_COUNT = 10;
@@ -108,7 +143,7 @@ const INITIAL_REMAINS_INVENTORY: Readonly<Record<string, number>> = {
 
 function createInitialState(seed?: number): UIState {
   const rng = createRng(seed ?? DEFAULT_SEED);
-  let world = engine.createWorld(DEFAULT_WORLD_CONFIG, rng);
+  let world = engine.createWorld(GUI_WORLD_CONFIG, rng);
   world = engine.spawnInitialCharacters(world, PROGRAM_DEFS, rng);
 
   // Add initial remains scattered across the map
@@ -678,7 +713,7 @@ fileInput.addEventListener('change', () => {
 // ============================================================
 function resetWithRandomSeed(): void {
   stopTimer();
-  engine = createEngine(DEFAULT_GAME_PARAMS);
+  engine = createEngine(GUI_GAME_PARAMS);
   const seed = Date.now() ^ (Math.random() * 0xffffffff);
   state = createInitialState(seed);
   renderer.resetView(state.world.width, state.world.height);

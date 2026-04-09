@@ -19,4 +19,4 @@ export class SemanticVersion {
   }
 }
 
-export const GAME_VERSION = new SemanticVersion(5, 4, 0);
+export const GAME_VERSION = new SemanticVersion(5, 5, 0);
