@@ -136,7 +136,7 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   senseRange: 10.0,
 
   memoryCoreWords: 1024,
-  instructionsPerTick: 100000,
+  instructionsPerTick: 1000,
   writeCostPerWord: 0,
 
   agingThresholdN: 1800,
@@ -151,7 +151,7 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   crossWriteBlockSize: 64,
   crossWriteCostPerWord: 0,
 
-  remainsAbsorptionTicks: 600,
+  remainsAbsorptionTicks: 240,
   nodeRegenerationThreshold: 50,
   disassembleSpillage: {
     Frame: { Metal: 1 },
