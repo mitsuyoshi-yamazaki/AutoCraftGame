@@ -10,6 +10,7 @@
 // when behavior_mode is mutated to 1, 2, or 3 respectively.
 
 #define COPY_SIZE 2700
+#define MIN_ENERGY_AMOUNT 800
 
 // === Mutable parameters (subject to drift) ===
 int wander_step = 90;
@@ -42,6 +43,23 @@ void do_wander(void) {
     move(wander_angle);
 }
 
+// Select an energy node from the current sense range. Prefer nodes whose
+// stored amount is at least min_amount. If none meet the threshold, fall
+// back to the closest energy node (sense_select(0)). Returns 1 when an
+// energy node was selected (sense_select set), 0 when none are visible.
+int select_energy_node(int min_amount) {
+    int n = sense(FILTER_ENERGY);
+    if (n == 0) { return 0; }
+    int i = 0;
+    while (i < n) {
+        sense_select(i);
+        if (sense_amount() >= min_amount) { return 1; }
+        i = i + 1;
+    }
+    sense_select(0);
+    return 1;
+}
+
 void do_recharge(void) {
     // Smart recharge: track move_target to keep approaching the same node
     if (move_target != 0) {
@@ -57,16 +75,16 @@ void do_recharge(void) {
             return;
         }
     }
-    int n = sense(FILTER_ENERGY);
-    if (n > 0) {
-        sense_select(0);
-        if (sense_distance() < 2) {
-            recharge();
-        } else {
-            move_target = sense_register();
-            move(sense_angle());
-        }
-    } else { do_wander(); }
+    if (select_energy_node(MIN_ENERGY_AMOUNT) == 0) {
+        do_wander();
+        return;
+    }
+    if (sense_distance() < 2) {
+        recharge();
+    } else {
+        move_target = sense_register();
+        move(sense_angle());
+    }
 }
 
 void do_harvest(int filter) {

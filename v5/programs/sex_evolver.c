@@ -6,6 +6,7 @@
 // (within interactRange). Falls back to write_memory when alone.
 
 #define COPY_SIZE 2700
+#define MIN_ENERGY_AMOUNT 800
 
 int wander_step = 90;
 int recharge_low = 350;
@@ -37,6 +38,22 @@ void do_wander(void) {
     move(wander_angle);
 }
 
+// Select an energy node, preferring those with stored >= min_amount.
+// Falls back to the closest energy node when none meet the threshold.
+// Returns 1 if any energy node was selected, 0 if none are visible.
+int select_energy_node(int min_amount) {
+    int n = sense(FILTER_ENERGY);
+    if (n == 0) { return 0; }
+    int i = 0;
+    while (i < n) {
+        sense_select(i);
+        if (sense_amount() >= min_amount) { return 1; }
+        i = i + 1;
+    }
+    sense_select(0);
+    return 1;
+}
+
 void do_recharge(void) {
     if (move_target != 0) {
         int t = sense_id(move_target);
@@ -51,16 +68,16 @@ void do_recharge(void) {
             return;
         }
     }
-    int n = sense(FILTER_ENERGY);
-    if (n > 0) {
-        sense_select(0);
-        if (sense_distance() < 2) {
-            recharge();
-        } else {
-            move_target = sense_register();
-            move(sense_angle());
-        }
-    } else { do_wander(); }
+    if (select_energy_node(MIN_ENERGY_AMOUNT) == 0) {
+        do_wander();
+        return;
+    }
+    if (sense_distance() < 2) {
+        recharge();
+    } else {
+        move_target = sense_register();
+        move(sense_angle());
+    }
 }
 
 void do_harvest(int filter) {
