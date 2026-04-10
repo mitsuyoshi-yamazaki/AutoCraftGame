@@ -2,7 +2,6 @@ import type {
   World,
   SimulationEvent,
   ActionRecord,
-  ProgramDefinition,
   Position,
   GroundCell,
 } from "@/types.js";
@@ -10,6 +9,7 @@ import { createRng } from "@/world.js";
 import type { WorldConfig } from "@/world.js";
 import { DEFAULT_WORLD_CONFIG } from "@/world.js";
 import { isActive } from "@/character.js";
+import { isControlled } from "@/character.js";
 import { createEngine } from "@/engine.js";
 import type { Engine } from "@/engine.js";
 import { DEFAULT_GAME_PARAMS } from "@/params.js";
@@ -17,9 +17,9 @@ import { Renderer } from "./renderer.js";
 import type { DrawSelection } from "./renderer.js";
 import { GAME_VERSION } from "@/version.js";
 import { positionToCell, groundGridDimensions } from "@/ground.js";
-import { createRemains, addRemains, nextObjectId } from "@/world.js";
-import type { ComponentType } from "@/types.js";
+import { nextObjectId } from "@/world.js";
 import { corruptCharacterMemory } from "@/corruption.js";
+import { ALL_PRIMITIVE_SEEDS } from "@/seeds.js";
 
 // ============================================================
 // Constants (UI only)
@@ -63,25 +63,8 @@ interface UIState {
 }
 
 // ============================================================
-// Program definitions — loaded at startup
+// Primitive seed definitions — loaded from seeds.ts
 // ============================================================
-let PROGRAM_DEFS: ProgramDefinition[] = [];
-
-const PROGRAM_DEF_FILES = [
-  "./asex_evolver_def.json",
-  "./sex_evolver_def.json",
-  "./patroller_def.json",
-];
-
-async function loadProgramDefs(): Promise<void> {
-  const defs: ProgramDefinition[] = [];
-  for (const file of PROGRAM_DEF_FILES) {
-    const resp = await fetch(file);
-    const def = (await resp.json()) as ProgramDefinition;
-    defs.push(def);
-  }
-  PROGRAM_DEFS = defs;
-}
 
 // ============================================================
 // Save helpers (minimal — no save-load module yet)
@@ -100,20 +83,15 @@ function buildSaveFileName(
 }
 
 // ============================================================
-// GUI parameter overrides
-// ----------------------------------------------------------------
-// These overrides are derived from the best-performing iteration in
-// docs/tuning/long_coexistence_iterations.md (iter5 / "best combo").
-// They produced the longest 3-species coexistence (10000 tick run with
-// 66 individuals across 2 species and 1482 total reproductions).
+// GUI parameter overrides — tuned for primitive self-replication
 // ============================================================
 const GUI_WORLD_CONFIG = {
   ...DEFAULT_WORLD_CONFIG,
-  width: 80,
+  width: 60,
   height: 60,
-  oreNodeCount: 60,
-  crystalNodeCount: 60,
-  energyNodeCount: 90,
+  oreNodeCount: 80,
+  crystalNodeCount: 80,
+  energyNodeCount: 120,
   nodeRemaining: 300,
   energyMaxStored: 1600,
 };
@@ -121,15 +99,17 @@ const GUI_WORLD_CONFIG = {
 const GUI_GAME_PARAMS = {
   ...DEFAULT_GAME_PARAMS,
   nodeRegenerationThreshold: 100,
+  frameDurability: 1200,
+  assembleEnergyTransfer: 1000,
   metabolism: {
     Frame: 0,
-    Actuator: 1,
-    Sensor: 1,
+    Actuator: 0,
+    Sensor: 0,
     Processor: 2,
-    Harvester: 1,
-    Assembler: 2,
-    Disassembler: 1,
-    Charger: 1,
+    Harvester: 0,
+    Assembler: 1,
+    Disassembler: 0,
+    Charger: 0,
     MemoryCore: 0,
   },
 };
@@ -139,47 +119,10 @@ const GUI_GAME_PARAMS = {
 // ============================================================
 let engine: Engine = createEngine(GUI_GAME_PARAMS);
 
-// Initial remains for Scavenger bootstrapping
-const INITIAL_REMAINS_COUNT = 60;
-const INITIAL_REMAINS_COMPONENTS: readonly ComponentType[] = [
-  "Frame",
-  "Frame",
-  "Actuator",
-  "Harvester",
-  "Charger",
-  "Assembler",
-  "Processor",
-  "Sensor",
-  "MemoryCore",
-];
-const INITIAL_REMAINS_INVENTORY: Readonly<Record<string, number>> = {
-  Ore: 4,
-  Crystal: 4,
-  Metal: 2,
-  Circuit: 2,
-};
-
 function createInitialState(seed?: number): UIState {
   const rng = createRng(seed ?? DEFAULT_SEED);
   let world = engine.createWorld(GUI_WORLD_CONFIG, rng);
-  world = engine.spawnInitialCharacters(world, PROGRAM_DEFS, rng);
-
-  // Add initial remains scattered across the map
-  for (let i = 0; i < INITIAL_REMAINS_COUNT; i++) {
-    const { id, world: w } = nextObjectId(world);
-    world = w;
-    const margin = 2;
-    const x = margin + rng() * (world.width - 2 * margin);
-    const y = margin + rng() * (world.height - 2 * margin);
-    const remains = createRemains(
-      id,
-      { x, y },
-      [...INITIAL_REMAINS_COMPONENTS],
-      { ...INITIAL_REMAINS_INVENTORY },
-      0,
-    );
-    world = addRemains(world, remains);
-  }
+  world = engine.spawnPrimitiveCharacters(world, ALL_PRIMITIVE_SEEDS, rng);
 
   const firstChar = world.characters.length > 0 ? world.characters[0] : null;
 
@@ -243,7 +186,6 @@ document.body.appendChild(fileInput);
 const renderer = new Renderer();
 
 async function main(): Promise<void> {
-  await loadProgramDefs();
   state = createInitialState();
 
   await renderer.init(canvasContainer);
@@ -494,10 +436,12 @@ function updateSelected(): void {
 
     const age = state.world.tick - char.createdAt;
     const limitHit = state.instructionLimitHits.has(char.id);
-    const checkpointHit = state.checkpointHits.has(char.id);
     const reflexHit = state.reflexHits.has(char.id);
+    const isPrimitive = char.primitiveRules.length > 0 && !isActive(char);
+    const controlType = isPrimitive ? "primitive" : isActive(char) ? "VM" : "inactive";
+
     selectedContent.innerHTML = `
-      <div><strong>${char.id}</strong> ${isActive(char) ? "(active)" : "(inactive)"}</div>
+      <div><strong>${char.id}</strong> (${controlType})</div>
       <div>Species: ${char.species}</div>
       <div>Age: ${age} ticks</div>
       <div>Pos: (${char.position.x.toFixed(1)}, ${char.position.y.toFixed(1)})</div>
@@ -505,59 +449,72 @@ function updateSelected(): void {
       <div>Durability: ${char.durability} / ${maxDur}</div>
       <div>Energy: ${char.energy}</div>
       <div>Actions: ${actionText}</div>
-      <div>Checkpoint: ${checkpointHit ? '<span style="color:green"><strong>HIT</strong></span>' : '<span style="color:gray">miss</span>'}</div>
       <div>Reflex: ${reflexHit ? '<span style="color:orange"><strong>FIRED</strong></span>' : '<span style="color:gray">idle</span>'}</div>
       ${limitHit ? '<div style="color:red"><strong>INSTRUCTION LIMIT HIT</strong></div>' : ""}
       <div>Components: ${char.components.join(", ")}</div>
       <div>Inventory: ${invText}</div>
-      <div style="margin-top: 8px;">
+      ${isActive(char) ? `<div style="margin-top: 8px;">
         <label>Corrupt:
           <input type="number" id="corrupt-count" value="5" min="1" max="1000" style="width: 50px;" />
           <button id="btn-corrupt" type="button">破損</button>
         </label>
-      </div>
+      </div>` : ""}
     `;
 
-    // Wire up the corrupt button (created dynamically with innerHTML)
-    const btnCorrupt = document.getElementById(
-      "btn-corrupt",
-    ) as HTMLButtonElement | null;
-    const corruptCountInput = document.getElementById(
-      "corrupt-count",
-    ) as HTMLInputElement | null;
-    if (btnCorrupt && corruptCountInput) {
-      btnCorrupt.onclick = () => {
-        const count = parseInt(corruptCountInput.value, 10) || 0;
-        if (count <= 0) return;
-        const seed = (Date.now() ^ (state.world.tick * 1000)) >>> 0;
-        const newWorld = corruptCharacterMemory(
-          state.world,
-          char.id,
-          count,
-          seed,
-        );
-        state = { ...state, world: newWorld };
-        render();
-      };
+    // Wire up the corrupt button (only for VM characters)
+    if (isActive(char)) {
+      const btnCorrupt = document.getElementById(
+        "btn-corrupt",
+      ) as HTMLButtonElement | null;
+      const corruptCountInput = document.getElementById(
+        "corrupt-count",
+      ) as HTMLInputElement | null;
+      if (btnCorrupt && corruptCountInput) {
+        btnCorrupt.onclick = () => {
+          const count = parseInt(corruptCountInput.value, 10) || 0;
+          if (count <= 0) return;
+          const seed = (Date.now() ^ (state.world.tick * 1000)) >>> 0;
+          const newWorld = corruptCharacterMemory(
+            state.world,
+            char.id,
+            count,
+            seed,
+          );
+          state = { ...state, world: newWorld };
+          render();
+        };
+      }
     }
 
-    // VM Panel
-    const regs = char.vm.registers;
+    // Detail panel: VM info or Primitive rules info
     const failedActions = actions ? actions.filter((a) => !a.success) : [];
     const failedText =
       failedActions.length > 0
         ? failedActions.map((a) => `${a.op}(${a.reason ?? "?"})`).join(", ")
         : "-";
 
-    vmPanel.style.display = "";
-    vmContent.innerHTML = `
-      <div><strong>PC</strong>: ${char.vm.pc}</div>
-      <div><strong>Registers</strong>: [${regs.join(", ")}]</div>
-      <div><strong>Memory</strong>: ${char.vm.memory.length} words</div>
-      <div><strong>VM Active</strong>: ${char.vm.active}</div>
-      <div><strong>Actions</strong>: ${actionText}</div>
-      <div class="vm-failed"><strong>Failed</strong>: ${failedText}</div>
-    `;
+    if (isPrimitive) {
+      vmPanel.style.display = "";
+      vmContent.innerHTML = `
+        <div><strong>Control</strong>: Primitive (${char.primitiveRules.length} rules)</div>
+        <div><strong>Templates</strong>: ${char.assemblyTemplates.length}</div>
+        <div><strong>Actions</strong>: ${actionText}</div>
+        <div class="vm-failed"><strong>Failed</strong>: ${failedText}</div>
+      `;
+    } else if (isActive(char)) {
+      const regs = char.vm.registers;
+      vmPanel.style.display = "";
+      vmContent.innerHTML = `
+        <div><strong>PC</strong>: ${char.vm.pc}</div>
+        <div><strong>Registers</strong>: [${regs.join(", ")}]</div>
+        <div><strong>Memory</strong>: ${char.vm.memory.length} words</div>
+        <div><strong>VM Active</strong>: ${char.vm.active}</div>
+        <div><strong>Actions</strong>: ${actionText}</div>
+        <div class="vm-failed"><strong>Failed</strong>: ${failedText}</div>
+      `;
+    } else {
+      vmPanel.style.display = "none";
+    }
     return;
   }
 

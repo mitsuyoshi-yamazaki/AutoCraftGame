@@ -8,6 +8,7 @@
 
 import type {
   PrimitiveRule,
+  PrimitiveCondition,
   AssemblyTemplate,
   PrimitiveDefinition,
   ComponentType,
@@ -49,14 +50,33 @@ const CRAFT_ASSEMBLER = 4;
 const CRAFT_SENSOR = 6;
 
 // ============================================================
-// Helper: create a rule
+// Helpers: create conditions and rules
 // ============================================================
+function cond(type: string, arg0 = 0, arg1 = 0): PrimitiveCondition {
+  return { type: type as any, arg0, arg1 };
+}
+
+function and(...subs: PrimitiveCondition[]): PrimitiveCondition {
+  return { type: 'and', arg0: 0, arg1: 0, sub: subs };
+}
+
+function not(sub: PrimitiveCondition): PrimitiveCondition {
+  return { type: 'not', arg0: 0, arg1: 0, sub: [sub] };
+}
+
 function rule(
   condType: string, arg0: number, arg1: number,
   actType: string, aArg0: number, aArg1: number,
 ): PrimitiveRule {
   return {
     condition: { type: condType as any, arg0, arg1 },
+    action: { type: actType as any, arg0: aArg0, arg1: aArg1 },
+  };
+}
+
+function ruleC(condition: PrimitiveCondition, actType: string, aArg0 = 0, aArg1 = 0): PrimitiveRule {
+  return {
+    condition,
     action: { type: actType as any, arg0: aArg0, arg1: aArg1 },
   };
 }
@@ -85,29 +105,23 @@ const REPLICATOR_COMPONENTS: readonly ComponentType[] = [
   'Frame', 'Actuator', 'Sensor', 'Harvester', 'Charger', 'Assembler',
 ];
 
-// interactRange is 1.5, so use 1 for "within harvest range" check
-// (1 < 1.5, so nearby(type, 1) guarantees a target exists within 1.5)
-const INTERACT = 1;
-
-// Total raw materials needed for one child:
-// Frame(3M) + Actuator(1M+1C) + Sensor(2C) + Harvester(2M) + Charger(1M+2C) + Assembler(2M+1C)
-// = 9 Metal + 6 Circuit = 18 Ore + 12 Crystal
-const ORE_TARGET = 18;
-const CRYSTAL_TARGET = 12;
+const INTERACT = 1;  // nearby check range (< interactRange 1.5)
+const NEED_ORE = 18;     // 9 Metal × 2 Ore/Metal
+const NEED_CRYSTAL = 12; // 6 Circuit × 2 Crystal/Circuit
 
 const REPLICATOR_RULES: readonly PrimitiveRule[] = [
   // Reflexes (M2) handle: auto-recharge at energy < 200, auto-repair at durability < 300
-  // Primitive rules handle: resource gathering, crafting, reproduction
 
-  // Strategy: harvest → process → craft (incremental, with duplicate prevention)
-  // The noop-guard pattern prevents crafting components we already have.
-  // Order: harvest if nearby, process if raw materials, craft if possible
-  // (skipping components already in inventory via noop guards).
+  // 0. Energy management: recharge before assembling, and survive
+  ruleC(and(cond('can_assemble', 0), cond('energy_below', 1500), cond('nearby', ENERGY_NODE, INTERACT)), 'recharge'),
+  ruleC(and(cond('can_assemble', 0), cond('energy_below', 1500)), 'move_toward', ENERGY_NODE),
+  ruleC(and(cond('energy_below', 300), cond('nearby', ENERGY_NODE, INTERACT)), 'recharge'),
+  rule('energy_below', 300, 0, 'move_toward', ENERGY_NODE, 0),
 
-  // 1. Reproduce when ready
-  rule('can_assemble', 0, 0, 'assemble', 0, 0),
+  // 1. Reproduce when ready AND have enough energy (ASSEMBLE costs ~1050)
+  ruleC(and(cond('can_assemble', 0), cond('energy_above', 1200)), 'assemble'),
 
-  // 2. Craft components (only if not already in inventory)
+  // 2. Craft (only if missing and materials available)
   rule('can_craft_missing', CRAFT_FRAME, 0, 'craft', CRAFT_FRAME, 0),
   rule('can_craft_missing', CRAFT_HARVESTER, 0, 'craft', CRAFT_HARVESTER, 0),
   rule('can_craft_missing', CRAFT_ASSEMBLER, 0, 'craft', CRAFT_ASSEMBLER, 0),
@@ -115,17 +129,36 @@ const REPLICATOR_RULES: readonly PrimitiveRule[] = [
   rule('can_craft_missing', CRAFT_CHARGER, 0, 'craft', CRAFT_CHARGER, 0),
   rule('can_craft_missing', CRAFT_SENSOR, 0, 'craft', CRAFT_SENSOR, 0),
 
-  // 3. Process raw materials
+  // 3. Process in small batches (only when energy is sufficient)
+  ruleC(and(cond('energy_above', 300), cond('inventory_has', ORE, 6), cond('can_process', 0)), 'process', 0),
+  ruleC(and(cond('energy_above', 300), cond('inventory_has', CRYSTAL, 6), cond('can_process', 1)), 'process', 1),
+
+  // 4. Recharge when energy low AND near EnergyNode
+  ruleC(and(cond('energy_below', 500), cond('nearby', ENERGY_NODE, INTERACT)), 'recharge'),
+
+  // 5. Harvest — only when we still need the processed form too
+  ruleC(and(cond('nearby', ORE_NODE, INTERACT), cond('inventory_below', ORE, NEED_ORE), cond('inventory_below', METAL, 9)), 'harvest'),
+  ruleC(and(cond('nearby', CRYSTAL_NODE, INTERACT), cond('inventory_below', CRYSTAL, NEED_CRYSTAL), cond('inventory_below', CIRCUIT, 6)), 'harvest'),
+
+  // 6. Move: seek resources based on what we still need
+  // Check remaining components and their material needs:
+  // Assembler(M2+C1), Actuator(M1+C1), Charger(M1+C2) need both Metal and Circuit
+  // If Metal is low, seek Ore; if Circuit is low, seek Crystal
+  // Alternate between Ore and Crystal to gather both efficiently
+  ruleC(and(cond('inventory_below', METAL, 3), cond('inventory_below', ORE, 6)), 'move_toward', ORE_NODE),
+  ruleC(and(cond('inventory_below', CIRCUIT, 3), cond('inventory_below', CRYSTAL, 6)), 'move_toward', CRYSTAL_NODE),
+  rule('inventory_below', ORE, NEED_ORE, 'move_toward', ORE_NODE, 0),
+  rule('inventory_below', CRYSTAL, NEED_CRYSTAL, 'move_toward', CRYSTAL_NODE, 0),
+
+  // 7. Seek energy when low
+  rule('energy_below', 500, 0, 'move_toward', ENERGY_NODE, 0),
+
+  // 8. Process leftover raw materials (after both targets met, some may remain)
   rule('can_process', 0, 0, 'process', 0, 0),
   rule('can_process', 1, 0, 'process', 1, 0),
 
-  // 4. Harvest nearby resources
-  rule('nearby', ORE_NODE, INTERACT, 'harvest', 0, 0),
-  rule('nearby', CRYSTAL_NODE, INTERACT, 'harvest', 0, 0),
-
-  // 6. Move: alternate between Ore and Crystal using tick_mod
-  rule('tick_mod', 2, 0, 'move_toward', ORE_NODE, 0),     // even ticks: seek Ore
-  rule('always', 0, 0, 'move_toward', CRYSTAL_NODE, 0),   // odd ticks: seek Crystal
+  // 9. Default: start next cycle
+  rule('always', 0, 0, 'move_toward', ORE_NODE, 0),
 ];
 
 // Self-referential template: child gets same rules and templates
@@ -156,11 +189,10 @@ export const PRIMITIVE_REPLICATOR: PrimitiveDefinition = {
 // Gatherer (non-replicating, just survives)
 // ============================================================
 const GATHERER_RULES: readonly PrimitiveRule[] = [
-  rule('energy_below', 200, 0, 'recharge', 0, 0),
-  rule('durability_below', 300, 0, 'repair', 0, 0),
+  ruleC(and(cond('energy_below', 500), cond('nearby', ENERGY_NODE, INTERACT)), 'recharge'),
   rule('nearby', ORE_NODE, INTERACT, 'harvest', 0, 0),
   rule('nearby', CRYSTAL_NODE, INTERACT, 'harvest', 0, 0),
-  rule('nearby', ENERGY_NODE, INTERACT, 'recharge', 0, 0),
+  rule('energy_below', 500, 0, 'move_toward', ENERGY_NODE, 0),
   rule('always', 0, 0, 'move_toward', ORE_NODE, 0),
 ];
 

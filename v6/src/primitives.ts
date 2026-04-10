@@ -158,6 +158,14 @@ export function createPrimitiveEngine(params: GameParams): PrimitiveEngine {
           ([item, count]) => (character.inventory[item] ?? 0) >= count,
         );
       }
+      case 'and':
+        return (cond.sub ?? []).every(s => checkCondition(s, character, world, grid));
+      case 'or':
+        return (cond.sub ?? []).some(s => checkCondition(s, character, world, grid));
+      case 'not':
+        return cond.sub !== undefined && cond.sub.length > 0
+          ? !checkCondition(cond.sub[0], character, world, grid)
+          : false;
       default:
         return false;
     }

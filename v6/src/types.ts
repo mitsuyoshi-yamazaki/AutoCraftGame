@@ -159,7 +159,8 @@ export type PrimitiveConditionType =
   | 'can_assemble'
   | 'can_craft'
   | 'can_craft_missing'
-  | 'can_process';
+  | 'can_process'
+  | 'and' | 'or' | 'not';
 
 export type PrimitiveActionType =
   | 'move_toward' | 'move_away' | 'move_random'
@@ -172,6 +173,7 @@ export interface PrimitiveCondition {
   readonly type: PrimitiveConditionType;
   readonly arg0: number;  // interpretation depends on type
   readonly arg1: number;
+  readonly sub?: readonly PrimitiveCondition[];  // for and/or/not combinators
 }
 
 export interface PrimitiveAction {
