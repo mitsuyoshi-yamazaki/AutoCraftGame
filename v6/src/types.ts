@@ -68,6 +68,9 @@ export interface Character {
   readonly energy: number;
   readonly createdAt: number;
   readonly vm: VmState;
+  // Primitive control layer (v6) — used when Processor is absent
+  readonly primitiveRules: readonly PrimitiveRule[];
+  readonly assemblyTemplates: readonly AssemblyTemplate[];
   // M3 (apoptosis) counters — incremented per tick by simulation step 8.5
   readonly idleTickCount: number;        // consecutive ticks with no action reservation
   readonly instrLimitTickCount: number;  // consecutive ticks hitting instructionsPerTick limit
@@ -144,10 +147,68 @@ export type NearbyTargetType =
   | 'OreNode' | 'CrystalNode' | 'EnergyNode'
   | 'Character' | 'InactiveCharacter' | 'Remains';
 
+// === Primitive Control Layer (v6) ===
+
+export type PrimitiveConditionType =
+  | 'always'
+  | 'energy_below' | 'energy_above'
+  | 'durability_below'
+  | 'inventory_has' | 'inventory_below'
+  | 'nearby' | 'not_nearby'
+  | 'tick_mod'
+  | 'can_assemble'
+  | 'can_craft'
+  | 'can_craft_missing'
+  | 'can_process';
+
+export type PrimitiveActionType =
+  | 'move_toward' | 'move_away' | 'move_random'
+  | 'harvest' | 'recharge'
+  | 'process' | 'craft'
+  | 'assemble' | 'repair' | 'disassemble'
+  | 'noop';
+
+export interface PrimitiveCondition {
+  readonly type: PrimitiveConditionType;
+  readonly arg0: number;  // interpretation depends on type
+  readonly arg1: number;
+}
+
+export interface PrimitiveAction {
+  readonly type: PrimitiveActionType;
+  readonly arg0: number;
+  readonly arg1: number;
+}
+
+export interface PrimitiveRule {
+  readonly condition: PrimitiveCondition;
+  readonly action: PrimitiveAction;
+}
+
+export interface AssemblyTemplate {
+  readonly components: readonly ComponentType[];
+  readonly rules: readonly PrimitiveRule[];
+  readonly templates: readonly AssemblyTemplate[];
+}
+
+// === Character (updated with primitives) ===
+// Character type now includes optional primitive fields.
+// See Character interface above — primitiveRules and assemblyTemplates
+// are added there.
+
 // === Program definition (for loading initial programs) ===
 export interface ProgramDefinition {
   readonly name: string;
   readonly components: readonly ComponentType[];
   readonly program: readonly number[];
+  readonly count?: number;
+}
+
+// === Primitive definition (for loading primitive-based characters) ===
+export interface PrimitiveDefinition {
+  readonly name: string;
+  readonly components: readonly ComponentType[];
+  readonly rules: readonly PrimitiveRule[];
+  readonly templates: readonly AssemblyTemplate[];
   readonly count?: number;
 }

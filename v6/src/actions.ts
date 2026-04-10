@@ -16,6 +16,8 @@ import type {
   ActionRecord,
   ActionFailureReason,
   SimulationEvent,
+  PrimitiveRule,
+  AssemblyTemplate,
 } from './types.js';
 import { hasComponent } from './character.js';
 import type { CharacterEngine } from './character.js';
@@ -476,10 +478,23 @@ export function createActionEngine(
 
     // Create child character
     const { id: childId, world: worldWithId } = nextCharacterId(world);
-    const child = characterEngine.createInactiveCharacter(
-      childId, spawnPos, components,
-      params.assembleEnergyTransfer, character.species, world.tick,
-    );
+    const template = reservation.primitiveTemplate;
+
+    let child: Character;
+    if (template) {
+      // Primitive ASSEMBLE: transfer rules and templates from template to child
+      const mutatedRules = mutateRules(template.rules, world.tick);
+      const mutatedTemplates = mutateTemplates(template.templates, world.tick);
+      child = characterEngine.createPrimitiveCharacter(
+        childId, spawnPos, components, mutatedRules, mutatedTemplates,
+        params.assembleEnergyTransfer, character.species, world.tick,
+      );
+    } else {
+      child = characterEngine.createInactiveCharacter(
+        childId, spawnPos, components,
+        params.assembleEnergyTransfer, character.species, world.tick,
+      );
+    }
 
     let newWorld = updateCharacter(worldWithId, updatedParent);
     newWorld = addCharacter(newWorld, child);
@@ -673,15 +688,19 @@ export function createActionEngine(
       return { world, success: false, reason: 'MISSING_COMPONENT', events: [] };
     }
 
-    const targetSystemId = resolveLocalId(reservation.targetLocalId, localIdTable);
-    if (!targetSystemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
-
-    const remains = world.remains.find(r => r.id === targetSystemId);
-    if (!remains) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
-
-    // Range check
-    if (distance(character.position, remains.position) > params.interactRange) {
-      return { world, success: false, reason: 'OUT_OF_RANGE', events: [] };
+    let remains: import('./types.js').Remains | null | undefined;
+    if (reservation.targetLocalId !== 0) {
+      const targetSystemId = resolveLocalId(reservation.targetLocalId, localIdTable);
+      if (!targetSystemId) return { world, success: false, reason: 'INVALID_TARGET', events: [] };
+      remains = world.remains.find(r => r.id === targetSystemId);
+      if (!remains) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
+      if (distance(character.position, remains.position) > params.interactRange) {
+        return { world, success: false, reason: 'OUT_OF_RANGE', events: [] };
+      }
+    } else {
+      // targetLocalId === 0: find nearest remains in interactRange
+      remains = worldEngine.findNearestRemains(world, character.position, grid);
+      if (!remains) return { world, success: false, reason: 'TARGET_NOT_FOUND', events: [] };
     }
 
     // Try inventory items first (alphabetical order)
@@ -786,6 +805,51 @@ export function createActionEngine(
     }
 
     return { updatedChar, updatedWorld };
+  }
+
+  // ============================================================
+  // Primitive mutation (v6)
+  // ============================================================
+  const MUTATION_RATE = 0.02;
+  const MUTATION_RANGE = 3;
+
+  function mutateNumber(value: number, seed: number): number {
+    // Simple deterministic mutation: small delta
+    const delta = ((seed % (MUTATION_RANGE * 2 + 1)) - MUTATION_RANGE);
+    return Math.max(0, (value + delta) & 0xFFFF);
+  }
+
+  function shouldMutate(seed: number): boolean {
+    return (seed % 100) < (MUTATION_RATE * 100);
+  }
+
+  function mutateRules(rules: readonly PrimitiveRule[], tickSeed: number): readonly PrimitiveRule[] {
+    return rules.map((rule, i) => {
+      const s = (tickSeed * 31 + i * 7) >>> 0;
+      const cond = { ...rule.condition };
+      const act = { ...rule.action };
+      if (shouldMutate((s * 13) >>> 0)) {
+        return {
+          condition: { ...cond, arg0: mutateNumber(cond.arg0, (s * 17) >>> 0) },
+          action: act,
+        };
+      }
+      if (shouldMutate((s * 19) >>> 0)) {
+        return {
+          condition: cond,
+          action: { ...act, arg0: mutateNumber(act.arg0, (s * 23) >>> 0) },
+        };
+      }
+      return rule;
+    });
+  }
+
+  function mutateTemplates(templates: readonly AssemblyTemplate[], tickSeed: number): readonly AssemblyTemplate[] {
+    return templates.map((t, i) => ({
+      ...t,
+      rules: mutateRules(t.rules, (tickSeed * 37 + i * 11) >>> 0),
+      templates: mutateTemplates(t.templates, (tickSeed * 41 + i * 13) >>> 0),
+    }));
   }
 
   return { executeReservations };

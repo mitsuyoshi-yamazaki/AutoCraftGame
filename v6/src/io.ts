@@ -120,6 +120,7 @@ export interface AssembleReservation {
   readonly slotIndex: number;
   readonly components: readonly ComponentType[];
   readonly childLocalId: number;
+  readonly primitiveTemplate?: import('./types.js').AssemblyTemplate;  // v6: for primitive ASSEMBLE
 }
 
 export interface RepairReservation {

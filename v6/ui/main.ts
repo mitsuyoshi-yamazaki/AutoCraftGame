@@ -96,7 +96,7 @@ function buildSaveFileName(
   tick: number,
 ): string {
   const base = resumedAt ?? sessionStartedAt;
-  return `autocraft-v5-${base}-tick${tick}.json`;
+  return `autocraft-v6-${base}-tick${tick}.json`;
 }
 
 // ============================================================

@@ -1,4 +1,4 @@
-import type { Character, ComponentType, VmState, Position, Inventory, Velocity } from './types.js';
+import type { Character, ComponentType, VmState, Position, Inventory, Velocity, PrimitiveRule, AssemblyTemplate } from './types.js';
 import type { GameParams } from './params.js';
 import { inventoryTotalCount } from './recipes.js';
 
@@ -11,6 +11,11 @@ export function hasComponent(character: Character, component: ComponentType): bo
 
 export function isActive(character: Character): boolean {
   return character.vm.active;
+}
+
+/** Returns true if the character has any form of control (VM or primitives). */
+export function isControlled(character: Character): boolean {
+  return character.vm.active || character.primitiveRules.length > 0;
 }
 
 export function isDead(character: Character): boolean {
@@ -62,6 +67,11 @@ export interface CharacterEngine {
     id: string, position: Position, components: readonly ComponentType[],
     energy: number, species: string, createdAt: number,
   ): Character;
+  createPrimitiveCharacter(
+    id: string, position: Position, components: readonly ComponentType[],
+    rules: readonly PrimitiveRule[], templates: readonly AssemblyTemplate[],
+    energy: number, species: string, createdAt: number,
+  ): Character;
   calculateEnergyMetabolism(energy: number): number;
   calculateAgingCoefficient(age: number): number;
   calculateBasalMetabolism(character: Character, currentTick: number): number;
@@ -98,6 +108,8 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
       energy,
       createdAt,
       vm: createActiveVmState(memorySize, program),
+      primitiveRules: [],
+      assemblyTemplates: [],
       idleTickCount: 0,
       instrLimitTickCount: 0,
     };
@@ -124,6 +136,37 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
       energy,
       createdAt,
       vm: createInactiveVmState(memorySize),
+      primitiveRules: [],
+      assemblyTemplates: [],
+      idleTickCount: 0,
+      instrLimitTickCount: 0,
+    };
+  }
+
+  function createPrimitiveCharacterFn(
+    id: string,
+    position: Position,
+    components: readonly ComponentType[],
+    rules: readonly PrimitiveRule[],
+    templates: readonly AssemblyTemplate[],
+    energy: number,
+    species: string,
+    createdAt: number,
+  ): Character {
+    const frameCount = components.filter((c) => c === 'Frame').length;
+    return {
+      id,
+      species,
+      position,
+      velocity: { vx: 0, vy: 0 },
+      components,
+      inventory: {},
+      durability: frameCount * params.frameDurability,
+      energy,
+      createdAt,
+      vm: createInactiveVmState(0),  // No VM memory for primitive characters
+      primitiveRules: rules,
+      assemblyTemplates: templates,
       idleTickCount: 0,
       instrLimitTickCount: 0,
     };
@@ -171,6 +214,7 @@ export function createCharacterEngine(params: GameParams): CharacterEngine {
   return {
     createCharacter: createCharacterFn,
     createInactiveCharacter: createInactiveCharacterFn,
+    createPrimitiveCharacter: createPrimitiveCharacterFn,
     calculateEnergyMetabolism,
     calculateAgingCoefficient,
     calculateBasalMetabolism,

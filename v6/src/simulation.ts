@@ -42,6 +42,7 @@ import { executeOneTick } from './vm/vm.js';
 import { createIoHandler, buildWorldLookup } from './io.js';
 import type { IoResult, ActionReservation } from './io.js';
 import type { ReflexEngine } from './reflexes.js';
+import type { PrimitiveEngine } from './primitives.js';
 
 // ============================================================
 // SimulationEngine
@@ -60,13 +61,14 @@ export interface SimulationEngineDeps {
   actionEngine: ActionEngine;
   physicsEngine: PhysicsEngine;
   reflexEngine: ReflexEngine;
+  primitiveEngine: PrimitiveEngine;
 }
 
 export function createSimulationEngine(
   params: GameParams,
   deps: SimulationEngineDeps,
 ): SimulationEngine {
-  const { characterEngine, actionEngine, physicsEngine, reflexEngine } = deps;
+  const { characterEngine, actionEngine, physicsEngine, reflexEngine, primitiveEngine } = deps;
 
   function executeTick(world: World): TickResult {
     let currentWorld = world;
@@ -94,57 +96,60 @@ export function createSimulationEngine(
     }[] = [];
 
     for (const character of currentWorld.characters) {
-      if (!isActive(character)) continue;
+      const hasPrimitives = character.primitiveRules.length > 0;
 
-      // Create I/O handler for this character
-      const ioHandler = createIoHandler(character, currentWorld, params, grid, lookup);
+      if (isActive(character)) {
+        // --- VM-based control (existing) ---
+        const ioHandler = createIoHandler(character, currentWorld, params, grid, lookup);
+        const execResult = executeOneTick(
+          character.vm,
+          ioHandler.ioRead,
+          ioHandler.ioWrite,
+          params.instructionsPerTick,
+        );
 
-      // Run VM
-      const execResult = executeOneTick(
-        character.vm,
-        ioHandler.ioRead,
-        ioHandler.ioWrite,
-        params.instructionsPerTick,
-      );
+        if (execResult.hitLimit) instructionLimitHits.add(character.id);
+        if (execResult.checkpointHit) checkpointHits.add(character.id);
 
-      if (execResult.hitLimit) {
-        instructionLimitHits.add(character.id);
+        const ioResult = ioHandler.getResult();
+        const updatedCharacter = setVmState(character, {
+          ...execResult.vm,
+          localIdTable: ioResult.updatedVmLocalIdTable,
+          localIdCounter: ioResult.updatedVmLocalIdCounter,
+        });
+        currentWorld = updateCharacter(currentWorld, updatedCharacter);
+
+        // Step 2.5: Reflex injection (M2)
+        const reflexResult = reflexEngine.injectReflexes(
+          updatedCharacter, currentWorld, ioResult.reservations, grid,
+        );
+        if (reflexResult.fired) reflexHits.add(character.id);
+
+        characterIoResults.push({
+          characterId: character.id,
+          reservations: reflexResult.reservations,
+          localIdTable: ioResult.updatedVmLocalIdTable,
+          localIdCounter: ioResult.updatedVmLocalIdCounter,
+        });
+
+      } else if (hasPrimitives) {
+        // --- Primitive-based control (v6) ---
+        const primitiveReservations = primitiveEngine.evaluate(character, currentWorld, grid);
+
+        // Reflex injection applies to primitive characters too
+        const reflexResult = reflexEngine.injectReflexes(
+          character, currentWorld, primitiveReservations, grid,
+        );
+        if (reflexResult.fired) reflexHits.add(character.id);
+
+        characterIoResults.push({
+          characterId: character.id,
+          reservations: reflexResult.reservations,
+          localIdTable: character.vm.localIdTable,
+          localIdCounter: character.vm.localIdCounter,
+        });
       }
-      if (execResult.checkpointHit) {
-        checkpointHits.add(character.id);
-      }
-
-      // Get I/O results (reservations, updated local ID state)
-      const ioResult = ioHandler.getResult();
-
-      // Update VM state on character (pc, registers, memory persisted;
-      // localIdTable and localIdCounter updated from I/O handler)
-      const updatedCharacter = setVmState(character, {
-        ...execResult.vm,
-        localIdTable: ioResult.updatedVmLocalIdTable,
-        localIdCounter: ioResult.updatedVmLocalIdCounter,
-      });
-      currentWorld = updateCharacter(currentWorld, updatedCharacter);
-
-      // Step 2.5: Reflex injection (M2)
-      // Append synthetic reservations for survival actions if the program
-      // has not already issued the corresponding action.
-      const reflexResult = reflexEngine.injectReflexes(
-        updatedCharacter,
-        currentWorld,
-        ioResult.reservations,
-        grid,
-      );
-      if (reflexResult.fired) {
-        reflexHits.add(character.id);
-      }
-
-      characterIoResults.push({
-        characterId: character.id,
-        reservations: reflexResult.reservations,
-        localIdTable: ioResult.updatedVmLocalIdTable,
-        localIdCounter: ioResult.updatedVmLocalIdCounter,
-      });
+      // else: no Processor and no primitives — character does nothing (reflex-only via M2)
     }
 
     // Step 3: Execute all reserved actions (character ID ascending order)
