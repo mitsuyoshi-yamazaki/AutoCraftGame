@@ -1,0 +1,24 @@
+{
+  "name": "auto-craft-game-v7",
+  "version": "7.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --root .",
+    "sim": "npx tsx src/cli.ts",
+    "compile": "npx tsx src/tools/compile.ts",
+    "assemble": "npx tsx src/tools/assemble.ts",
+    "ui": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.10.0",
+    "typescript": "^5.4.0",
+    "vite": "^8.0.3",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "pixi.js": "^8.17.1"
+  }
+}

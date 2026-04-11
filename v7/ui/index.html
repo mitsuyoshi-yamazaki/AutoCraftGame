@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoCraft Game v5</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <!-- Control Bar -->
+  <div id="controls">
+    <button id="btn-reset" title="Reset with random seed">Reset</button>
+    <button id="btn-fit" title="Fit to window">Fit</button>
+    <button id="btn-save" title="Save game state">Save</button>
+    <button id="btn-load" title="Load game state">Load</button>
+    <button id="btn-play-pause" title="Space to toggle">&#9654;</button>
+    <button id="btn-step" title="Advance 1 tick (paused only)">Step</button>
+    <label>
+      tick/s:
+      <button id="btn-speed-down">&#9664;</button>
+      <span id="speed-display">5</span>
+      <button id="btn-speed-up">&#9654;</button>
+    </label>
+    <span id="tick-display">Tick: 0</span>
+    <span id="version-display"></span>
+  </div>
+
+  <!-- Main Area -->
+  <div id="main">
+    <!-- Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- Side Panel -->
+    <div id="side-panel">
+      <!-- Stats -->
+      <div id="stats" class="panel-section">
+        <h3>Stats</h3>
+        <div>Characters: <span id="stat-characters">0</span></div>
+        <div>Births: <span id="stat-births">0</span></div>
+        <div>Deaths: <span id="stat-deaths">0</span></div>
+        <div>Remains: <span id="stat-remains">0</span></div>
+        <hr>
+        <div id="stat-oldest"></div>
+        <div id="stat-species"></div>
+      </div>
+
+      <!-- Selected Object -->
+      <div id="selected" class="panel-section">
+        <h3>Selected</h3>
+        <div id="selected-content"><em>Click an object</em></div>
+      </div>
+
+      <!-- VM State (character only) -->
+      <div id="vm-panel" class="panel-section" style="display: none;">
+        <h3>VM State</h3>
+        <div id="vm-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event Log -->
+  <div id="event-log" class="panel-section">
+    <h3>Event Log</h3>
+    <div id="event-log-content"></div>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
