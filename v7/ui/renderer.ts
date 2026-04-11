@@ -1,346 +1,65 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import type {
   World,
-  Character,
-  ResourceNode,
-  EnergyNode,
-  Remains,
+  WorldObject,
+  AssemblerObject,
+  ProcessorObject,
+  MaterialObject,
+  EnergyObject,
   Position,
-  ComponentType,
 } from '@/types.js';
-import { DEFAULT_GAME_PARAMS } from '@/params.js';
-
-const CHARACTER_RADIUS = DEFAULT_GAME_PARAMS.characterRadius;
-const RESOURCE_NODE_RADIUS = DEFAULT_GAME_PARAMS.resourceNodeRadius;
-const ENERGY_NODE_RADIUS = DEFAULT_GAME_PARAMS.energyNodeRadius;
-const REMAINS_RADIUS = DEFAULT_GAME_PARAMS.remainsRadius;
-const SENSE_RANGE = DEFAULT_GAME_PARAMS.senseRange;
-const FRAME_DURABILITY = DEFAULT_GAME_PARAMS.frameDurability;
 
 // ============================================================
-// Color constants
+// Colors
 // ============================================================
-export const COLORS = {
+const COLORS = {
   background: 0x1a2a1a,
   wall: 0x333333,
+  assembler: 0x42a5f5,
+  assemblerBusy: 0x1565c0,
+  processor: 0xef5350,
+  processorStopped: 0x8a3030,
   ore: 0x8899aa,
   crystal: 0x99cc88,
+  metal: 0x607d8b,
+  circuit: 0x4caf50,
   energy: 0xffd700,
-  remains: 0x555555,
   selected: 0xffd700,
 } as const;
 
-export const COMPONENT_COLORS: Record<ComponentType, number> = {
-  Frame: 0x78909c,
-  Actuator: 0x66bb6a,
-  Sensor: 0xffee58,
-  Processor: 0xef5350,
-  Harvester: 0x8d6e63,
-  Assembler: 0x42a5f5,
-  Disassembler: 0x7e57c2,
-  Charger: 0xffa726,
-  MemoryCore: 0xab47bc,
-};
+// ============================================================
+// Sizes
+// ============================================================
+const COMPONENT_RADIUS = 0.4;
+const MATERIAL_RADIUS = 0.2;
+const MIN_ENERGY_RADIUS = 0.15;
+const MAX_ENERGY_RADIUS = 0.6;
 
-const INACTIVE_ALPHA = 0.65;
-
-// LOD: simplified rendering when screen radius is below this
-const LOD_THRESHOLD_PX = 8;
-
-// Zoom limits
 const MAX_ZOOM = 20;
 const ZOOM_FACTOR = 1.15;
-
-// Drag threshold: movement above this = pan, not click
 const DRAG_THRESHOLD = 4;
 
-// Margin (in pixels) allowed beyond map edge when panning
-const PAN_MARGIN = 0;
+export type DrawSelection = { kind: string; id: string } | null;
 
-// ============================================================
-// Selection info for rendering
-// ============================================================
-export type DrawSelection =
-  | { kind: 'character'; id: string }
-  | { kind: 'resourceNode'; id: string }
-  | { kind: 'energyNode'; id: string }
-  | { kind: 'remains'; id: string }
-  | { kind: 'ground'; cellX: number; cellY: number }
+type HitResult =
+  | { kind: 'object'; object: WorldObject }
+  | { kind: 'ground'; position: Position }
   | null;
 
 // ============================================================
-// HitResult — what was clicked
-// ============================================================
-export type HitResult =
-  | { kind: 'character'; character: Character }
-  | { kind: 'resourceNode'; resourceNode: ResourceNode }
-  | { kind: 'energyNode'; energyNode: EnergyNode }
-  | { kind: 'remains'; remains: Remains }
-  | { kind: 'ground'; position: Position };
-
-// ============================================================
-// Coordinate transform
-// ============================================================
-interface Transform {
-  baseScale: number;
-  zoom: number;
-  offsetX: number;
-  offsetY: number;
-}
-
-function effectiveScale(t: Transform): number {
-  return t.baseScale * t.zoom;
-}
-
-function worldToScreen(pos: Position, t: Transform): { sx: number; sy: number } {
-  const s = effectiveScale(t);
-  return { sx: pos.x * s + t.offsetX, sy: pos.y * s + t.offsetY };
-}
-
-function screenToWorld(sx: number, sy: number, t: Transform): Position {
-  const s = effectiveScale(t);
-  return { x: (sx - t.offsetX) / s, y: (sy - t.offsetY) / s };
-}
-
-function isLOD(worldRadius: number, t: Transform): boolean {
-  return worldRadius * effectiveScale(t) < LOD_THRESHOLD_PX;
-}
-
-// ============================================================
-// Drawing: LOD (simplified)
-// ============================================================
-
-function drawResourceNodeLOD(node: ResourceNode, t: Transform, maxRemaining: number): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(node.position, t);
-  const r = Math.max(2, RESOURCE_NODE_RADIUS * effectiveScale(t));
-  const color = node.type === 'OreNode' ? COLORS.ore : COLORS.crystal;
-  const ratio = Math.max(0.15, node.remaining / Math.max(1, maxRemaining));
-  const bodySize = r * 1.6;
-  const cornerR = bodySize * 0.2;
-  g.roundRect(sx - bodySize / 2, sy - bodySize / 2, bodySize, bodySize, cornerR);
-  g.fill({ color, alpha: ratio });
-  return g;
-}
-
-function drawEnergyNodeLOD(node: EnergyNode, t: Transform): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(node.position, t);
-  const r = Math.max(2, ENERGY_NODE_RADIUS * effectiveScale(t));
-  const ratio = Math.max(0.1, node.stored / Math.max(1, node.maxStored));
-  const s = r * 0.9;
-  g.moveTo(sx, sy - s);
-  g.lineTo(sx + s, sy);
-  g.lineTo(sx, sy + s);
-  g.lineTo(sx - s, sy);
-  g.closePath();
-  g.fill({ color: COLORS.energy, alpha: ratio * 0.9 });
-  return g;
-}
-
-function drawRemainsLOD(remains: Remains, t: Transform): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(remains.position, t);
-  const r = Math.max(1.5, REMAINS_RADIUS * effectiveScale(t));
-  g.circle(sx, sy, r);
-  g.fill({ color: COLORS.remains, alpha: 0.5 });
-  return g;
-}
-
-function drawCharacterLOD(char: Character, t: Transform, selected: boolean): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(char.position, t);
-  const outerR = Math.max(2, CHARACTER_RADIUS * effectiveScale(t));
-  const active = char.vm.active;
-
-  // Black outer circle
-  g.circle(sx, sy, outerR);
-  g.fill({ color: active ? 0x111111 : 0x2a2a2a, alpha: 0.9 });
-
-  // Durability red core
-  const ratio = durRatio(char);
-  if (ratio > 0) {
-    const nucleusR = outerR * 0.7 * Math.sqrt(ratio);
-    if (nucleusR > 0.5) {
-      g.circle(sx, sy, nucleusR);
-      g.fill({ color: active ? 0xef5350 : 0x666666, alpha: active ? 0.85 : 0.4 });
-    }
-  }
-
-  if (selected) {
-    g.circle(sx, sy, outerR + 2);
-    g.stroke({ color: COLORS.selected, width: 1.5, alpha: 0.9 });
-  }
-
-  return g;
-}
-
-// ============================================================
-// Drawing: Detailed (existing)
-// ============================================================
-
-function drawResourceNode(node: ResourceNode, t: Transform, maxRemaining: number): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(node.position, t);
-  const r = RESOURCE_NODE_RADIUS * effectiveScale(t);
-  const color = node.type === 'OreNode' ? COLORS.ore : COLORS.crystal;
-  const ratio = Math.max(0.15, node.remaining / Math.max(1, maxRemaining));
-
-  const bodySize = r * 1.6;
-  const cornerR = bodySize * 0.2;
-  g.roundRect(sx - bodySize / 2, sy - bodySize / 2, bodySize, bodySize, cornerR);
-  g.fill({ color, alpha: ratio });
-  return g;
-}
-
-function drawEnergyNode(node: EnergyNode, t: Transform): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(node.position, t);
-  const r = ENERGY_NODE_RADIUS * effectiveScale(t);
-  const ratio = Math.max(0.1, node.stored / Math.max(1, node.maxStored));
-
-  const s = r * 0.9;
-  g.moveTo(sx, sy - s);
-  g.lineTo(sx + s, sy);
-  g.lineTo(sx, sy + s);
-  g.lineTo(sx - s, sy);
-  g.closePath();
-  g.fill({ color: COLORS.energy, alpha: ratio * 0.9 });
-  return g;
-}
-
-function drawRemains(remains: Remains, t: Transform): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(remains.position, t);
-  const r = REMAINS_RADIUS * effectiveScale(t);
-
-  const totalItems = remains.components.length +
-    Object.values(remains.inventory).reduce((sum, n) => sum + n, 0);
-  const fillRatio = Math.min(1, totalItems / 10);
-
-  const arcW = Math.max(1, r * 0.15);
-  const startA1 = 0;
-  const endA1 = Math.PI * 0.6;
-  g.moveTo(sx + Math.cos(startA1) * r, sy + Math.sin(startA1) * r);
-  g.arc(sx, sy, r, startA1, endA1);
-  g.stroke({ color: COLORS.remains, width: arcW, alpha: 0.6 });
-
-  const startA2 = Math.PI * 0.8;
-  const endA2 = Math.PI * 1.5;
-  g.moveTo(sx + Math.cos(startA2) * r, sy + Math.sin(startA2) * r);
-  g.arc(sx, sy, r, startA2, endA2);
-  g.stroke({ color: COLORS.remains, width: arcW, alpha: 0.4 });
-
-  if (fillRatio > 0) {
-    g.circle(sx, sy, r * 0.4 * fillRatio);
-    g.fill({ color: COLORS.remains, alpha: 0.3 + fillRatio * 0.3 });
-  }
-  return g;
-}
-
-function drawCharacter(char: Character, t: Transform, selected: boolean): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(char.position, t);
-  const outerR = CHARACTER_RADIUS * effectiveScale(t);
-  const active = char.vm.active;
-  const ratio = durRatio(char);
-  const maxNucleusR = outerR * 0.35;
-  const ringWidth = Math.max(1, outerR * 0.12);
-
-  // Cytoplasm
-  g.circle(sx, sy, outerR);
-  g.fill({ color: active ? 0x1a3a4a : 0x2a2a2a, alpha: active ? 0.35 : 0.12 });
-
-  // Component ring
-  const counts = componentCounts(char);
-  const total = counts.reduce((sum, [, n]) => sum + n, 0);
-  if (total > 0) {
-    const ringR = outerR - ringWidth / 2;
-    let currentAngle = -Math.PI / 2;
-    for (const [type, count] of counts) {
-      const arcAngle = (Math.PI * 2 * count) / total;
-      const color = active ? COMPONENT_COLORS[type] : 0x666666;
-      const startX = sx + Math.cos(currentAngle) * ringR;
-      const startY = sy + Math.sin(currentAngle) * ringR;
-      g.moveTo(startX, startY);
-      g.arc(sx, sy, ringR, currentAngle, currentAngle + arcAngle);
-      g.stroke({ color, width: ringWidth, alpha: active ? 0.85 : 0.35 });
-      currentAngle += arcAngle;
-    }
-  }
-
-  // Energy ring
-  const energyRatio = Math.min(1, Math.max(0, char.energy / 5000));
-  if (energyRatio > 0 && active) {
-    const energyR = outerR - ringWidth - outerR * 0.04;
-    const energyAngle = Math.PI * 2 * energyRatio;
-    const startAngle = -Math.PI / 2;
-    const eStartX = sx + Math.cos(startAngle) * energyR;
-    const eStartY = sy + Math.sin(startAngle) * energyR;
-    g.moveTo(eStartX, eStartY);
-    g.arc(sx, sy, energyR, startAngle, startAngle + energyAngle);
-    g.stroke({ color: COLORS.energy, width: Math.max(1, outerR * 0.06), alpha: 0.6 });
-  }
-
-  // Selection ring
-  if (selected) {
-    g.circle(sx, sy, outerR + 2);
-    g.stroke({ color: COLORS.selected, width: 2, alpha: 0.9 });
-  }
-
-  // Nucleus
-  const nucleusR = maxNucleusR * Math.sqrt(ratio);
-  const nucleusColor = active
-    ? (char.components.includes('Processor') ? COMPONENT_COLORS.Processor : 0x555555)
-    : 0x555555;
-
-  if (nucleusR > 0.5) {
-    g.circle(sx, sy, nucleusR);
-    g.fill({ color: nucleusColor, alpha: active ? 0.8 : 0.3 });
-  }
-
-  if (!active) {
-    g.circle(sx, sy, outerR);
-    g.fill({ color: 0x000000, alpha: 1 - INACTIVE_ALPHA });
-  }
-
-  return g;
-}
-
-// ============================================================
-// Helpers
-// ============================================================
-function durRatio(char: Character): number {
-  const maxDur = char.components.filter((c) => c === 'Frame').length * FRAME_DURABILITY;
-  return maxDur > 0 ? Math.max(0, Math.min(1, char.durability / maxDur)) : 0;
-}
-
-function componentCounts(char: Character): [ComponentType, number][] {
-  const map = new Map<ComponentType, number>();
-  for (const c of char.components) {
-    map.set(c, (map.get(c) ?? 0) + 1);
-  }
-  return Array.from(map.entries());
-}
-
-function drawObjectSelection(pos: Position, worldRadius: number, t: Transform): Graphics {
-  const g = new Graphics();
-  const { sx, sy } = worldToScreen(pos, t);
-  const screenR = Math.max(3, worldRadius * effectiveScale(t)) + 2;
-  g.circle(sx, sy, screenR);
-  g.stroke({ color: COLORS.selected, width: 2, alpha: 0.9 });
-  return g;
-}
-
-// ============================================================
-// Renderer class
+// Renderer
 // ============================================================
 export class Renderer {
-  readonly app: Application;
-  private worldContainer = new Container();
-  private transform: Transform = { baseScale: 1, zoom: 1, offsetX: 0, offsetY: 0 };
-  private worldWidth = 0;
-  private worldHeight = 0;
+  private app!: Application;
+  private worldContainer!: Container;
+  private gfx!: Graphics;
+  private width = 0;
+  private height = 0;
+
+  // Pan/zoom state
+  private viewX = 0;
+  private viewY = 0;
+  private zoom = 1;
 
   // Interaction state
   private dragging = false;
@@ -348,294 +67,195 @@ export class Renderer {
   private dragStartY = 0;
   private dragMoved = false;
 
-  constructor() {
-    this.app = new Application();
-  }
-
   async init(container: HTMLElement): Promise<void> {
+    this.app = new Application();
     await this.app.init({
-      background: COLORS.background,
       resizeTo: container,
+      backgroundColor: COLORS.background,
       antialias: true,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true,
     });
-    this.app.ticker.stop();
-    container.appendChild(this.app.canvas);
+    container.appendChild(this.app.canvas as HTMLCanvasElement);
+
+    this.worldContainer = new Container();
     this.app.stage.addChild(this.worldContainer);
+
+    this.gfx = new Graphics();
+    this.worldContainer.addChild(this.gfx);
   }
 
-  /** Set up zoom/pan/click interaction. Call once after init. */
-  setupInteraction(onSelect: (hit: HitResult | null) => void, getWorld: () => World, onViewChange: () => void): void {
-    const canvas = this.app.canvas;
+  resetView(worldWidth: number, worldHeight: number): void {
+    this.width = worldWidth;
+    this.height = worldHeight;
+    const scaleX = this.app.screen.width / worldWidth;
+    const scaleY = this.app.screen.height / worldHeight;
+    this.zoom = Math.min(scaleX, scaleY) * 0.95;
+    this.viewX = worldWidth / 2;
+    this.viewY = worldHeight / 2;
+    this.applyTransform();
+  }
 
-    // Wheel zoom — centered on cursor
-    canvas.addEventListener('wheel', (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+  setupInteraction(
+    onClick: (hit: HitResult) => void,
+    getWorld: () => World,
+    onPanZoom: () => void,
+  ): void {
+    const canvas = this.app.canvas as HTMLCanvasElement;
 
-      const worldBefore = screenToWorld(mouseX, mouseY, this.transform);
-      const zoomDir = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
-      const world = getWorld();
-      this.worldWidth = world.width;
-      this.worldHeight = world.height;
-      const fitZoom = this.computeFitZoom(world.width, world.height);
-      const newZoom = Math.max(fitZoom, Math.min(MAX_ZOOM, this.transform.zoom * zoomDir));
-      this.transform = { ...this.transform, zoom: newZoom };
-
-      // Adjust offset so that worldBefore stays at mouseX/mouseY
-      const s = effectiveScale(this.transform);
-      this.transform = {
-        ...this.transform,
-        offsetX: mouseX - worldBefore.x * s,
-        offsetY: mouseY - worldBefore.y * s,
-      };
-      this.clampOffset();
-      onViewChange();
-    }, { passive: false });
-
-    // Mouse drag for pan
-    canvas.addEventListener('mousedown', (e: MouseEvent) => {
+    canvas.addEventListener('mousedown', (e) => {
       this.dragging = true;
       this.dragStartX = e.clientX;
       this.dragStartY = e.clientY;
       this.dragMoved = false;
     });
 
-    window.addEventListener('mousemove', (e: MouseEvent) => {
+    canvas.addEventListener('mousemove', (e) => {
       if (!this.dragging) return;
       const dx = e.clientX - this.dragStartX;
       const dy = e.clientY - this.dragStartY;
-      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-        this.dragMoved = true;
-      }
+      if (Math.abs(dx) + Math.abs(dy) > DRAG_THRESHOLD) this.dragMoved = true;
       if (this.dragMoved) {
-        this.transform = {
-          ...this.transform,
-          offsetX: this.transform.offsetX + dx,
-          offsetY: this.transform.offsetY + dy,
-        };
-        this.clampOffset();
+        this.viewX -= dx / this.zoom;
+        this.viewY -= dy / this.zoom;
         this.dragStartX = e.clientX;
         this.dragStartY = e.clientY;
-        onViewChange();
+        this.applyTransform();
+        onPanZoom();
       }
     });
 
-    window.addEventListener('mouseup', (e: MouseEvent) => {
-      if (!this.dragging) return;
+    canvas.addEventListener('mouseup', (e) => {
       this.dragging = false;
-
-      // If not a drag, treat as click (selection)
       if (!this.dragMoved) {
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
         const world = getWorld();
-        const hit = this.hitTest(world, x, y);
-        onSelect(hit);
+        const worldPos = this.screenToWorld(e.clientX, e.clientY);
+        const hit = this.hitTest(world, worldPos);
+        onClick(hit);
       }
     });
-  }
 
-  /** Compute the zoom level at which the world exactly fits the canvas. */
-  private computeFitZoom(worldW: number, worldH: number): number {
-    const canvasW = this.app.canvas.clientWidth || 1;
-    const canvasH = this.app.canvas.clientHeight || 1;
-    const bs = this.transform.baseScale;
-    if (bs <= 0) return 1;
-    return Math.min(canvasW / (bs * worldW), canvasH / (bs * worldH));
-  }
-
-  /** Clamp offset so the view stays within map boundaries. */
-  private clampOffset(): void {
-    const canvasW = this.app.canvas.clientWidth;
-    const canvasH = this.app.canvas.clientHeight;
-    const s = effectiveScale(this.transform);
-    const worldScreenW = this.worldWidth * s;
-    const worldScreenH = this.worldHeight * s;
-
-    let { offsetX, offsetY } = this.transform;
-
-    if (worldScreenW >= canvasW) {
-      offsetX = Math.min(PAN_MARGIN, Math.max(canvasW - worldScreenW - PAN_MARGIN, offsetX));
-    } else {
-      offsetX = (canvasW - worldScreenW) / 2;
-    }
-
-    if (worldScreenH >= canvasH) {
-      offsetY = Math.min(PAN_MARGIN, Math.max(canvasH - worldScreenH - PAN_MARGIN, offsetY));
-    } else {
-      offsetY = (canvasH - worldScreenH) / 2;
-    }
-
-    this.transform = { ...this.transform, offsetX, offsetY };
-  }
-
-  /** Pan to center on a world position if it is currently off-screen. */
-  panToIfOffscreen(pos: Position): void {
-    const { sx, sy } = worldToScreen(pos, this.transform);
-    const canvasW = this.app.canvas.clientWidth;
-    const canvasH = this.app.canvas.clientHeight;
-
-    if (sx >= 0 && sx <= canvasW && sy >= 0 && sy <= canvasH) return;
-
-    const s = effectiveScale(this.transform);
-    this.transform = {
-      ...this.transform,
-      offsetX: canvasW / 2 - pos.x * s,
-      offsetY: canvasH / 2 - pos.y * s,
-    };
-    this.clampOffset();
-  }
-
-  /** Reset zoom/pan to fit world. */
-  resetView(worldW: number, worldH: number): void {
-    const canvasW = this.app.canvas.clientWidth;
-    const canvasH = this.app.canvas.clientHeight;
-    const margin = 20;
-    const baseScale = Math.min((canvasW - margin * 2) / worldW, (canvasH - margin * 2) / worldH);
-    const offsetX = (canvasW - worldW * baseScale) / 2;
-    const offsetY = (canvasH - worldH * baseScale) / 2;
-    this.transform = { baseScale, zoom: 1, offsetX, offsetY };
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+      const newZoom = Math.max(0.5, Math.min(MAX_ZOOM, this.zoom * factor));
+      this.zoom = newZoom;
+      this.applyTransform();
+      onPanZoom();
+    });
   }
 
   draw(world: World, selection: DrawSelection): void {
-    this.worldWidth = world.width;
-    this.worldHeight = world.height;
+    const g = this.gfx;
+    g.clear();
 
-    if (this.transform.baseScale <= 0) {
-      this.resetView(world.width, world.height);
+    // World border
+    g.rect(0, 0, world.width, world.height).stroke({ color: COLORS.wall, width: 0.1 });
+
+    // Draw objects
+    for (const obj of world.objects) {
+      const isSelected = selection?.id === obj.id;
+      this.drawObject(g, obj, isSelected);
     }
-
-    this.clampOffset();
-    const t = this.transform;
-
-    const oldChildren = this.worldContainer.removeChildren();
-    for (const child of oldChildren) {
-      child.destroy();
-    }
-
-    // Background + wall border
-    const bg = new Graphics();
-    const { sx: bgX, sy: bgY } = worldToScreen({ x: 0, y: 0 }, t);
-    const s = effectiveScale(t);
-    const bgW = world.width * s;
-    const bgH = world.height * s;
-    bg.rect(bgX, bgY, bgW, bgH);
-    bg.fill(COLORS.background);
-    bg.rect(bgX, bgY, bgW, bgH);
-    bg.stroke({ color: COLORS.wall, width: 2, alpha: 0.8 });
-    this.worldContainer.addChild(bg);
-
-    // Ground cell selection highlight (draw before objects)
-    if (selection?.kind === 'ground') {
-      const cellG = new Graphics();
-      const { sx: cx, sy: cy } = worldToScreen({ x: selection.cellX, y: selection.cellY }, t);
-      cellG.rect(cx, cy, s, s);
-      cellG.stroke({ color: COLORS.selected, width: 2, alpha: 0.7 });
-      this.worldContainer.addChild(cellG);
-    }
-
-    const maxRemaining = world.resourceNodes.reduce((m, n) => Math.max(m, n.remaining), 50);
-    const useLODResource = isLOD(RESOURCE_NODE_RADIUS, t);
-    const useLODEnergy = isLOD(ENERGY_NODE_RADIUS, t);
-    const useLODRemains = isLOD(REMAINS_RADIUS, t);
-    const useLODChar = isLOD(CHARACTER_RADIUS, t);
-
-    for (const node of world.resourceNodes) {
-      const drawFn = useLODResource ? drawResourceNodeLOD : drawResourceNode;
-      this.worldContainer.addChild(drawFn(node, t, maxRemaining));
-      if (selection?.kind === 'resourceNode' && selection.id === node.id) {
-        this.worldContainer.addChild(drawObjectSelection(node.position, RESOURCE_NODE_RADIUS, t));
-      }
-    }
-
-    for (const node of world.energyNodes) {
-      const drawFn = useLODEnergy ? drawEnergyNodeLOD : drawEnergyNode;
-      this.worldContainer.addChild(drawFn(node, t));
-      if (selection?.kind === 'energyNode' && selection.id === node.id) {
-        this.worldContainer.addChild(drawObjectSelection(node.position, ENERGY_NODE_RADIUS, t));
-      }
-    }
-
-    for (const r of world.remains) {
-      const drawFn = useLODRemains ? drawRemainsLOD : drawRemains;
-      this.worldContainer.addChild(drawFn(r, t));
-      if (selection?.kind === 'remains' && selection.id === r.id) {
-        this.worldContainer.addChild(drawObjectSelection(r.position, REMAINS_RADIUS, t));
-      }
-    }
-
-    for (const char of world.characters) {
-      const sel = selection?.kind === 'character' && selection.id === char.id;
-      const drawFn = useLODChar ? drawCharacterLOD : drawCharacter;
-      this.worldContainer.addChild(drawFn(char, t, sel));
-    }
-
-    // SENSE_RANGE circle for selected character
-    if (selection?.kind === 'character') {
-      const selChar = world.characters.find((c: Character) => c.id === selection.id);
-      if (selChar) {
-        const rangeG = new Graphics();
-        const { sx, sy } = worldToScreen(selChar.position, t);
-        const screenR = SENSE_RANGE * effectiveScale(t);
-        rangeG.circle(sx, sy, screenR);
-        rangeG.stroke({ color: 0x888888, width: 1, alpha: 0.35 });
-        this.worldContainer.addChild(rangeG);
-      }
-    }
-
-    this.app.render();
   }
 
-  hitTest(world: World, screenX: number, screenY: number): HitResult | null {
-    const worldPos = screenToWorld(screenX, screenY, this.transform);
+  private drawObject(g: Graphics, obj: WorldObject, selected: boolean): void {
+    const { x, y } = obj.position;
 
-    let bestChar: Character | null = null;
-    let bestCharDist = Infinity;
-    for (const c of world.characters) {
-      const dx = worldPos.x - c.position.x;
-      const dy = worldPos.y - c.position.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d <= CHARACTER_RADIUS * 1.5 && d < bestCharDist) {
-        bestCharDist = d;
-        bestChar = c;
+    switch (obj.kind) {
+      case 'energy': {
+        const e = obj as EnergyObject;
+        const r = Math.max(MIN_ENERGY_RADIUS, Math.min(MAX_ENERGY_RADIUS, Math.sqrt(e.amount / Math.PI) * 0.1));
+        g.circle(x, y, r).fill({ color: COLORS.energy, alpha: 0.6 });
+        break;
+      }
+      case 'material': {
+        const m = obj as MaterialObject;
+        const color = m.materialType === 'Ore' ? COLORS.ore
+          : m.materialType === 'Crystal' ? COLORS.crystal
+          : m.materialType === 'Metal' ? COLORS.metal
+          : COLORS.circuit;
+        g.circle(x, y, MATERIAL_RADIUS).fill({ color });
+        break;
+      }
+      case 'assembler': {
+        const a = obj as AssemblerObject;
+        const color = a.phase === 'idle' ? COLORS.assembler : COLORS.assemblerBusy;
+        g.rect(x - COMPONENT_RADIUS, y - COMPONENT_RADIUS, COMPONENT_RADIUS * 2, COMPONENT_RADIUS * 2)
+          .fill({ color });
+        break;
+      }
+      case 'processor': {
+        const p = obj as ProcessorObject;
+        const color = p.running ? COLORS.processor : COLORS.processorStopped;
+        // Triangle for processor
+        const r = COMPONENT_RADIUS;
+        g.moveTo(x + r, y)
+          .lineTo(x - r * 0.5, y - r * 0.87)
+          .lineTo(x - r * 0.5, y + r * 0.87)
+          .closePath()
+          .fill({ color });
+        break;
       }
     }
-    if (bestChar) return { kind: 'character', character: bestChar };
 
-    for (const n of world.resourceNodes) {
-      const dx = worldPos.x - n.position.x;
-      const dy = worldPos.y - n.position.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= RESOURCE_NODE_RADIUS * 1.5) {
-        return { kind: 'resourceNode', resourceNode: n };
+    if (selected) {
+      g.circle(x, y, COMPONENT_RADIUS + 0.15).stroke({ color: COLORS.selected, width: 0.08 });
+    }
+  }
+
+  private hitTest(world: World, pos: Position): HitResult {
+    let best: WorldObject | null = null;
+    let bestDist = Infinity;
+    const hitRange = 0.8;
+
+    for (const obj of world.objects) {
+      const dx = obj.position.x - pos.x;
+      const dy = obj.position.y - pos.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < hitRange && dist < bestDist) {
+        bestDist = dist;
+        best = obj;
       }
     }
 
-    for (const n of world.energyNodes) {
-      const dx = worldPos.x - n.position.x;
-      const dy = worldPos.y - n.position.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= ENERGY_NODE_RADIUS * 1.5) {
-        return { kind: 'energyNode', energyNode: n };
-      }
-    }
+    if (best) return { kind: 'object', object: best };
+    return { kind: 'ground', position: pos };
+  }
 
-    for (const r of world.remains) {
-      const dx = worldPos.x - r.position.x;
-      const dy = worldPos.y - r.position.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= REMAINS_RADIUS * 1.5) {
-        return { kind: 'remains', remains: r };
-      }
+  panToIfOffscreen(pos: Position): void {
+    const screenPos = this.worldToScreen(pos.x, pos.y);
+    const margin = 50;
+    const w = this.app.screen.width;
+    const h = this.app.screen.height;
+    if (screenPos.x < margin || screenPos.x > w - margin ||
+        screenPos.y < margin || screenPos.y > h - margin) {
+      this.viewX = pos.x;
+      this.viewY = pos.y;
+      this.applyTransform();
     }
+  }
 
-    // Nothing hit — return ground position
-    if (worldPos.x >= 0 && worldPos.x <= world.width && worldPos.y >= 0 && worldPos.y <= world.height) {
-      return { kind: 'ground', position: worldPos };
-    }
+  private applyTransform(): void {
+    const sw = this.app.screen.width;
+    const sh = this.app.screen.height;
+    this.worldContainer.x = sw / 2 - this.viewX * this.zoom;
+    this.worldContainer.y = sh / 2 - this.viewY * this.zoom;
+    this.worldContainer.scale.set(this.zoom);
+  }
 
-    return null;
+  private screenToWorld(sx: number, sy: number): Position {
+    const rect = (this.app.canvas as HTMLCanvasElement).getBoundingClientRect();
+    const cx = sx - rect.left;
+    const cy = sy - rect.top;
+    return {
+      x: (cx - this.app.screen.width / 2) / this.zoom + this.viewX,
+      y: (cy - this.app.screen.height / 2) / this.zoom + this.viewY,
+    };
+  }
+
+  private worldToScreen(wx: number, wy: number): { x: number; y: number } {
+    return {
+      x: (wx - this.viewX) * this.zoom + this.app.screen.width / 2,
+      y: (wy - this.viewY) * this.zoom + this.app.screen.height / 2,
+    };
   }
 }
