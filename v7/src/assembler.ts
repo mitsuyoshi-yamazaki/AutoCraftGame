@@ -336,6 +336,9 @@ function createEmptyProcessor(id: string, position: Position): ProcessorObject {
     memory: new Array(1024).fill(0),
     registers: [0, 0, 0, 0, 0, 0, 0, 0],
     pc: 0,
+    localIdTable: new Map(),
+    localIdCounter: 1,
+    ioRegisters: { opMemTargetId: 0, opMemOffset: 0, pmemTargetId: 0, pmemAddr: 0 },
   };
 }
 

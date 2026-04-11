@@ -48,6 +48,9 @@ export function createProcessor(
     memory,
     registers: [0, 0, 0, 0, 0, 0, 0, 0],
     pc: 0,
+    localIdTable: new Map(),
+    localIdCounter: 1,
+    ioRegisters: { opMemTargetId: 0, opMemOffset: 0, pmemTargetId: 0, pmemAddr: 0 },
   };
 }
 
@@ -96,6 +99,15 @@ export function executeProcessorTick(
     // Check if run_flag was changed via operation memory
     running: ioState.selfOpMem[2] !== 0,
     operationMemory: [...ioState.selfOpMem],
+    // Persist I/O state across ticks
+    localIdTable: new Map(ioState.localIdMap),
+    localIdCounter: ioState.nextLocalId,
+    ioRegisters: {
+      opMemTargetId: ioState.opMemTargetId,
+      opMemOffset: ioState.opMemOffset,
+      pmemTargetId: ioState.pmemTargetId,
+      pmemAddr: ioState.pmemAddr,
+    },
   };
 
   currentWorld = replaceObject(currentWorld, updatedProc);
@@ -130,12 +142,12 @@ function createIoState(proc: ProcessorObject, world: World, params: GameParams):
     world,
     params,
     selfOpMem: [...proc.operationMemory],
-    localIdMap: new Map(),
-    nextLocalId: 1,
-    opMemTargetId: 0,
-    opMemOffset: 0,
-    pmemTargetId: 0,
-    pmemAddr: 0,
+    localIdMap: new Map(proc.localIdTable),
+    nextLocalId: proc.localIdCounter,
+    opMemTargetId: proc.ioRegisters.opMemTargetId,
+    opMemOffset: proc.ioRegisters.opMemOffset,
+    pmemTargetId: proc.ioRegisters.pmemTargetId,
+    pmemAddr: proc.ioRegisters.pmemAddr,
     pendingWrites: new Map(),
     scanPerformed: false,
   };

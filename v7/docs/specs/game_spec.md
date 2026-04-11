@@ -448,6 +448,18 @@ Processor 自身の操作メモリを I/O 空間経由で読み書きする。
 - ローカル ID は tick をまたいで保持される（対象がアクセス可能である限り）
 - 対象がアクセス不能になった場合（近接範囲外に出た等）、そのローカル ID は無効になる
 - 無効なローカル ID を指定した読み取りは 0 を返す。書き込みは無視される
+- ローカル ID テーブルは Processor が破壊されるか、プログラムが明示的に破棄しない限り永続する
+
+### 8-5a. I/O レジスタの永続性
+
+以下の I/O レジスタは tick をまたいで値を保持する（明示的に上書きされるまで変化しない）:
+
+- `OPMEM_TARGET_ID` (0x1000)
+- `OPMEM_OFFSET` (0x1001)
+- `PMEM_TARGET_ID` (0x2000)
+- `PMEM_ADDR` (0x2001)
+
+これにより、tick を跨いだ連続コピー等の操作が自然に動作する。
 
 ### 8-6. 複数 Processor のアクセス競合
 
@@ -643,8 +655,14 @@ type ProcessorObject = {
   readonly memory: number[]              // 1024 ワード（プログラムメモリ）
   readonly registers: number[]           // r0〜r7
   readonly pc: number                    // プログラムカウンタ
-  readonly localIdTable: Map<number, string>
+  readonly localIdTable: Map<number, string>  // tick をまたいで永続
   readonly localIdCounter: number
+  readonly ioRegisters: {               // tick をまたいで永続
+    readonly opMemTargetId: number
+    readonly opMemOffset: number
+    readonly pmemTargetId: number
+    readonly pmemAddr: number
+  }
 }
 
 type MaterialType = 'Ore' | 'Crystal' | 'Metal' | 'Circuit'

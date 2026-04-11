@@ -61,6 +61,17 @@ export interface ProcessorObject extends WorldObjectBase {
   readonly memory: readonly number[];     // 1024 words (program + data)
   readonly registers: readonly number[];  // r0-r7
   readonly pc: number;
+  // Persistent I/O state (survives across ticks)
+  readonly localIdTable: ReadonlyMap<number, string>;  // localId → objectId
+  readonly localIdCounter: number;
+  readonly ioRegisters: ProcessorIoRegisters;
+}
+
+export interface ProcessorIoRegisters {
+  readonly opMemTargetId: number;
+  readonly opMemOffset: number;
+  readonly pmemTargetId: number;
+  readonly pmemAddr: number;
 }
 
 // === Union Type ===
