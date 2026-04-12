@@ -78,6 +78,12 @@ const extractImm4Signed = (word: number): number => {
   return raw >= 8 ? raw - 16 : raw;
 };
 
+/** Sign-extend a 16-bit value to JS number */
+const signExtend16 = (word: number): number => {
+  const raw = word & 0xFFFF;
+  return raw >= 0x8000 ? raw - 0x10000 : raw;
+};
+
 // --- Register helpers ---
 
 /** Read register value. r0 always returns 0. */
@@ -340,44 +346,44 @@ const executeInstruction = (
       return { registers, memory, pc: wrapPc(nextPc, memSize), halted: false };
     }
 
-    // --- Long branch (Format BL) ---
+    // --- Long branch (Format BL) — PC-relative offset (signed 16-bit) ---
     case Opcode.BEQL: {
       const rs1 = extractRd(word);
       const rs2 = extractRs1(word);
-      const target = readMem(memory, pc + 1);
+      const offset = signExtend16(readMem(memory, pc + 1));
       const taken = readReg(registers, rs1) === readReg(registers, rs2);
-      const nextPc = taken ? target : pc + 2;
+      const nextPc = taken ? pc + offset : pc + 2;
       return { registers, memory, pc: wrapPc(nextPc, memSize), halted: false };
     }
     case Opcode.BNEL: {
       const rs1 = extractRd(word);
       const rs2 = extractRs1(word);
-      const target = readMem(memory, pc + 1);
+      const offset = signExtend16(readMem(memory, pc + 1));
       const taken = readReg(registers, rs1) !== readReg(registers, rs2);
-      const nextPc = taken ? target : pc + 2;
+      const nextPc = taken ? pc + offset : pc + 2;
       return { registers, memory, pc: wrapPc(nextPc, memSize), halted: false };
     }
     case Opcode.BLTL: {
       const rs1 = extractRd(word);
       const rs2 = extractRs1(word);
-      const target = readMem(memory, pc + 1);
+      const offset = signExtend16(readMem(memory, pc + 1));
       const taken = readReg(registers, rs1) < readReg(registers, rs2);
-      const nextPc = taken ? target : pc + 2;
+      const nextPc = taken ? pc + offset : pc + 2;
       return { registers, memory, pc: wrapPc(nextPc, memSize), halted: false };
     }
     case Opcode.BGEL: {
       const rs1 = extractRd(word);
       const rs2 = extractRs1(word);
-      const target = readMem(memory, pc + 1);
+      const offset = signExtend16(readMem(memory, pc + 1));
       const taken = readReg(registers, rs1) >= readReg(registers, rs2);
-      const nextPc = taken ? target : pc + 2;
+      const nextPc = taken ? pc + offset : pc + 2;
       return { registers, memory, pc: wrapPc(nextPc, memSize), halted: false };
     }
 
-    // --- Jump (Format W) ---
+    // --- Jump (Format W) — PC-relative offset (signed 16-bit) ---
     case Opcode.JMP: {
-      const target = readMem(memory, pc + 1);
-      return { registers, memory, pc: wrapPc(target, memSize), halted: false };
+      const offset = signExtend16(readMem(memory, pc + 1));
+      return { registers, memory, pc: wrapPc(pc + offset, memSize), halted: false };
     }
 
     // --- Jump register (Format R) ---

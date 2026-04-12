@@ -35,6 +35,14 @@ export function generateReplicatorProgram(
   function li(rd: number, imm: number) { emit2(encodeW(Opcode.LI, rd, 0, imm)); }
   function out(valReg: number) { emit1(encodeR(Opcode.OUT, 0, 2, valReg)); }
   function inr(dest: number) { emit1(encodeR(Opcode.IN, dest, 2, 0)); }
+  // Emit a long branch with a backward target (PC-relative offset computed from current pc).
+  function emitBLBack(opcode: number, rs1: number, rs2: number, targetPc: number) {
+    emit2(encodeBL(opcode, rs1, rs2, (targetPc - pc) & 0xFFFF));
+  }
+  // Patch a forward branch: word at branchPc+1 holds PC-relative offset to targetPc.
+  function patchBL(branchPc: number, targetPc: number) {
+    code[branchPc + 1] = (targetPc - branchPc) & 0xFFFF;
+  }
 
   // ============================================
   // Phase 1: Find ONE idle Assembler, configure it
@@ -65,7 +73,7 @@ export function generateReplicatorProgram(
 
   // If idle (r6 == 0), configure it
   const bne_asm_next_pc = pc;
-  emit2(encodeBL(Opcode.BNEL, 6, 0, 0));  // if busy, skip to next
+  emit2(encodeBL(Opcode.BNEL, 6, 0, 0));  // if busy, skip to next (patched below)
 
   // Configure assembler
   li(2, OPMEM_TID); out(3);               // TARGET_ID = r3
@@ -75,21 +83,21 @@ export function generateReplicatorProgram(
   li(2, OPMEM_VAL); out(1);               // VALUE = 1
 
   const jmp_p2_pc = pc;
-  emit2(encodeBL(Opcode.BEQL, 0, 0, 0));  // unconditional jump to Phase 2 (r0==r0)
+  emit2(encodeBL(Opcode.BEQL, 0, 0, 0));  // unconditional jump to Phase 2 (patched below)
 
   // asm_next: increment index, loop
   const asm_next_pc = pc;
-  code[bne_asm_next_pc + 1] = asm_next_pc;
+  patchBL(bne_asm_next_pc, asm_next_pc);
 
   emit1(encodeI(Opcode.ADDI, 4, 4, 1));   // r4++
-  emit2(encodeBL(Opcode.BLTL, 4, 5, asm_loop_start)); // if r4 < count, loop
+  emitBLBack(Opcode.BLTL, 4, 5, asm_loop_start); // if r4 < count, loop
 
   // ============================================
   // Phase 2: Find ONE stopped Processor, copy memory + start
   // ============================================
   const phase2_pc = pc;
-  code[beql_p2_pc + 1] = phase2_pc;
-  code[jmp_p2_pc + 1] = phase2_pc;
+  patchBL(beql_p2_pc, phase2_pc);
+  patchBL(jmp_p2_pc, phase2_pc);
 
   // SCAN for Processors (filter=2)
   li(1, 2); li(2, SCAN_FILTER); out(1);
@@ -133,8 +141,7 @@ export function generateReplicatorProgram(
   emit1(encodeR(Opcode.LW, 1, 6, 0));     // r1 = self.mem[r6]
   out(1);                                  // write r1 + auto-inc addr
   emit1(encodeI(Opcode.ADDI, 6, 6, 1));   // r6++
-  emit2(encodeBL(Opcode.BLTL, 6, 5, copy_loop_pc)); // if r6 < 1024, loop
-  // Loop body: 1 + 1 + 1 + 2 = 5 instructions. 1024 * 3 ops = ~3072 instructions
+  emitBLBack(Opcode.BLTL, 6, 5, copy_loop_pc); // if r6 < copySize, loop
 
   // Start processor: write run_flag=1
   li(2, OPMEM_TID); out(3);               // TARGET_ID = r3
@@ -142,19 +149,19 @@ export function generateReplicatorProgram(
   li(1, 1); li(2, OPMEM_VAL); out(1);     // VALUE = 1
 
   const jmp_halt_pc = pc;
-  emit2(encodeBL(Opcode.BEQL, 0, 0, 0));  // jump to HALT
+  emit2(encodeBL(Opcode.BEQL, 0, 0, 0));  // jump to HALT (patched below)
 
   // proc_next: increment, loop
   const proc_next_pc = pc;
-  code[bne_proc_next_pc + 1] = proc_next_pc;
+  patchBL(bne_proc_next_pc, proc_next_pc);
 
   emit1(encodeI(Opcode.ADDI, 4, 4, 1));
-  emit2(encodeBL(Opcode.BLTL, 4, 5, proc_loop_start));
+  emitBLBack(Opcode.BLTL, 4, 5, proc_loop_start);
 
   // HALT
   const halt_pc = pc;
-  code[beql_halt_pc + 1] = halt_pc;
-  code[jmp_halt_pc + 1] = halt_pc;
+  patchBL(beql_halt_pc, halt_pc);
+  patchBL(jmp_halt_pc, halt_pc);
   emit1(encodeR(Opcode.HALT, 0, 0, 0));
 
   return code;

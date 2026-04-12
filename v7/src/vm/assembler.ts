@@ -464,11 +464,11 @@ function emitInstruction(
       break;
     }
     case 'W': {
-      emitFormatW(def.opcode, pl.mnemonic!, ops, ln, equConstants, labels, words, errors);
+      emitFormatW(def.opcode, pl.mnemonic!, ops, ln, addr, equConstants, labels, words, errors);
       break;
     }
     case 'BL': {
-      emitFormatBL(def.opcode, ops, ln, equConstants, labels, words, errors);
+      emitFormatBL(def.opcode, ops, ln, addr, equConstants, labels, words, errors);
       break;
     }
     case 'HALT': {
@@ -629,22 +629,30 @@ function emitFormatW(
   mnemonic: string,
   ops: string[],
   ln: number,
+  addr: number,
   equConstants: ReadonlyMap<string, number>,
   labels: ReadonlyMap<string, number>,
   words: number[],
   errors: string[],
 ): void {
   if (opcode === OP_JMP) {
-    // JMP imm16 — rd=0, rs=0
+    // JMP offset — PC-relative. Operand may be a label (→ relative) or numeric (→ literal offset).
     if (ops.length < 1) { errors.push(`Line ${ln}: JMP requires 1 operand`); words.push(0, 0); return; }
-    const target = resolveImmediate(ops[0], equConstants, labels);
-    if (target === undefined) {
-      errors.push(`Line ${ln}: undefined label '${ops[0]}'`);
-      words.push(0, 0);
-      return;
+    let offset: number;
+    const numericOffset = parseNumber(ops[0]);
+    if (numericOffset !== undefined) {
+      offset = numericOffset;
+    } else {
+      const targetAddr = resolveImmediate(ops[0], equConstants, labels);
+      if (targetAddr === undefined) {
+        errors.push(`Line ${ln}: undefined label '${ops[0]}'`);
+        words.push(0, 0);
+        return;
+      }
+      offset = targetAddr - addr;
     }
     words.push(encodeW1(opcode, 0, 0));
-    words.push(target & 0xFFFF);
+    words.push(offset & 0xFFFF);
     return;
   }
 
@@ -665,26 +673,34 @@ function emitFormatBL(
   opcode: number,
   ops: string[],
   ln: number,
+  addr: number,
   equConstants: ReadonlyMap<string, number>,
   labels: ReadonlyMap<string, number>,
   words: number[],
   errors: string[],
 ): void {
-  // BEQL rs1, rs2, target
+  // BEQL rs1, rs2, target — PC-relative offset from the BEQL instruction address.
   if (ops.length < 3) { errors.push(`Line ${ln}: long branch requires 3 operands`); words.push(0, 0); return; }
 
   const rs1 = requireReg(ops[0], ln, errors);
   const rs2 = requireReg(ops[1], ln, errors);
-  const target = resolveImmediate(ops[2], equConstants, labels);
 
-  if (target === undefined) {
-    errors.push(`Line ${ln}: undefined label '${ops[2]}'`);
-    words.push(0, 0);
-    return;
+  let offset: number;
+  const numericOffset = parseNumber(ops[2]);
+  if (numericOffset !== undefined) {
+    offset = numericOffset;
+  } else {
+    const targetAddr = resolveImmediate(ops[2], equConstants, labels);
+    if (targetAddr === undefined) {
+      errors.push(`Line ${ln}: undefined label '${ops[2]}'`);
+      words.push(0, 0);
+      return;
+    }
+    offset = targetAddr - addr;
   }
 
   words.push(encodeBL1(opcode, rs1, rs2));
-  words.push(target & 0xFFFF);
+  words.push(offset & 0xFFFF);
 }
 
 // ---------------------------------------------------------------------------
