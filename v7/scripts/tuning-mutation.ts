@@ -1,206 +1,212 @@
 /**
- * Tuning script: investigate program mutation with reduced instructionsPerTick
- * and smaller world size.
+ * Tuning script: investigate program mutation with reduced copy size and instructionsPerTick.
  *
- * Experiment:
- *   - instructionsPerTick = 1000 (vs default 10000)
- *   - World size = 30x30 (vs default 100x100)
+ * Experiment parameters:
+ *   - copySize = 132 (program 120 words + 10% buffer)
+ *   - Copy loop = 132 × 4 = 528 instructions
+ *   - instructionsPerTick = 176 (528 / 3)
+ *   - World: 30×30
  *   - 500 ticks
- *   - Compare all Processor memories against original programs
  */
 
 import { DEFAULT_GAME_PARAMS, type GameParams } from '../src/params.js';
 import { createInitialState, type InitialStateConfig } from '../src/initial-state.js';
 import { executeTick } from '../src/simulation.js';
 import { generateReplicatorProgram } from '../src/programs.js';
-import type { ProcessorObject, AssemblerObject, World } from '../src/types.js';
+import type { ProcessorObject, World } from '../src/types.js';
 
 const TICKS = 500;
-const REPORT_INTERVAL = 100;
+const COPY_SIZE = 132;
+const IPT = 176;  // 528 / 3
 
-// Modified parameters
-const params: GameParams = {
-  ...DEFAULT_GAME_PARAMS,
-  instructionsPerTick: 1000,
-};
+function runExperiment(label: string, targetRunning: boolean) {
+  // Reference programs must match experiment's targetRunning setting
+  const programC = generateReplicatorProgram(3, { copySize: COPY_SIZE, targetRunning });
+  const programD = generateReplicatorProgram(4, { copySize: COPY_SIZE, targetRunning });
 
-const config: InitialStateConfig = {
-  worldWidth: 30,
-  worldHeight: 30,
-  numSets: 20,
-  metalPerSet: 10,
-  circuitPerSet: 15,
-  energyPerSet: 200,
-};
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`=== ${label} ===`);
+  console.log(`copySize=${COPY_SIZE}, instructionsPerTick=${IPT}, targetRunning=${targetRunning}`);
+  console.log(`programC: ${programC.length} words, programD: ${programD.length} words`);
+  console.log(`${'='.repeat(60)}\n`);
 
-// Reference programs
-const programC = generateReplicatorProgram(3);
-const programD = generateReplicatorProgram(4);
+  const params: GameParams = { ...DEFAULT_GAME_PARAMS, instructionsPerTick: IPT };
+  const config: InitialStateConfig = {
+    worldWidth: 30,
+    worldHeight: 30,
+    numSets: 20,
+    metalPerSet: 10,
+    circuitPerSet: 15,
+    energyPerSet: 200,
+    programOptions: { copySize: COPY_SIZE, targetRunning },
+  };
 
-console.log('=== Mutation Analysis Experiment ===');
-console.log(`instructionsPerTick: ${params.instructionsPerTick}`);
-console.log(`World: ${config.worldWidth}x${config.worldHeight}`);
-console.log(`Program C size: ${programC.length} words`);
-console.log(`Program D size: ${programD.length} words`);
-console.log();
+  let world = createInitialState(config);
+  let totalProduced = 0;
 
-let world = createInitialState(config);
-let totalProduced = 0;
-
-// Initial state
-report(world, 'Initial');
-
-for (let t = 0; t < TICKS; t++) {
-  const result = executeTick(world, params);
-  world = result.world;
-
-  for (const event of result.events) {
-    if (event.type === 'assembler_completed') {
-      totalProduced++;
-      console.log(`  [tick ${world.tick}] ${event.id} → ${event.productId}`);
+  for (let t = 0; t < TICKS; t++) {
+    const result = executeTick(world, params);
+    world = result.world;
+    for (const ev of result.events) {
+      if (ev.type === 'assembler_completed') totalProduced++;
+    }
+    if ((t + 1) % 100 === 0) {
+      const stats = getStats(world);
+      console.log(
+        `tick ${String(world.tick).padStart(4)} | ` +
+        `proc:${stats.proc}(r:${stats.running}) asm:${stats.asm} ` +
+        `mat:${stats.mat} eng:${stats.eng} produced:${totalProduced}`
+      );
     }
   }
 
-  if ((t + 1) % REPORT_INTERVAL === 0) {
-    report(world, `tick ${world.tick}`);
+  console.log('\n--- Memory Analysis ---');
+  analyzeMemory(world, programC, programD);
+}
+
+function getStats(w: World) {
+  let proc = 0, running = 0, asm = 0, mat = 0, eng = 0;
+  for (const o of w.objects) {
+    if (o.kind === 'processor') { proc++; if ((o as ProcessorObject).running) running++; }
+    else if (o.kind === 'assembler') asm++;
+    else if (o.kind === 'material') mat++;
+    else if (o.kind === 'energy') eng++;
   }
+  return { proc, running, asm, mat, eng };
 }
 
-console.log();
-console.log('=== Final Memory Analysis ===');
-analyzeProcessorMemories(world);
-
-// ============================================================
-
-function report(w: World, label: string): void {
-  const objs = w.objects;
-  const assemblers = objs.filter(o => o.kind === 'assembler') as AssemblerObject[];
-  const processors = objs.filter(o => o.kind === 'processor') as ProcessorObject[];
-  const materials = objs.filter(o => o.kind === 'material');
-  const energy = objs.filter(o => o.kind === 'energy');
-  const running = processors.filter(p => p.running);
-  const gathering = assemblers.filter(a => a.phase === 'gathering');
-
-  console.log(
-    `[${label}] asm:${assemblers.length}(g:${gathering.length}) ` +
-    `proc:${processors.length}(r:${running.length}) ` +
-    `mat:${materials.length} eng:${energy.length} produced:${totalProduced}`
-  );
-}
-
-function analyzeProcessorMemories(w: World): void {
+function analyzeMemory(w: World, refC: number[], refD: number[]) {
   const processors = w.objects.filter(o => o.kind === 'processor') as ProcessorObject[];
+  const initial = processors.filter(p => parseInt(p.id.replace('obj-', ''), 10) <= 600);
+  const newProcs = processors.filter(p => parseInt(p.id.replace('obj-', ''), 10) > 600);
 
-  let matchC = 0;
-  let matchD = 0;
-  let matchNeither = 0;
-  let allZero = 0;
-  const mutations: { id: string; running: boolean; diffCount: number; closestProgram: string; copiedWords: number; initial: boolean; sampleDiffs: string[] }[] = [];
-
-  // Track initial processor IDs (obj-00003, obj-00004, obj-00033, ...)
-  // Initial IDs are <= obj-00600 (20 sets × 30 objects each = 600)
-  const isInitial = (id: string) => {
-    const num = parseInt(id.replace('obj-', ''), 10);
-    return num <= 600;
-  };
+  let matchC = 0, matchD = 0, empty = 0, mutated = 0;
+  const mutations: { id: string; running: boolean; diffC: number; diffD: number; copiedC: number; copiedD: number }[] = [];
 
   for (const proc of processors) {
-    const mem = proc.memory;
+    const isC = matchesProg(proc.memory, refC);
+    const isD = matchesProg(proc.memory, refD);
+    const isZero = proc.memory.every(w => w === 0);
 
-    const isMatchC = matchesProgram(mem, programC);
-    const isMatchD = matchesProgram(mem, programD);
-    const isEmpty = mem.every(w => w === 0);
-
-    if (isMatchC) {
-      matchC++;
-    } else if (isMatchD) {
-      matchD++;
-    } else if (isEmpty) {
-      allZero++;
-    } else {
-      matchNeither++;
-      // Find closest program
-      const diffC = countDiffs(mem, programC);
-      const diffD = countDiffs(mem, programD);
-      const closest = diffC <= diffD ? 'C' : 'D';
-      const minDiff = Math.min(diffC, diffD);
-      const refProg = closest === 'C' ? programC : programD;
-
-      const sampleDiffs: string[] = [];
-      for (let i = 0; i < mem.length && sampleDiffs.length < 10; i++) {
-        const expected = i < refProg.length ? refProg[i] : 0;
-        if (mem[i] !== expected) {
-          sampleDiffs.push(`  [${i}] expected=${expected} actual=${mem[i]}`);
-        }
-      }
-
-      // Find how many words were correctly copied from beginning
-      let copiedWords = 0;
-      for (let i = 0; i < refProg.length; i++) {
-        if (mem[i] === refProg[i]) copiedWords++;
-        else break;
-      }
-
+    if (isC) matchC++;
+    else if (isD) matchD++;
+    else if (isZero) empty++;
+    else {
+      mutated++;
       mutations.push({
         id: proc.id,
         running: proc.running,
-        diffCount: minDiff,
-        closestProgram: closest,
-        copiedWords,
-        initial: isInitial(proc.id),
-        sampleDiffs,
+        diffC: countDiffs(proc.memory, refC),
+        diffD: countDiffs(proc.memory, refD),
+        copiedC: prefixMatch(proc.memory, refC),
+        copiedD: prefixMatch(proc.memory, refD),
       });
     }
   }
 
-  const initialProcs = processors.filter(p => isInitial(p.id));
-  const newProcs = processors.filter(p => !isInitial(p.id));
+  const newMatchC = newProcs.filter(p => matchesProg(p.memory, refC)).length;
+  const newMatchD = newProcs.filter(p => matchesProg(p.memory, refD)).length;
 
-  const newMatchC = newProcs.filter(p => matchesProgram(p.memory, programC)).length;
-  const newMatchD = newProcs.filter(p => matchesProgram(p.memory, programD)).length;
-
-  console.log(`Total Processors: ${processors.length} (initial: ${initialProcs.length}, new: ${newProcs.length})`);
+  console.log(`Total Processors: ${processors.length} (initial: ${initial.length}, new: ${newProcs.length})`);
   console.log(`  Match programC: ${matchC} (initial: ${matchC - newMatchC}, new: ${newMatchC})`);
   console.log(`  Match programD: ${matchD} (initial: ${matchD - newMatchD}, new: ${newMatchD})`);
-  console.log(`  All-zero (empty): ${allZero}`);
-  console.log(`  Mutated (partial copy): ${matchNeither}`);
+  console.log(`  All-zero: ${empty}`);
+  console.log(`  Mutated: ${mutated}`);
 
   if (mutations.length > 0) {
-    console.log();
-    console.log('=== Partial Copy Details ===');
-    // Histogram of copied words
-    const copyHistogram = new Map<number, number>();
+    console.log('\n--- Mutated Processors ---');
+    // Classify mutation type
+    const chimeras: typeof mutations = [];   // mixed C+D
+    const truncated: typeof mutations = [];  // partial single-program copy
+    const other: typeof mutations = [];
+
     for (const m of mutations) {
-      copyHistogram.set(m.copiedWords, (copyHistogram.get(m.copiedWords) ?? 0) + 1);
-    }
-    console.log('Copied words distribution:');
-    for (const [words, count] of [...copyHistogram.entries()].sort((a, b) => a[0] - b[0])) {
-      console.log(`  ${words} words: ${count} processors`);
+      const mem = (w.objects.find(o => o.id === m.id) as ProcessorObject).memory;
+      const type = classifyMutation(mem, refC, refD);
+      if (type === 'chimera') chimeras.push(m);
+      else if (type === 'truncated') truncated.push(m);
+      else other.push(m);
     }
 
-    console.log();
-    console.log('Details (first 5):');
-    for (const m of mutations.slice(0, 5)) {
-      console.log(`  ${m.id} (running=${m.running}, initial=${m.initial}): copied ${m.copiedWords} words from program${m.closestProgram}`);
+    if (chimeras.length > 0) {
+      console.log(`\nChimeras (mixed C+D): ${chimeras.length}`);
+      for (const m of chimeras.slice(0, 5)) {
+        console.log(`  ${m.id} running=${m.running} diffC=${m.diffC} diffD=${m.diffD}`);
+        describeChimera(w, m.id, refC, refD);
+      }
+    }
+    if (truncated.length > 0) {
+      console.log(`\nTruncated copies: ${truncated.length}`);
+      for (const m of truncated.slice(0, 5)) {
+        console.log(`  ${m.id} running=${m.running} prefixC=${m.copiedC} prefixD=${m.copiedD}`);
+      }
+    }
+    if (other.length > 0) {
+      console.log(`\nOther mutations: ${other.length}`);
+      for (const m of other.slice(0, 5)) {
+        console.log(`  ${m.id} running=${m.running} diffC=${m.diffC} diffD=${m.diffD}`);
+      }
     }
   }
 
-  // Also check PC and register state of running processors
-  console.log();
-  console.log('=== Running Processor States ===');
-  const running = processors.filter(p => p.running);
-  const pcHistogram = new Map<number, number>();
-  for (const p of running) {
-    const pc = p.pc;
-    pcHistogram.set(pc, (pcHistogram.get(pc) ?? 0) + 1);
+  // PC distribution of running processors
+  console.log('\n--- Running Processor PC Distribution ---');
+  const pcHist = new Map<number, number>();
+  for (const p of processors.filter(p => p.running)) {
+    pcHist.set(p.pc, (pcHist.get(p.pc) ?? 0) + 1);
   }
-  console.log('PC distribution:');
-  for (const [pc, count] of [...pcHistogram.entries()].sort((a, b) => a[0] - b[0])) {
-    console.log(`  PC=${pc}: ${count} processors`);
+  for (const [pc, count] of [...pcHist.entries()].sort((a, b) => a[0] - b[0])) {
+    console.log(`  PC=${pc}: ${count}`);
   }
 }
 
-function matchesProgram(mem: readonly number[], prog: readonly number[]): boolean {
+function classifyMutation(
+  mem: readonly number[],
+  refC: number[],
+  refD: number[],
+): 'chimera' | 'truncated' | 'other' {
+  // Check if memory has segments matching both C and D
+  let hasC = false, hasD = false;
+  for (let i = 0; i < Math.max(refC.length, refD.length); i++) {
+    const vc = i < refC.length ? refC[i] : 0;
+    const vd = i < refD.length ? refD[i] : 0;
+    const vm = i < mem.length ? mem[i] : 0;
+    if (vc !== vd) {  // Only check where C and D differ
+      if (vm === vc) hasC = true;
+      if (vm === vd) hasD = true;
+    }
+  }
+  if (hasC && hasD) return 'chimera';
+  if (hasC || hasD) return 'truncated';
+  return 'other';
+}
+
+function describeChimera(
+  w: World,
+  id: string,
+  refC: number[],
+  refD: number[],
+) {
+  const proc = w.objects.find(o => o.id === id) as ProcessorObject;
+  const mem = proc.memory;
+  // Find the switchover point: where does it change from matching one to matching the other?
+  let lastMatch = '';
+  for (let i = 0; i < Math.max(refC.length, refD.length); i++) {
+    const vc = i < refC.length ? refC[i] : 0;
+    const vd = i < refD.length ? refD[i] : 0;
+    const vm = i < mem.length ? mem[i] : 0;
+    if (vc === vd) continue;
+    const matchesC = vm === vc;
+    const matchesD = vm === vd;
+    const cur = matchesC ? 'C' : matchesD ? 'D' : '?';
+    if (cur !== lastMatch) {
+      console.log(`    [${i}] switches to ${cur} (val=${vm})`);
+      lastMatch = cur;
+    }
+  }
+}
+
+function matchesProg(mem: readonly number[], prog: number[]): boolean {
   for (let i = 0; i < mem.length; i++) {
     const expected = i < prog.length ? prog[i] : 0;
     if (mem[i] !== expected) return false;
@@ -208,11 +214,107 @@ function matchesProgram(mem: readonly number[], prog: readonly number[]): boolea
   return true;
 }
 
-function countDiffs(mem: readonly number[], prog: readonly number[]): number {
-  let diffs = 0;
+function countDiffs(mem: readonly number[], prog: number[]): number {
+  let d = 0;
   for (let i = 0; i < mem.length; i++) {
     const expected = i < prog.length ? prog[i] : 0;
-    if (mem[i] !== expected) diffs++;
+    if (mem[i] !== expected) d++;
   }
-  return diffs;
+  return d;
+}
+
+function prefixMatch(mem: readonly number[], prog: number[]): number {
+  let n = 0;
+  for (let i = 0; i < prog.length; i++) {
+    if (mem[i] === prog[i]) n++;
+    else break;
+  }
+  return n;
+}
+
+// ============================================================
+// Run experiments
+// ============================================================
+
+// Experiment: proximityRange=1, randomMovementRange=0.75, targetRunning=true, ipt=176
+{
+  const label = 'Experiment: proximityRange=1, movement=0.75, ipt=176, targetRunning=true';
+  const TR = true;
+  const refC = generateReplicatorProgram(3, { copySize: COPY_SIZE, targetRunning: TR });
+  const refD = generateReplicatorProgram(4, { copySize: COPY_SIZE, targetRunning: TR });
+
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`=== ${label} ===`);
+  console.log(`${'='.repeat(60)}\n`);
+
+  const params4: GameParams = {
+    ...DEFAULT_GAME_PARAMS,
+    instructionsPerTick: IPT,
+    proximityRange: 1.0,
+    randomMovementRange: 0.75,  // default 0.5 * 1.5
+  };
+  const config4: InitialStateConfig = {
+    worldWidth: 30, worldHeight: 30, numSets: 20,
+    metalPerSet: 10, circuitPerSet: 15, energyPerSet: 200,
+    programOptions: { copySize: COPY_SIZE, targetRunning: TR },
+  };
+
+  let w = createInitialState(config4);
+  let prod = 0;
+  for (let t = 0; t < TICKS; t++) {
+    const r = executeTick(w, params4);
+    w = r.world;
+    for (const ev of r.events) if (ev.type === 'assembler_completed') prod++;
+    if ((t + 1) % 100 === 0) {
+      const s = getStats(w);
+      console.log(
+        `tick ${String(w.tick).padStart(4)} | ` +
+        `proc:${s.proc}(r:${s.running}) asm:${s.asm} mat:${s.mat} eng:${s.eng} produced:${prod}`
+      );
+    }
+  }
+  console.log('\n--- Memory Analysis ---');
+  analyzeMemory(w, refC, refD);
+}
+
+// Experiment B: same params but smaller world (15x15) + spacing=0.5 to fit inside proximityRange
+{
+  const label = 'Experiment B: proximityRange=1, movement=0.75, 15x15, 1000 ticks';
+  const TR = true;
+  const refC = generateReplicatorProgram(3, { copySize: COPY_SIZE, targetRunning: TR });
+  const refD = generateReplicatorProgram(4, { copySize: COPY_SIZE, targetRunning: TR });
+
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`=== ${label} ===`);
+  console.log(`${'='.repeat(60)}\n`);
+
+  const params5: GameParams = {
+    ...DEFAULT_GAME_PARAMS,
+    instructionsPerTick: IPT,
+    proximityRange: 1.0,
+    randomMovementRange: 0.75,
+  };
+  const config5: InitialStateConfig = {
+    worldWidth: 15, worldHeight: 15, numSets: 20,
+    metalPerSet: 10, circuitPerSet: 15, energyPerSet: 200,
+    programOptions: { copySize: COPY_SIZE, targetRunning: TR },
+  };
+
+  let w = createInitialState(config5);
+  let prod = 0;
+  const TICKS2 = 1000;
+  for (let t = 0; t < TICKS2; t++) {
+    const r = executeTick(w, params5);
+    w = r.world;
+    for (const ev of r.events) if (ev.type === 'assembler_completed') prod++;
+    if ((t + 1) % 200 === 0) {
+      const s = getStats(w);
+      console.log(
+        `tick ${String(w.tick).padStart(4)} | ` +
+        `proc:${s.proc}(r:${s.running}) asm:${s.asm} mat:${s.mat} eng:${s.eng} produced:${prod}`
+      );
+    }
+  }
+  console.log('\n--- Memory Analysis ---');
+  analyzeMemory(w, refC, refD);
 }

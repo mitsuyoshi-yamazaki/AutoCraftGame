@@ -18,8 +18,15 @@ const PMEM_AUTOVAL = 0x2003;
 /**
  * Generate replicator program.
  * @param recipe - 3 (Assembler) for program c, 4 (Processor) for program d
+ * @param options.copySize - number of words to copy (default: 1024 = full memory)
+ * @param options.targetRunning - if true, target ANY Processor (not just stopped ones)
  */
-export function generateReplicatorProgram(recipe: number): number[] {
+export function generateReplicatorProgram(
+  recipe: number,
+  options: { copySize?: number; targetRunning?: boolean } = {},
+): number[] {
+  const copySize = options.copySize ?? 1024;
+  const targetRunning = options.targetRunning ?? false;
   const code: number[] = [];
   let pc = 0;
 
@@ -93,7 +100,7 @@ export function generateReplicatorProgram(recipe: number): number[] {
   const beql_halt_pc = pc;
   emit2(encodeBL(Opcode.BEQL, 5, 0, 0)); // if count==0, skip to HALT
 
-  // Loop over results to find stopped processor (run_flag == 0)
+  // Loop over results to find target processor
   li(4, 0);                                // r4 = index
 
   const proc_loop_start = pc;
@@ -106,9 +113,13 @@ export function generateReplicatorProgram(recipe: number): number[] {
   emit1(encodeI(Opcode.ADDI, 2, 2, 3));
   inr(6);                                  // r6 = aux (run_flag)
 
-  // If running (r6 != 0), skip to next
+  // Filter: skip running processors (unless targetRunning is set)
   const bne_proc_next_pc = pc;
-  emit2(encodeBL(Opcode.BNEL, 6, 0, 0));
+  if (!targetRunning) {
+    emit2(encodeBL(Opcode.BNEL, 6, 0, 0));  // If running (r6 != 0), skip to next
+  } else {
+    emit2(encodeBL(Opcode.BNEL, 0, 0, 0));  // Never taken (r0 != r0 is false) — accept any target
+  }
 
   // Found stopped processor — copy self memory
   li(2, PMEM_TID); out(3);                // PMEM_TARGET_ID = r3
@@ -116,7 +127,7 @@ export function generateReplicatorProgram(recipe: number): number[] {
 
   li(6, 0);                                // r6 = src addr (counter)
   li(2, PMEM_AUTOVAL);                     // r2 = PMEM_AUTO_VALUE addr (constant)
-  li(5, 1024);                             // r5 = 1024 (loop limit, reuse r5)
+  li(5, copySize);                          // r5 = copySize (loop limit, reuse r5)
 
   const copy_loop_pc = pc;
   emit1(encodeR(Opcode.LW, 1, 6, 0));     // r1 = self.mem[r6]

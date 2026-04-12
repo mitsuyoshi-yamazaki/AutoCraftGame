@@ -15,6 +15,7 @@ export interface InitialStateConfig {
   readonly metalPerSet: number;
   readonly circuitPerSet: number;
   readonly energyPerSet: number;
+  readonly programOptions?: { copySize?: number; targetRunning?: boolean };
 }
 
 export const DEFAULT_INITIAL_CONFIG: InitialStateConfig = {
@@ -29,8 +30,9 @@ export const DEFAULT_INITIAL_CONFIG: InitialStateConfig = {
 export function createInitialState(config: InitialStateConfig = DEFAULT_INITIAL_CONFIG): World {
   let world = createEmptyWorld(config.worldWidth, config.worldHeight);
 
-  const programC = generateReplicatorProgram(3);  // Assembler recipe
-  const programD = generateReplicatorProgram(4);  // Processor recipe
+  const progOpts = config.programOptions ?? {};
+  const programC = generateReplicatorProgram(3, progOpts);  // Assembler recipe
+  const programD = generateReplicatorProgram(4, progOpts);  // Processor recipe
 
   const margin = 5;
   const spacing = 2;  // spacing between objects within a set
