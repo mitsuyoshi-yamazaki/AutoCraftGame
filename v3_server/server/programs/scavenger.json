@@ -1,0 +1,245 @@
+{
+  "name": "Scavenger",
+  "comment": "分解者。Harvesterを持たず、残骸を分解して資源を得る。reg0=方向、reg1=充電モード（ヒステリシス4000-6000）、reg2=方向持続カウンタ",
+  "components": ["Frame", "Actuator", "Sensor", "Processor", "Disassembler", "Assembler", "Charger", "MemoryCore", "Register"],
+  "rules": [
+    {
+      "comment": "Recharge at EnergyNode (hysteresis: enter at 4000, exit at 6000)",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "or", "conditions": [
+            { "op": "energy_below", "threshold": 4000 },
+            { "op": "and", "conditions": [
+              { "op": "register_equals", "index": 1, "value": 1 },
+              { "op": "energy_below", "threshold": 6000 }
+            ]}
+          ]},
+          { "op": "nearby", "type": "EnergyNode", "radius": 1.5 }
+        ]
+      },
+      "set_registers": [{ "index": 1, "value": 1 }],
+      "action": { "op": "RECHARGE" }
+    },
+    {
+      "comment": "Move toward EnergyNode (hysteresis recharge mode)",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "or", "conditions": [
+            { "op": "energy_below", "threshold": 4000 },
+            { "op": "and", "conditions": [
+              { "op": "register_equals", "index": 1, "value": 1 },
+              { "op": "energy_below", "threshold": 6000 }
+            ]}
+          ]},
+          { "op": "nearby", "type": "EnergyNode", "radius": 100 }
+        ]
+      },
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } },
+        { "index": 1, "value": 1 }
+      ],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Exit recharge mode — disperse from EnergyNode",
+      "condition": { "op": "register_equals", "index": 1, "value": 1 },
+      "set_registers": [
+        { "index": 0, "value": { "fn": "wander_angle" } },
+        { "index": 1, "value": 0 }
+      ],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Repair when durability low",
+      "condition": { "op": "durability_below", "threshold": 50 },
+      "action": { "op": "REPAIR" }
+    },
+    {
+      "comment": "Assemble when all components ready (Disassembler instead of Harvester)",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Frame", "count": 1 },
+          { "op": "inventory_has", "item": "Actuator", "count": 1 },
+          { "op": "inventory_has", "item": "Sensor", "count": 1 },
+          { "op": "inventory_has", "item": "Processor", "count": 1 },
+          { "op": "inventory_has", "item": "Disassembler", "count": 1 },
+          { "op": "inventory_has", "item": "Assembler", "count": 1 },
+          { "op": "inventory_has", "item": "Charger", "count": 1 },
+          { "op": "inventory_has", "item": "MemoryCore", "count": 1 },
+          { "op": "inventory_has", "item": "Register", "count": 1 }
+        ]
+      },
+      "action": {
+        "op": "ASSEMBLE",
+        "components": ["Frame", "Actuator", "Sensor", "Processor", "Disassembler", "Assembler", "Charger", "MemoryCore", "Register"]
+      }
+    },
+    {
+      "comment": "Write to nearby inactive character",
+      "condition": { "op": "nearby", "type": "InactiveCharacter", "radius": 1.5 },
+      "action": { "op": "WRITE", "target": "nearest_inactive" }
+    },
+    {
+      "comment": "Process Ore to Metal",
+      "condition": { "op": "inventory_has", "item": "Ore", "count": 2 },
+      "action": { "op": "PROCESS", "recipe": "Metal" }
+    },
+    {
+      "comment": "Process Crystal to Circuit",
+      "condition": { "op": "inventory_has", "item": "Crystal", "count": 2 },
+      "action": { "op": "PROCESS", "recipe": "Circuit" }
+    },
+    {
+      "comment": "Craft Frame",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Metal", "count": 3 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Frame", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Frame" }
+    },
+    {
+      "comment": "Craft Processor",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Circuit", "count": 3 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Processor", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Processor" }
+    },
+    {
+      "comment": "Craft Sensor",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Circuit", "count": 2 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Sensor", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Sensor" }
+    },
+    {
+      "comment": "Craft MemoryCore",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Circuit", "count": 2 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "MemoryCore", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "MemoryCore" }
+    },
+    {
+      "comment": "Craft Register",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Circuit", "count": 1 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Register", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Register" }
+    },
+    {
+      "comment": "Craft Disassembler",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Metal", "count": 2 },
+          { "op": "inventory_has", "item": "Circuit", "count": 1 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Disassembler", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Disassembler" }
+    },
+    {
+      "comment": "Craft Charger",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Circuit", "count": 2 },
+          { "op": "inventory_has", "item": "Metal", "count": 1 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Charger", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Charger" }
+    },
+    {
+      "comment": "Craft Assembler",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Metal", "count": 2 },
+          { "op": "inventory_has", "item": "Circuit", "count": 1 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Assembler", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Assembler" }
+    },
+    {
+      "comment": "Craft Actuator",
+      "condition": {
+        "op": "and",
+        "conditions": [
+          { "op": "inventory_has", "item": "Metal", "count": 1 },
+          { "op": "inventory_has", "item": "Circuit", "count": 1 },
+          { "op": "not", "condition": { "op": "inventory_has", "item": "Actuator", "count": 1 } }
+        ]
+      },
+      "action": { "op": "CRAFT", "component": "Actuator" }
+    },
+    {
+      "comment": "Near Remains — disassemble",
+      "condition": { "op": "nearby", "type": "Remains", "radius": 1.5 },
+      "action": { "op": "DISASSEMBLE" }
+    },
+    {
+      "comment": "Remains detected — move toward it (set direction persistence)",
+      "condition": { "op": "nearby", "type": "Remains", "radius": 100 },
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "Remains" } },
+        { "index": 2, "value": 2 }
+      ],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Default: recharge if near EnergyNode (wait for corpses)",
+      "condition": { "op": "nearby", "type": "EnergyNode", "radius": 1.5 },
+      "action": { "op": "RECHARGE" }
+    },
+    {
+      "comment": "Default: move toward EnergyNode to wait (set direction persistence)",
+      "condition": { "op": "nearby", "type": "EnergyNode", "radius": 100 },
+      "set_registers": [
+        { "index": 0, "value": { "fn": "angle_to_nearest", "type": "EnergyNode" } },
+        { "index": 2, "value": 2 }
+      ],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Direction persistence (2 ticks remaining)",
+      "condition": { "op": "register_equals", "index": 2, "value": 2 },
+      "set_registers": [{ "index": 2, "value": 1 }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Direction persistence (1 tick remaining)",
+      "condition": { "op": "register_equals", "index": 2, "value": 1 },
+      "set_registers": [{ "index": 2, "value": 0 }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    },
+    {
+      "comment": "Nothing in range — wander",
+      "condition": { "op": "true" },
+      "set_registers": [{ "index": 0, "value": { "fn": "wander_angle" } }],
+      "action": { "op": "MOVE", "direction": { "register": 0 } }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+[Unit]
+Description=v3-server - auto-craft-game simulation server
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/opt/v3_server
+ExecStart=/home/ec2-user/.nvm/versions/node/v20/bin/node server/dist/main.js
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=ADMIN_PORT=3001
+Environment=DATA_DIR=/opt/v3_server/data/worlds
+
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=v3-server
+
+[Install]
+WantedBy=multi-user.target

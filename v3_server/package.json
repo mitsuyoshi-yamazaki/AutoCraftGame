@@ -1,0 +1,28 @@
+{
+  "name": "v3-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:server": "tsc -p server/tsconfig.json",
+    "build:client": "cd client && npx vite build",
+    "build": "npm run build:server && npm run build:client",
+    "start": "node server/dist/main.js",
+    "dev:server": "npx tsx --watch server/src/main.ts",
+    "dev:client": "cd client && npx vite",
+    "test": "vitest run",
+    "admin": "npx tsx server/src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "tsx": "^4.10.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.6",
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  }
+}
