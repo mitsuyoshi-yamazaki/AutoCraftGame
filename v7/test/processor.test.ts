@@ -4,7 +4,7 @@ import { createAssembler } from '../src/assembler.js';
 import { createEmptyWorld, addObject } from '../src/world.js';
 import { DEFAULT_GAME_PARAMS } from '../src/params.js';
 import type { ProcessorObject, AssemblerObject } from '../src/types.js';
-import { Opcode, encodeR, encodeW } from '../src/vm/vm.js';
+import { Opcode, encodeR, encodeW, encodeI, encodeLabel, encodeJmpl, encodeLwl, encodeSwl } from '../src/vm/vm.js';
 
 function prog(...instrs: (number | readonly number[])[]): number[] {
   return instrs.flat() as number[];
@@ -209,6 +209,134 @@ describe('processor', () => {
     const p2After2 = r2.world.objects.find(o => o.id === 'p2') as ProcessorObject;
     expect(p2After2.memory[0]).toBe(0xAAAA);  // from tick 1
     expect(p2After2.memory[1]).toBe(0xBBBB);  // from tick 2 (persisted pmemAddr=1)
+  });
+
+  it('LABEL acts as NOP', () => {
+    let w = createEmptyWorld(100, 100);
+    w = addObject(w, createProcessor('p1', { x: 10, y: 10 }, prog(
+      encodeW(Opcode.LI, 1, 0, 42),       // r1 = 42
+      encodeLabel(7),                       // NOP marker
+      encodeW(Opcode.LI, 2, 0, 99),       // r2 = 99 (must execute)
+      encodeR(Opcode.HALT, 0, 0, 0),
+    ), true));
+    const result = executeProcessorTick(w, 'p1', DEFAULT_GAME_PARAMS);
+    const updated = result.world.objects.find(o => o.id === 'p1') as ProcessorObject;
+    expect(updated.registers[1]).toBe(42);
+    expect(updated.registers[2]).toBe(99);
+  });
+
+  it('JMPL jumps to LABEL+1', () => {
+    let w = createEmptyWorld(100, 100);
+    w = addObject(w, createProcessor('p1', { x: 10, y: 10 }, prog(
+      encodeJmpl(13),                       // jump to label 13
+      encodeW(Opcode.LI, 1, 0, 0xDEAD),   // skipped
+      encodeR(Opcode.HALT, 0, 0, 0),       // skipped
+      encodeLabel(13),                      // marker (4 words consumed: pc 0..4)
+      encodeW(Opcode.LI, 1, 0, 0xCAFE),   // executed after JMPL
+      encodeR(Opcode.HALT, 0, 0, 0),
+    ), true));
+    const result = executeProcessorTick(w, 'p1', DEFAULT_GAME_PARAMS);
+    const updated = result.world.objects.find(o => o.id === 'p1') as ProcessorObject;
+    expect(updated.registers[1]).toBe(0xCAFE);
+  });
+
+  it('JMPL falls through if no LABEL found', () => {
+    let w = createEmptyWorld(100, 100);
+    w = addObject(w, createProcessor('p1', { x: 10, y: 10 }, prog(
+      encodeJmpl(99),                       // no label 99 exists
+      encodeW(Opcode.LI, 1, 0, 0xBEEF),   // executed (no-op fall through)
+      encodeR(Opcode.HALT, 0, 0, 0),
+    ), true));
+    const result = executeProcessorTick(w, 'p1', DEFAULT_GAME_PARAMS);
+    const updated = result.world.objects.find(o => o.id === 'p1') as ProcessorObject;
+    expect(updated.registers[1]).toBe(0xBEEF);
+  });
+
+  it('LWL reads memory[label_addr+1+rs]', () => {
+    let w = createEmptyWorld(100, 100);
+    w = addObject(w, createProcessor('p1', { x: 10, y: 10 }, prog(
+      encodeW(Opcode.LI, 2, 0, 1),         // r2 = 1 (index)
+      encodeLwl(1, 2, 5),                   // r1 = mem[label(5) + 1 + r2]
+      encodeR(Opcode.HALT, 0, 0, 0),
+      encodeLabel(5),                       // pc=6: marker
+      0x1111,                               // pc=7: data[0]
+      0x2222,                               // pc=8: data[1] ← r1 should get this
+      0x3333,                               // pc=9: data[2]
+    ), true));
+    const result = executeProcessorTick(w, 'p1', DEFAULT_GAME_PARAMS);
+    const updated = result.world.objects.find(o => o.id === 'p1') as ProcessorObject;
+    expect(updated.registers[1]).toBe(0x2222);
+  });
+
+  it('SWL writes memory[label_addr+1+rs_idx]', () => {
+    let w = createEmptyWorld(100, 100);
+    // Layout: prog 7 words → LABEL at pc=7, data at pc=8..10
+    w = addObject(w, createProcessor('p1', { x: 10, y: 10 }, prog(
+      encodeW(Opcode.LI, 1, 0, 0xABCD),    // pc 0-1: r1 = value
+      encodeW(Opcode.LI, 2, 0, 2),         // pc 2-3: r2 = index 2
+      encodeSwl(1, 2, 9),                   // pc 4-5: mem[label(9) + 1 + 2] = r1
+      encodeR(Opcode.HALT, 0, 0, 0),       // pc 6
+      encodeLabel(9),                       // pc 7: marker
+      0,                                     // pc 8: data[0]
+      0,                                     // pc 9: data[1]
+      0,                                     // pc 10: data[2] ← gets 0xABCD
+    ), true));
+    const result = executeProcessorTick(w, 'p1', DEFAULT_GAME_PARAMS);
+    const updated = result.world.objects.find(o => o.id === 'p1') as ProcessorObject;
+    expect(updated.memory[10]).toBe(0xABCD);
+    expect(updated.memory[8]).toBe(0);
+    expect(updated.memory[9]).toBe(0);
+  });
+
+  it('SWL with no matching label is a no-op', () => {
+    let w = createEmptyWorld(100, 100);
+    w = addObject(w, createProcessor('p1', { x: 10, y: 10 }, prog(
+      encodeW(Opcode.LI, 1, 0, 0xABCD),
+      encodeW(Opcode.LI, 2, 0, 0),
+      encodeSwl(1, 2, 99),                  // label 99 does not exist
+      encodeW(Opcode.LI, 3, 0, 0xCAFE),    // proves PC continues
+      encodeR(Opcode.HALT, 0, 0, 0),
+    ), true));
+    const result = executeProcessorTick(w, 'p1', DEFAULT_GAME_PARAMS);
+    const updated = result.world.objects.find(o => o.id === 'p1') as ProcessorObject;
+    expect(updated.registers[3]).toBe(0xCAFE);
+  });
+
+  it('label cache invalidation: SW creates a new LABEL discoverable by JMPL', () => {
+    let w = createEmptyWorld(100, 100);
+    // Construct LABEL word at runtime via arithmetic so that it does NOT appear
+    // as an LI immediate (which would itself be found by the cache scan).
+    // labelWord(5) = (14 << 10) | 5 = 14341. Build it as: (14 << 10) + 5.
+    const labelWord = encodeLabel(5);
+    w = addObject(w, createProcessor('p1', { x: 10, y: 10 }, prog(
+      // r1 = 14336 = 14 << 10  (this LI immediate is NOT a label of id 5)
+      encodeW(Opcode.LI, 1, 0, 14336),
+      // r1 += 5  → r1 = 14341 = labelWord(5)
+      encodeI(Opcode.ADDI, 1, 1, 5),
+      // r2 = 50
+      encodeW(Opcode.LI, 2, 0, 50),
+      // mem[50] = r1 (writes LABEL marker at addr 50, invalidates cache)
+      encodeI(Opcode.SW, 1, 2, 0),
+      // JMPL 5 → cache rebuilt → finds at addr 50 → pc = 51
+      encodeJmpl(5),
+      encodeR(Opcode.HALT, 0, 0, 0),
+    ), true));
+
+    // Place HALT at pc=51 so the test terminates after the jump
+    const initialMem = (w.objects.find(o => o.id === 'p1') as ProcessorObject).memory;
+    const newMem = [...initialMem];
+    newMem[51] = encodeR(Opcode.HALT, 0, 0, 0);
+    w = {
+      ...w,
+      objects: w.objects.map(o => o.id === 'p1' ? { ...(o as ProcessorObject), memory: newMem } : o),
+    };
+
+    const result = executeProcessorTick(w, 'p1', DEFAULT_GAME_PARAMS);
+    const updated = result.world.objects.find(o => o.id === 'p1') as ProcessorObject;
+    // Verify the LABEL was written to address 50
+    expect(updated.memory[50]).toBe(labelWord);
+    // PC should have reached the HALT at 51 (HALT advances PC to 52 then stops)
+    expect(updated.pc).toBe(52);
   });
 
   it('processor can start another processor', () => {

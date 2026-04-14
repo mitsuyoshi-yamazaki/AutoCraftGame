@@ -21,12 +21,20 @@ export const OP_JALR = 12;
 // At tick start: if cpSet is true, PC is reset to cp
 export const OP_CHECKPOINT = 13;
 
+// Format LBL1 opcodes (v7: 1-word [opcode:6][label_id:10])
+export const OP_LABEL = 14;
+export const OP_JMPL  = 15;
+
 // Format I opcodes (1-word: [opcode:6][rd:3][rs:3][imm4:4])
 export const OP_ADDI = 16;
 export const OP_LW = 17;
 export const OP_SW = 18;
 export const OP_PUSH = 19;
 export const OP_POP = 20;
+
+// Format LBL2 opcodes (v7: 2-word; word1 [opcode:6][rd_or_rsval:3][rs:3][x:4], word2 [reserved:6][label_id:10])
+export const OP_LWL = 21;
+export const OP_SWL = 22;
 
 // Format B opcodes (short branch, 1-word: [opcode:6][rs1:3][rs2:3][offset:4])
 export const OP_BEQ = 24;

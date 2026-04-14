@@ -125,4 +125,13 @@ copySize を廃止し、常に 1024 ワード全体をコピーする。
 
 **方式 B 実施済み**: BEQL/BNEL/BLTL/BGEL および JMP の第 2 ワードを絶対アドレスから PC 相対オフセットに変更（VM, アセンブラ, レプリケータプログラム, 仕様書を更新）。これによりプログラムは位置独立になった。ただし JALR は引き続きレジスタ値を絶対 PC として扱う（呼び出し規約の変更が必要なため別課題）。
 
+**ラベル機構実施済み**: PC 相対分岐だけでは表現しにくい「複数地点から同一目標への合流」（関数呼び出し、ループ continue 等）を扱うため、新命令 LABEL/JMPL/LWL/SWL を追加（仕様書 7-3a, VM, テスト）。
+
+- LABEL imm10 (1 word, opcode 14): メモリ内目印。実行時 NOP
+- JMPL imm10 (1 word, opcode 15): 同 ID の LABEL を検索し、その次のワードへジャンプ
+- LWL rd, rs, imm10 (2 word, opcode 21): `mem[label_addr + 1 + rs]` を rd へロード
+- SWL rs_val, rs_idx, imm10 (2 word, opcode 22): `mem[label_addr + 1 + rs_idx] = rs_val`
+- 偽マッチ確率 1/65536 per word（カウンタ耐性とランダム変異感受性のバランス）
+- 検索コストは label テーブルキャッシュで O(1) lookup。SW/SWL/PUSH/POP で無効化
+
 方式 C（プログラム配置アドレスの分散）および方式 A（コピー開始オフセットの変動）は未実施。次の段階でこれらと組み合わせることで、原点バイアスを完全に解消できる見込み。

@@ -48,6 +48,10 @@ export const Opcode = {
   BNEL: OP.OP_BNEL,
   BLTL: OP.OP_BLTL,
   BGEL: OP.OP_BGEL,
+  LABEL: OP.OP_LABEL,
+  JMPL:  OP.OP_JMPL,
+  LWL:   OP.OP_LWL,
+  SWL:   OP.OP_SWL,
   JMP:  OP.OP_JMP,
   JALR: OP.OP_JALR,
   PUSH: OP.OP_PUSH,
@@ -166,8 +170,45 @@ interface ExecResult {
 }
 
 /**
+ * Mutable label cache for JMPL/LWL/SWL.
+ *
+ * Maps label_id (10-bit) → first matching memory address (lowest addr).
+ * Built lazily on first JMPL/LWL/SWL use; invalidated on any memory write
+ * (SW/SWL/PUSH/POP). The cache is per-tick (recreated each VM tick).
+ */
+export interface LabelCache {
+  map: Map<number, number> | null;
+}
+
+export const createLabelCache = (): LabelCache => ({ map: null });
+
+/** Build the label cache by linearly scanning memory once. */
+const buildLabelCache = (memory: readonly number[]): Map<number, number> => {
+  const cache = new Map<number, number>();
+  for (let addr = 0; addr < memory.length; addr++) {
+    const word = memory[addr];
+    if (((word >> 10) & 0x3F) === Opcode.LABEL) {
+      const id = word & 0x3FF;
+      if (!cache.has(id)) cache.set(id, addr);
+    }
+  }
+  return cache;
+};
+
+/** Look up a label id, building the cache if needed. */
+const lookupLabel = (
+  cache: LabelCache,
+  memory: readonly number[],
+  id: number,
+): number | undefined => {
+  if (cache.map === null) cache.map = buildLabelCache(memory);
+  return cache.map.get(id);
+};
+
+/**
  * Execute a single instruction. Returns updated state.
  * ioRead/ioWrite callbacks handle I/O space access.
+ * labelCache is a mutable cache shared across instructions in the same tick.
  */
 const executeInstruction = (
   memory: readonly number[],
@@ -175,6 +216,7 @@ const executeInstruction = (
   pc: number,
   ioRead: (addr: number) => number,
   ioWrite: (addr: number, value: number) => void,
+  labelCache: LabelCache,
 ): ExecResult => {
   const memSize = memory.length;
   const word = readMem(memory, pc);
@@ -285,6 +327,7 @@ const executeInstruction = (
       const imm = extractImm4Signed(word);
       const addr = readReg(registers, rd) + imm;
       const val = readReg(registers, rs);
+      labelCache.map = null;  // memory mutation invalidates label cache
       return { registers, memory: writeMem(memory, addr, val), pc: wrapPc(pc + 1, memSize), halted: false };
     }
 
@@ -404,6 +447,7 @@ const executeInstruction = (
       const sp = (readReg(registers, 7) - 1 + 0x10000) & WORD_MASK;
       const regs = writeReg(registers, 7, sp);
       const newMem = writeMem(memory, sp, readReg(registers, rs));
+      labelCache.map = null;
       return { registers: regs, memory: newMem, pc: wrapPc(pc + 1, memSize), halted: false };
     }
     case Opcode.POP: {
@@ -415,6 +459,49 @@ const executeInstruction = (
       let regs = writeReg(registers, rd, val);
       regs = writeReg(regs, 7, newSp);
       return { registers: regs, memory, pc: wrapPc(pc + 1, memSize), halted: false };
+    }
+
+    // --- Label-based jump / memory access (v7) ---
+    case Opcode.LABEL: {
+      // 1-word marker. Acts as NOP at runtime.
+      return { registers, memory, pc: wrapPc(pc + 1, memSize), halted: false };
+    }
+    case Opcode.JMPL: {
+      // 1-word: opcode (6) | label_id (10)
+      const id = word & 0x3FF;
+      const labelAddr = lookupLabel(labelCache, memory, id);
+      if (labelAddr === undefined) {
+        return { registers, memory, pc: wrapPc(pc + 1, memSize), halted: false };
+      }
+      // Jump to the word AFTER the LABEL marker
+      return { registers, memory, pc: wrapPc(labelAddr + 1, memSize), halted: false };
+    }
+    case Opcode.LWL: {
+      // 2-word: word1 = opcode | rd | rs | unused, word2 = label_id (lower 10 bits)
+      const rd = extractRd(word);
+      const rs = extractRs1(word);
+      const id = readMem(memory, pc + 1) & 0x3FF;
+      const labelAddr = lookupLabel(labelCache, memory, id);
+      if (labelAddr === undefined) {
+        return { registers: writeReg(registers, rd, 0), memory, pc: wrapPc(pc + 2, memSize), halted: false };
+      }
+      const targetAddr = labelAddr + 1 + readReg(registers, rs);
+      const val = readMem(memory, targetAddr);
+      return { registers: writeReg(registers, rd, val), memory, pc: wrapPc(pc + 2, memSize), halted: false };
+    }
+    case Opcode.SWL: {
+      // 2-word: word1 = opcode | rs_val | rs_idx | unused, word2 = label_id (lower 10 bits)
+      const rsVal = extractRd(word);    // bits 9-7: value register
+      const rsIdx = extractRs1(word);   // bits 6-4: index register
+      const id = readMem(memory, pc + 1) & 0x3FF;
+      const labelAddr = lookupLabel(labelCache, memory, id);
+      if (labelAddr === undefined) {
+        return { registers, memory, pc: wrapPc(pc + 2, memSize), halted: false };
+      }
+      const targetAddr = labelAddr + 1 + readReg(registers, rsIdx);
+      const val = readReg(registers, rsVal);
+      labelCache.map = null;  // memory mutation invalidates cache
+      return { registers, memory: writeMem(memory, targetAddr, val), pc: wrapPc(pc + 2, memSize), halted: false };
     }
 
     // --- HALT ---
@@ -476,9 +563,11 @@ export const executeOneTick = (
   let count = 0;
   let halted = false;
   let checkpointHit = false;
+  // Per-tick label cache, lazily built and invalidated on memory writes
+  const labelCache = createLabelCache();
 
   while (count < maxInstructions) {
-    const result = executeInstruction(memory, registers, pc, ioRead, ioWrite);
+    const result = executeInstruction(memory, registers, pc, ioRead, ioWrite, labelCache);
     memory = result.memory;
     registers = result.registers;
     pc = result.pc;
@@ -541,3 +630,35 @@ export const encodeHalt = (): number => (Opcode.HALT & 0x3F) << 10;
 
 /** Encode CHECKPOINT instruction (uses magic operand pattern to resist random triggering) */
 export const encodeCheckpoint = (): number => CHECKPOINT_WORD;
+
+/** Encode 1-word LABEL instruction (opcode 14, 10-bit id) */
+export const encodeLabel = (id: number): number =>
+  ((Opcode.LABEL & 0x3F) << 10) | (id & 0x3FF);
+
+/** Encode 1-word JMPL instruction (opcode 15, 10-bit id) */
+export const encodeJmpl = (id: number): number =>
+  ((Opcode.JMPL & 0x3F) << 10) | (id & 0x3FF);
+
+/**
+ * Encode 2-word LWL instruction.
+ * Word 1: opcode | rd (3) | rs (3) | unused (4)
+ * Word 2: id (lower 10 bits, upper 6 bits = 0)
+ */
+export const encodeLwl = (
+  rd: number, rs: number, id: number,
+): readonly [number, number] => [
+  ((Opcode.LWL & 0x3F) << 10) | ((rd & 0x7) << 7) | ((rs & 0x7) << 4),
+  id & 0x3FF,
+];
+
+/**
+ * Encode 2-word SWL instruction.
+ * Word 1: opcode | rs_val (3) | rs_idx (3) | unused (4)
+ * Word 2: id (lower 10 bits, upper 6 bits = 0)
+ */
+export const encodeSwl = (
+  rsVal: number, rsIdx: number, id: number,
+): readonly [number, number] => [
+  ((Opcode.SWL & 0x3F) << 10) | ((rsVal & 0x7) << 7) | ((rsIdx & 0x7) << 4),
+  id & 0x3FF,
+];
