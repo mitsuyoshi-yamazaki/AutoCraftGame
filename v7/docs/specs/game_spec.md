@@ -272,8 +272,21 @@ ASSEMBLE が実行中（gathering または assembling）に再度 `action_trigg
 
 - サイズ: **1024 ワード**（16bit 符号なし整数 x 1024）
 - プログラムとデータが同一メモリ空間に格納される（von Neumann 方式）
+- メモリ空間は**循環的**（どのアドレスにも「始点」や「原点」としての特権はなく、アドレス計算は常に mod 1024 で行われる）
 - レジスタ: r0〜r7（r0 は常に 0）
 - プログラムカウンタ (PC): 初期値 0
+
+#### 7-2a. 基準アドレスについて
+
+循環メモリには本来「原点」は存在しないが、システム実装上はいずれかのワードを「基準点」として表現する必要がある。本仕様では、この基準点を**アドレス 0** と呼ぶ。
+
+「アドレス 0」は以下の場面で現れる:
+
+- Processor 生成時の PC 初期値（= 基準点から実行を開始する）
+- Processor の初期プログラムロード位置（= 基準点から書き込まれる）
+- 他 Processor からの書き込み時の基準位置（`PMEM_ADDR = 0` は「基準点から 0 ワード離れた位置」を意味する）
+
+これらは循環メモリ上の任意の 1 点を指す**識別子**であり、他のアドレスに対する絶対的な優位性を持たない。アドレス計算は常に循環的（mod 1024）に行われるため、基準点からのオフセットが負値またはメモリサイズを超えた場合も自然に循環する。
 
 ### 7-3. 命令セット
 
@@ -296,7 +309,7 @@ v5/v6 の 16bit 命令セットをそのまま使用する。**CHECKPOINT は廃
 | **JMPL imm10** | ラベル指定ジャンプ。同じ ID の LABEL を検索し、その次のワードへジャンプ |
 | **LWL rd, rs, imm10** | ラベル指定ロード。`memory[label_addr + 1 + rs]` を rd に読み込む |
 | **SWL rs_val, rs_idx, imm10** | ラベル指定ストア。`memory[label_addr + 1 + rs_idx] = rs_val` |
-| HALT | 実行停止（次 tick で PC=0 から再開） |
+| HALT | 当該 tick の実行を途中終了（PC は進めるがそれ以降の命令を実行しない。次 tick は HALT の次のワードから継続） |
 
 **位置独立性**: BEQL/BNEL/BLTL/BGEL および JMP の第 2 ワードは、その命令の PC からの符号付き相対オフセット。これと LABEL/JMPL/LWL/SWL の組み合わせにより、プログラムはメモリ上のどのアドレスに配置されても動作する（JALR を除く）。
 
@@ -428,8 +441,10 @@ SCAN 実行後、結果が `scan_results` 領域に格納される。最大 8 �
 - 初期状態は **stopped**
 - 他の Processor が `run_flag` に 1 を書き込むと **running** に遷移
 - running 状態では毎 tick 最大 `INSTRUCTIONS_PER_TICK` 命令を実行する
-- HALT に到達すると当該 tick の実行を終了し、次 tick で PC=0 から再開する
+- HALT に到達すると当該 tick の残り命令の実行をスキップする。PC は HALT の次のワードへ進み、次 tick ではそこから実行を継続する（PC は 0 にリセットされない）
 - 命令上限に到達した場合、次 tick で中断点から再開する
+
+**HALT の意味付けについて**: HALT は本質的に「この tick の残り命令を消費せず早めに終わらせる」マーカーであり、プログラムの恒久的な停止ではない。次 tick では HALT の次のワードから実行が継続するため、プログラム側で無限ループを設けていない場合、HALT 以降のメモリ内容（通常はゼロ）が NOP として実行され続けることに注意。
 
 ### 7-9. エネルギーコスト
 
@@ -496,27 +511,31 @@ Processor 自身の操作メモリを I/O 空間経由で読み書きする。
 
 ローカル ID を指定して、別の Processor の内部メモリ（プログラムメモリ）を読み書きする。オートインクリメント付き。
 
+対象 Processor のメモリは循環的な 1024 ワード空間であり、各 Processor にはそれぞれ**基準アドレス**（7-2a 節）が存在する。`PMEM_ADDR` は**対象 Processor の基準アドレスからのオフセット**を表し、アドレス計算は常に `(基準点 + オフセット) mod 1024` として行われる。オフセットが負値またはメモリサイズを超えても、自然に循環する。
+
 | アドレス | 名称 | R/W | 説明 |
 |----------|------|-----|------|
 | 0x2000 | `PMEM_TARGET_ID` | W | 対象 Processor のローカル ID |
-| 0x2001 | `PMEM_ADDR` | W | 対象メモリのアドレス（0〜1023） |
+| 0x2001 | `PMEM_ADDR` | W | 対象メモリ上の、基準点からのオフセット（0〜1023） |
 | 0x2002 | `PMEM_VALUE` | R/W | 読み取り / 書き込み値 |
 | 0x2003 | `PMEM_AUTO_VALUE` | R/W | 読み取り / 書き込み後、`PMEM_ADDR` が自動的に +1 される |
 
 プロトコル（1 ワード単位）:
 
 1. `PMEM_TARGET_ID` にローカル ID を書き込む
-2. `PMEM_ADDR` にアドレスを書き込む
+2. `PMEM_ADDR` に開始オフセットを書き込む
 3. `PMEM_VALUE` を IN で読むか OUT で書く
 
 プロトコル（連続コピー — オートインクリメント）:
 
 1. `PMEM_TARGET_ID` にローカル ID を書き込む
-2. `PMEM_ADDR` に開始アドレスを書き込む
-3. `PMEM_AUTO_VALUE` に OUT で書く（→ 書き込み後 `PMEM_ADDR` が +1）
+2. `PMEM_ADDR` に開始オフセットを書き込む
+3. `PMEM_AUTO_VALUE` に OUT で書く（→ 書き込み後 `PMEM_ADDR` が +1、メモリサイズを超えた場合は循環）
 4. 3 を繰り返す
 
 連続コピーでは 1 ワードあたり 1 命令（OUT）で書き込める。1024 ワード全体のコピーには 1024 + 2（ID + ADDR セットアップ）= 1026 命令が必要。読み取りも同様に `PMEM_AUTO_VALUE` を IN で連続読み取り可能。
+
+**書き込み位置の自由度**: `PMEM_ADDR` に 0 以外の値を書き込めば、対象 Processor のメモリ上で基準点から離れた位置に書き込める。これを利用してプログラムの配置アドレスを分散させたり、コピー開始点を変動させたりすることはプログラム側の責任であり、システムは基準点にバイアスをかけない（ただし実装上、基準点は 0 として表現される）。
 
 ### 8-5. ローカル ID の管理
 
@@ -639,8 +658,10 @@ v7 では「キャラクター」が存在しないため、自己複製は以�
 
 1. Assembler が新しいコンポーネント（Assembler, Processor）を生産する
 2. Processor が新しいコンポーネントの操作メモリを設定する（レシピ設定、起動等）
-3. Processor が新しい Processor にプログラムメモリをコピーする
+3. Processor が新しい Processor にプログラムメモリをコピーする（`PMEM_ADDR` を指定して、対象の基準点からのオフセット位置にコピー）
 4. Processor が新しい Processor を起動する
+
+新規 Processor の初期 PC は基準点（0）であり、プログラム本体をどの位置に配置するかはコピー元 Processor のプログラム側で決定する。基準点に配置すれば起動直後からプログラムが実行され、離れた位置に配置すれば起動時に zero region を NOP として進んでから本体に到達する（循環メモリなので最終的にどこに置いても到達する）。
 
 ### 11-2. 近接維持
 
@@ -653,6 +674,7 @@ v7 では「キャラクター」が存在しないため、自己複製は以�
 - 以下の「自然な」変異が発生しうる:
   - メモリコピー完了前に Processor 間の距離が離れ、コピーが不完全
   - 稼働中 Processor へのメモリ書き込みによる予期せぬ動作
+- コピー開始オフセット（`PMEM_ADDR`）やコピー元読み出し位置をプログラム側で可変にすることで、ドリフトアウト時の切断点をプログラム内の任意位置に分散させることが可能（プログラム側の設計に依存）
 
 ---
 
@@ -728,16 +750,16 @@ type ProcessorObject = {
   readonly position: Position
   readonly orientation: number           // v7.0.0 では常に 0
   readonly operationMemory: number[]     // 37 ワード
-  readonly memory: number[]              // 1024 ワード（プログラムメモリ）
+  readonly memory: number[]              // 1024 ワード（循環的なプログラム/データメモリ）
   readonly registers: number[]           // r0〜r7
-  readonly pc: number                    // プログラムカウンタ
+  readonly pc: number                    // プログラムカウンタ（初期値は基準点 = 0）
   readonly localIdTable: Map<number, string>  // tick をまたいで永続
   readonly localIdCounter: number
   readonly ioRegisters: {               // tick をまたいで永続
     readonly opMemTargetId: number
     readonly opMemOffset: number
-    readonly pmemTargetId: number
-    readonly pmemAddr: number
+    readonly pmemTargetId: number  // 他 Processor への書き込み対象の localId
+    readonly pmemAddr: number      // 対象 Processor の基準点からのオフセット
   }
 }
 
