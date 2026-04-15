@@ -1,14 +1,26 @@
 import type {
   World,
-  WorldObject,
   AssemblerObject,
   ProcessorObject,
   MaterialObject,
   EnergyObject,
+  GroupObject,
   SimulationEvent,
 } from '@/types.js';
+import {
+  ASM_OFF_RECIPE,
+  ASM_OFF_CONNECTION_TARGET_ID,
+  ASM_OFF_ASSEMBLE_STATUS,
+  ASM_OFF_ASSEMBLE_PROGRESS,
+  ASM_OFF_LAST_PRODUCT_ID,
+  ASM_OFF_DISCONNECT_TARGET_ID,
+  PROC_OFF_RUN_FLAG,
+  PROC_OFF_SCAN_COUNT,
+  PROC_OFF_CSCAN_COUNT,
+  PROC_OFF_DISCONNECT_TARGET_ID,
+} from '@/types.js';
 import { DEFAULT_GAME_PARAMS } from '@/params.js';
-import { createInitialState, DEFAULT_INITIAL_CONFIG } from '@/initial-state.js';
+import { createInitialState } from '@/initial-state.js';
 import { executeTick } from '@/simulation.js';
 import { GAME_VERSION } from '@/version.js';
 import { Renderer } from './renderer.js';
@@ -25,7 +37,7 @@ const MAX_LOG_ENTRIES = 200;
 // ============================================================
 // State
 // ============================================================
-type Selection = { kind: string; id: string } | null;
+type Selection = { kind: string; id: number } | null;
 
 interface UIState {
   world: World;
@@ -158,11 +170,12 @@ function render(): void {
 
 function updateStats(): void {
   const objs = state.world.objects;
-  const assemblers = objs.filter(o => o.kind === 'assembler');
-  const processors = objs.filter(o => o.kind === 'processor');
+  const assemblers = objs.filter(o => o.kind === 'assembler') as AssemblerObject[];
+  const processors = objs.filter(o => o.kind === 'processor') as ProcessorObject[];
   const materials = objs.filter(o => o.kind === 'material');
   const energy = objs.filter(o => o.kind === 'energy');
-  const running = processors.filter(o => (o as ProcessorObject).running);
+  const groups = objs.filter(o => o.kind === 'group') as GroupObject[];
+  const running = processors.filter(o => o.running);
 
   tickDisplay.textContent = `Tick: ${state.world.tick}`;
   statCharacters.textContent = `${assemblers.length + processors.length}`;
@@ -173,10 +186,10 @@ function updateStats(): void {
   statOldest.innerHTML = '';
   statSpecies.innerHTML = '';
 
-  // Object summary
   const summary = document.createElement('div');
   summary.innerHTML = `
-    <div>Assemblers: ${assemblers.length} (gathering: ${assemblers.filter(a => (a as AssemblerObject).phase === 'gathering').length})</div>
+    <div>Groups: ${groups.length}</div>
+    <div>Assemblers: ${assemblers.length} (gathering: ${assemblers.filter(a => a.phase === 'gathering').length}, assembling: ${assemblers.filter(a => a.phase === 'assembling').length})</div>
     <div>Processors: ${processors.length} (running: ${running.length})</div>
     <div>Materials: ${materials.length}</div>
     <div>Energy: ${energy.length}</div>
@@ -201,35 +214,77 @@ function updateSelected(): void {
   const pos = `(${obj.position.x.toFixed(1)}, ${obj.position.y.toFixed(1)})`;
 
   switch (obj.kind) {
+    case 'group': {
+      const g = obj as GroupObject;
+      const memberRows: string[] = [];
+      for (const mid of g.memberIds) {
+        const m = state.world.objects.find(o => o.id === mid);
+        if (!m) { memberRows.push(`<li>${mid} (missing)</li>`); continue; }
+        if (m.kind === 'assembler') {
+          memberRows.push(`<li>${mid} Assembler [${(m as AssemblerObject).phase}]</li>`);
+        } else if (m.kind === 'processor') {
+          memberRows.push(`<li>${mid} Processor [${(m as ProcessorObject).running ? 'running' : 'stopped'}]</li>`);
+        } else {
+          memberRows.push(`<li>${mid} ${m.kind}</li>`);
+        }
+      }
+      const edgeRows = g.edges.map(([a, b]) => `<li>${a} ↔ ${b}</li>`).join('');
+      selectedContent.innerHTML = `
+        <div><strong>Group</strong> ${g.id}</div>
+        <div>Pos: ${pos}</div>
+        <div>Members (${g.memberIds.length}):</div>
+        <ul>${memberRows.join('')}</ul>
+        <div>Edges (${g.edges.length}):</div>
+        <ul>${edgeRows}</ul>
+      `;
+      vmPanel.style.display = 'none';
+      break;
+    }
     case 'assembler': {
       const a = obj as AssemblerObject;
+      const groupInfo = a.groupId !== null ? `(group ${a.groupId})` : '(freestanding)';
+      const opmem = a.operationMemory;
       selectedContent.innerHTML = `
-        <div><strong>Assembler</strong> ${a.id}</div>
+        <div><strong>Assembler</strong> ${a.id} ${groupInfo}</div>
         <div>Pos: ${pos}</div>
         <div>Phase: ${a.phase}</div>
         <div>Recipe: ${a.recipe || 'none'}</div>
         <div>Ticks remaining: ${a.assembleTicksRemaining}</div>
         <div>Gathered: ${JSON.stringify(a.gatherProgress)}</div>
         <div>Energy gathered: ${a.gatheredEnergy}</div>
-        <div>OpMem: [${a.operationMemory.join(', ')}]</div>
+        <hr/>
+        <div><strong>OpMem (8)</strong></div>
+        <div>recipe: ${opmem[ASM_OFF_RECIPE]}</div>
+        <div>connection_target_id: ${opmem[ASM_OFF_CONNECTION_TARGET_ID]}</div>
+        <div>assemble_status: ${opmem[ASM_OFF_ASSEMBLE_STATUS]}</div>
+        <div>assemble_progress: ${opmem[ASM_OFF_ASSEMBLE_PROGRESS]}</div>
+        <div>last_product_id: ${opmem[ASM_OFF_LAST_PRODUCT_ID]}</div>
+        <div>disconnect_target_id: ${opmem[ASM_OFF_DISCONNECT_TARGET_ID]}</div>
       `;
       vmPanel.style.display = 'none';
       break;
     }
     case 'processor': {
       const p = obj as ProcessorObject;
+      const groupInfo = p.groupId !== null ? `(group ${p.groupId})` : '(freestanding)';
+      const opmem = p.operationMemory;
       selectedContent.innerHTML = `
-        <div><strong>Processor</strong> ${p.id}</div>
+        <div><strong>Processor</strong> ${p.id} ${groupInfo}</div>
         <div>Pos: ${pos}</div>
         <div>Running: ${p.running}</div>
         <div>PC: ${p.pc}</div>
         <div>Registers: [${p.registers.join(', ')}]</div>
+        <div>localId entries: ${p.localIdTable.size}</div>
       `;
       vmPanel.style.display = '';
       const nonZero = p.memory.filter(w => w !== 0).length;
       vmContent.innerHTML = `
         <div><strong>Memory</strong>: ${p.memory.length} words (${nonZero} non-zero)</div>
-        <div><strong>OpMem</strong>: [${p.operationMemory.slice(0, 5).join(', ')}...]</div>
+        <div><strong>OpMem</strong></div>
+        <div>run_flag: ${opmem[PROC_OFF_RUN_FLAG]}</div>
+        <div>scan_count: ${opmem[PROC_OFF_SCAN_COUNT]}</div>
+        <div>cscan_count: ${opmem[PROC_OFF_CSCAN_COUNT]}</div>
+        <div>disconnect_target_id: ${opmem[PROC_OFF_DISCONNECT_TARGET_ID]}</div>
       `;
       break;
     }
@@ -259,13 +314,25 @@ function updateSelected(): void {
 
 function appendEvents(events: readonly SimulationEvent[], tick: number): void {
   for (const event of events) {
-    if (event.type !== 'assembler_completed') continue;
+    let className = 'log-entry';
+    let text: string;
+    if (event.type === 'assembler_completed') {
+      className += ' log-birth';
+      text = `[tick ${tick}] asm ${event.id} → product ${event.productId}`;
+    } else if (event.type === 'disconnect_applied') {
+      text = `[tick ${tick}] disconnect ${event.actorId} ↔ ${event.targetId}`;
+    } else if (event.type === 'group_split') {
+      text = `[tick ${tick}] group ${event.originalId} split → ${event.newId}`;
+    } else if (event.type === 'group_dissolved') {
+      text = `[tick ${tick}] group ${event.id} dissolved`;
+    } else {
+      continue;
+    }
     const div = document.createElement('div');
-    div.className = 'log-entry log-birth';
-    div.textContent = `[tick ${tick}] ${event.id} → ${event.productId}`;
+    div.className = className;
+    div.textContent = text;
     eventLogContent.appendChild(div);
   }
-  // Trim old entries
   while (eventLogContent.children.length > MAX_LOG_ENTRIES) {
     eventLogContent.removeChild(eventLogContent.firstChild!);
   }

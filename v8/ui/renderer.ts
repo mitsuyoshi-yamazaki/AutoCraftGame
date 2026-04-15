@@ -6,6 +6,7 @@ import type {
   ProcessorObject,
   MaterialObject,
   EnergyObject,
+  GroupObject,
   Position,
 } from '@/types.js';
 
@@ -25,6 +26,8 @@ const COLORS = {
   circuit: 0x4caf50,
   energy: 0xffd700,
   selected: 0xffd700,
+  group: 0x9c27b0,
+  groupOutline: 0xe1bee7,
 } as const;
 
 // ============================================================
@@ -35,11 +38,16 @@ const MATERIAL_RADIUS = 0.2;
 const MIN_ENERGY_RADIUS = 0.15;
 const MAX_ENERGY_RADIUS = 0.6;
 
+// Group body radius scales with member count
+const GROUP_BASE_RADIUS = 0.6;
+const GROUP_RADIUS_PER_MEMBER = 0.25;
+const GROUP_MAX_RADIUS = 4.0;
+
 const MAX_ZOOM = 20;
 const ZOOM_FACTOR = 1.15;
 const DRAG_THRESHOLD = 4;
 
-export type DrawSelection = { kind: string; id: string } | null;
+export type DrawSelection = { kind: string; id: number } | null;
 
 type HitResult =
   | { kind: 'object'; object: WorldObject }
@@ -150,10 +158,71 @@ export class Renderer {
     // World border
     g.rect(0, 0, world.width, world.height).stroke({ color: COLORS.wall, width: 0.1 });
 
-    // Draw objects
+    // Draw groups first (background), then non-grouped objects
     for (const obj of world.objects) {
+      if (obj.kind !== 'group') continue;
+      const isSelected = selection?.id === obj.id;
+      this.drawGroup(g, obj as GroupObject, world, isSelected);
+    }
+
+    for (const obj of world.objects) {
+      if (obj.kind === 'group') continue;
+      // Skip grouped components (drawn as part of the group body)
+      if ((obj.kind === 'assembler' || obj.kind === 'processor') && obj.groupId !== null) continue;
       const isSelected = selection?.id === obj.id;
       this.drawObject(g, obj, isSelected);
+    }
+  }
+
+  private drawGroup(g: Graphics, group: GroupObject, world: World, selected: boolean): void {
+    const { x, y } = group.position;
+    const memberCount = group.memberIds.length;
+    const radius = Math.min(
+      GROUP_MAX_RADIUS,
+      GROUP_BASE_RADIUS + GROUP_RADIUS_PER_MEMBER * Math.sqrt(Math.max(memberCount - 1, 0)),
+    );
+
+    // Background filled circle (slightly transparent)
+    g.circle(x, y, radius).fill({ color: COLORS.group, alpha: 0.25 });
+    g.circle(x, y, radius).stroke({ color: COLORS.groupOutline, width: 0.06 });
+
+    // Inner glyphs: count of Assemblers vs Processors as concentric tick marks
+    let asmCount = 0;
+    let procCount = 0;
+    let busyAsm = 0;
+    let runningProc = 0;
+    for (const mid of group.memberIds) {
+      const m = world.objects.find(o => o.id === mid);
+      if (!m) continue;
+      if (m.kind === 'assembler') {
+        asmCount++;
+        if ((m as AssemblerObject).phase !== 'idle') busyAsm++;
+      } else if (m.kind === 'processor') {
+        procCount++;
+        if ((m as ProcessorObject).running) runningProc++;
+      }
+    }
+
+    // A small assembler square (left) and processor triangle (right), sized to group
+    const innerR = Math.min(radius * 0.4, 0.7);
+    if (asmCount > 0) {
+      const ax = x - innerR * 0.6;
+      const color = busyAsm > 0 ? COLORS.assemblerBusy : COLORS.assembler;
+      g.rect(ax - innerR * 0.5, y - innerR * 0.5, innerR, innerR).fill({ color });
+    }
+    if (procCount > 0) {
+      const px = x + innerR * 0.6;
+      const r = innerR * 0.6;
+      const color = runningProc > 0 ? COLORS.processor : COLORS.processorStopped;
+      g.moveTo(px + r, y)
+        .lineTo(px - r * 0.5, y - r * 0.87)
+        .lineTo(px - r * 0.5, y + r * 0.87)
+        .closePath()
+        .fill({ color });
+    }
+
+    if (selected) {
+      g.circle(x, y, radius + 0.15).stroke({ color: COLORS.selected, width: 0.1 });
     }
   }
 
@@ -186,7 +255,6 @@ export class Renderer {
       case 'processor': {
         const p = obj as ProcessorObject;
         const color = p.running ? COLORS.processor : COLORS.processorStopped;
-        // Triangle for processor
         const r = COMPONENT_RADIUS;
         g.moveTo(x + r, y)
           .lineTo(x - r * 0.5, y - r * 0.87)
@@ -205,12 +273,24 @@ export class Renderer {
   private hitTest(world: World, pos: Position): HitResult {
     let best: WorldObject | null = null;
     let bestDist = Infinity;
-    const hitRange = 0.8;
 
     for (const obj of world.objects) {
+      // Skip grouped members (they're at (0,0) and not visually present)
+      if ((obj.kind === 'assembler' || obj.kind === 'processor') && obj.groupId !== null) continue;
+
       const dx = obj.position.x - pos.x;
       const dy = obj.position.y - pos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
+
+      let hitRange = 0.8;
+      if (obj.kind === 'group') {
+        const memberCount = (obj as GroupObject).memberIds.length;
+        hitRange = Math.min(
+          GROUP_MAX_RADIUS,
+          GROUP_BASE_RADIUS + GROUP_RADIUS_PER_MEMBER * Math.sqrt(Math.max(memberCount - 1, 0)),
+        ) + 0.2;
+      }
+
       if (dist < hitRange && dist < bestDist) {
         bestDist = dist;
         best = obj;
