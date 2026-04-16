@@ -1,0 +1,7 @@
+{
+  "label": "5 v2 + 3 hij seed=1",
+  "ticks": 10000,
+  "seed": 1,
+  "snapshotEvery": 500,
+  "initial": { "hijackerCount": 3 }
+}

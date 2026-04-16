@@ -1,0 +1,13 @@
+{
+  "label": "slow ipt=100 5v2+1h seed=2 30k",
+  "ticks": 30000,
+  "seed": 2,
+  "snapshotEvery": 1500,
+  "initial": {
+    "worldWidth": 50, "worldHeight": 50, "numSets": 5,
+    "metalPerSet": 20, "circuitPerSet": 30, "energyPerSet": 400,
+    "programVariant": "v2",
+    "hijackerCount": 1
+  },
+  "params": { "instructionsPerTick": 100 }
+}

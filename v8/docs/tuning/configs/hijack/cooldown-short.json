@@ -1,0 +1,7 @@
+{
+  "label": "cooldown 50/20 seed=1",
+  "ticks": 10000,
+  "seed": 1,
+  "snapshotEvery": 500,
+  "initial": { "hijackerOptions": { "initialCooldown": 50, "postHijackCooldown": 20 } }
+}

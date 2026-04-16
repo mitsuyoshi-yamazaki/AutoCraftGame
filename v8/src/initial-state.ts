@@ -6,7 +6,11 @@ import type { World, MaterialObject, EnergyObject, AssemblerObject, ProcessorObj
 import { createEmptyWorld, addObject, nextObjectId, createGroupWith } from './world.js';
 import { createAssembler } from './assembler.js';
 import { createProcessor } from './processor.js';
-import { generateReplicatorProgram, generateReplicatorProgramV2 } from './programs.js';
+import {
+  generateReplicatorProgram,
+  generateReplicatorProgramV2,
+  generateHijackerProgram,
+} from './programs.js';
 
 export interface InitialStateConfig {
   readonly worldWidth: number;
@@ -20,6 +24,13 @@ export interface InitialStateConfig {
   readonly programVariant?: 'v1' | 'v2';
   /** v2 only: whether the replicator loops after each cycle. */
   readonly programLoop?: boolean;
+  /**
+   * Number of standalone hijacker Processors to add (no Assembler companion).
+   * Hijackers are placed at random positions across the world and start
+   * with run_flag=1.
+   */
+  readonly hijackerCount?: number;
+  readonly hijackerOptions?: { initialCooldown?: number; postHijackCooldown?: number };
 }
 
 export const DEFAULT_INITIAL_CONFIG: InitialStateConfig = {
@@ -97,6 +108,20 @@ export function createInitialState(config: InitialStateConfig = DEFAULT_INITIAL_
       amount: config.energyPerSet,
     };
     world = addObject(world, eng);
+  }
+
+  // Standalone hijackers
+  const hijackerCount = config.hijackerCount ?? 0;
+  if (hijackerCount > 0) {
+    const hijackerProg = generateHijackerProgram(config.hijackerOptions ?? {});
+    for (let i = 0; i < hijackerCount; i++) {
+      const hx = margin + Math.random() * (config.worldWidth - 2 * margin);
+      const hy = margin + Math.random() * (config.worldHeight - 2 * margin);
+      let id: number;
+      ({ id, world } = nextObjectId(world));
+      const proc = createProcessor(id, { x: hx, y: hy }, hijackerProg, true);
+      world = addObject(world, proc);
+    }
   }
 
   return world;

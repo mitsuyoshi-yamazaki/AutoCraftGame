@@ -1,0 +1,6 @@
+{
+  "label": "baseline seed=2",
+  "ticks": 10000,
+  "seed": 2,
+  "snapshotEvery": 500
+}

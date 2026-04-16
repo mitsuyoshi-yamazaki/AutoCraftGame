@@ -1,0 +1,13 @@
+{
+  "label": "slow ipt=100 dense 30x30 10v2+1h seed=1 30k",
+  "ticks": 30000,
+  "seed": 1,
+  "snapshotEvery": 1500,
+  "initial": {
+    "worldWidth": 30, "worldHeight": 30, "numSets": 10,
+    "metalPerSet": 20, "circuitPerSet": 30, "energyPerSet": 400,
+    "programVariant": "v2",
+    "hijackerCount": 1
+  },
+  "params": { "instructionsPerTick": 100 }
+}

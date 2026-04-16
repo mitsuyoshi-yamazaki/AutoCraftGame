@@ -29,6 +29,11 @@ const CSCAN_FILTER  = 0x0100 + 37;  // 0x0125
 const CSCAN_COUNT   = 0x0100 + 38;  // 0x0126
 const CSCAN_RESULT0 = 0x0100 + 39;  // 0x0127 (first result id)
 
+const SCAN_TRIGGER = 0x0100 + 1;    // 0x0101
+const SCAN_FILTER  = 0x0100 + 2;    // 0x0102
+const SCAN_COUNT   = 0x0100 + 3;    // 0x0103
+const SCAN_RESULT0 = 0x0100 + 4;    // 0x0104 (first result id)
+
 const OPMEM_TID     = 0x1000;
 const OPMEM_OFF     = 0x1001;
 const OPMEM_VAL     = 0x1002;
@@ -325,6 +330,195 @@ export function generateReplicatorProgramV2(options: {
   emit1(encodeLabel(L2_HALT));
   halt();
   emit1(encodeJmpl(L2_HALT));
+
+  return code;
+}
+
+/**
+ * Hijacker program — a standalone Processor that does NOT self-replicate.
+ *
+ * Behavior:
+ *   1. Initial cooldown of `initialCooldown` ticks (let surroundings settle).
+ *   2. Main loop:
+ *      a. SCAN with filter=2 (Processor only) within proximity range.
+ *      b. If no target found, HALT one tick and re-scan.
+ *      c. Take first scan result (closest) as target.
+ *      d. Compute the largest contiguous zero region in own memory (linear,
+ *         non-cyclic). The "main program" is assumed to be `memory minus
+ *         that zero region`.
+ *      e. Copy the non-zero region to target via PMEM, starting at addr 0,
+ *         using the auto-increment write port (PMEM_AUTO_VAL).
+ *      f. Cooldown for `postHijackCooldown` ticks.
+ *      g. Loop back to (a).
+ *
+ * Notes:
+ *   - The hijacker does not stop the target nor reset its PC. The target
+ *     keeps running while being overwritten — this is the intended source
+ *     of mutation.
+ *   - The largest-zero-region heuristic is recomputed each cycle, so a
+ *     hijacker corrupted by being hijacked back will spread its corrupted
+ *     memory next time.
+ *   - All registers and labels are kept disjoint from the v2 replicator
+ *     program so the two can coexist in the same source file without
+ *     conflicting label IDs.
+ */
+export function generateHijackerProgram(options: {
+  initialCooldown?: number;
+  postHijackCooldown?: number;
+} = {}): number[] {
+  const initialCooldown = options.initialCooldown ?? 100;
+  const postHijackCooldown = options.postHijackCooldown ?? 50;
+
+  const code: number[] = [];
+  let pc = 0;
+  const emit1 = (w: number) => { code.push(w); pc++; };
+  const emit2 = (ws: readonly [number, number]) => { code.push(ws[0], ws[1]); pc += 2; };
+  const li = (rd: number, imm: number) => emit2(encodeW(Opcode.LI, rd, 0, imm));
+  const out = (valReg: number) => emit1(encodeR(Opcode.OUT, 0, 2, valReg));
+  const inr = (dest: number) => emit1(encodeR(Opcode.IN, dest, 2, 0));
+  const halt = () => emit1(encodeR(Opcode.HALT, 0, 0, 0));
+  const zero = (rd: number) => emit1(encodeI(Opcode.ADDI, rd, 0, 0));
+  const patchBL = (branchPc: number, targetPc: number) => {
+    code[branchPc + 1] = (targetPc - branchPc) & 0xFFFF;
+  };
+
+  // "if rs != 0, jump to label" via BEQL-skip-JMPL pattern
+  const branchIfNZJmpl = (rs: number, labelId: number) => {
+    emit2(encodeBL(Opcode.BEQL, rs, 0, 3));  // if rs == 0, skip JMPL
+    emit1(encodeJmpl(labelId));
+  };
+  // "if rs == 0, jump to label" via BNEL-skip-JMPL pattern
+  const branchIfZJmpl = (rs: number, labelId: number) => {
+    emit2(encodeBL(Opcode.BNEL, rs, 0, 3));  // if rs != 0, skip JMPL
+    emit1(encodeJmpl(labelId));
+  };
+
+  // Hijacker uses label IDs in the 100s to avoid colliding with v1/v2 programs.
+  const L_INIT_COOL  = 100;
+  const L_MAIN       = 101;
+  const L_HAVE_TARGET= 102;
+  const L_ZSCAN      = 103;
+  const L_ZSCAN_ZERO = 104;
+  const L_ZSCAN_NEXT = 105;
+  const L_COPY_PRE   = 106;
+  const L_COPY_POST  = 107;
+  const L_POST_COOL  = 108;
+
+  const MEM_SIZE = 1024;
+
+  // ====================
+  // Step 0: Initial cooldown — let surrounding world settle before any hijack.
+  // ====================
+  li(1, initialCooldown);
+  emit1(encodeLabel(L_INIT_COOL));
+  halt();
+  emit1(encodeI(Opcode.ADDI, 1, 1, -1));   // r1 -= 1
+  branchIfNZJmpl(1, L_INIT_COOL);          // if r1 != 0, loop
+
+  // ====================
+  // Step 1: Main loop — SCAN for nearby external Processors
+  // ====================
+  emit1(encodeLabel(L_MAIN));
+  li(1, 2); li(2, SCAN_FILTER); out(1);    // filter = 2 (Processor only)
+  li(1, 1); li(2, SCAN_TRIGGER); out(1);   // trigger SCAN (immediate)
+  li(2, SCAN_COUNT); inr(3);               // r3 = count
+
+  branchIfNZJmpl(3, L_HAVE_TARGET);        // if count != 0 → have_target
+  halt();                                  // yield 1 tick, then re-scan
+  emit1(encodeJmpl(L_MAIN));
+
+  emit1(encodeLabel(L_HAVE_TARGET));
+  li(2, SCAN_RESULT0); inr(3);             // r3 = target localId (closest)
+
+  // ====================
+  // Step 4: Compute largest contiguous zero run in own memory[0..1024)
+  //   r4 = best_start, r5 = best_len
+  //   r6 = i,          r7 = cur_len
+  //   r1 = scratch (loaded value / limit)
+  //   r3 must be preserved (target localId)
+  // ====================
+  zero(4); zero(5); zero(6); zero(7);
+
+  emit1(encodeLabel(L_ZSCAN));
+  li(1, MEM_SIZE);
+  const branch_zscan_end = pc;
+  emit2(encodeBL(Opcode.BGEL, 6, 1, 0));   // if i >= MEM_SIZE → end
+  emit1(encodeI(Opcode.LW, 1, 6, 0));      // r1 = mem[i]
+  branchIfZJmpl(1, L_ZSCAN_ZERO);          // if mem[i] == 0 → extend run
+
+  // nonzero: close current run if cur_len > best_len, then reset cur_len
+  {
+    const skip_update = pc;
+    emit2(encodeBL(Opcode.BGEL, 5, 7, 0)); // if best_len >= cur_len → skip
+    emit1(encodeR(Opcode.SUB, 4, 6, 7));   // best_start = i - cur_len
+    emit1(encodeR(Opcode.OR,  5, 7, 0));   // best_len  = cur_len
+    patchBL(skip_update, pc);
+  }
+  zero(7);                                 // cur_len = 0
+  emit1(encodeJmpl(L_ZSCAN_NEXT));
+
+  emit1(encodeLabel(L_ZSCAN_ZERO));
+  emit1(encodeI(Opcode.ADDI, 7, 7, 1));    // cur_len += 1
+
+  emit1(encodeLabel(L_ZSCAN_NEXT));
+  emit1(encodeI(Opcode.ADDI, 6, 6, 1));    // i += 1
+  emit1(encodeJmpl(L_ZSCAN));
+
+  patchBL(branch_zscan_end, pc);
+  // End: close out final run (if memory ends with zeros, the trailing zero
+  // run is the typical "rest of memory" region we want to skip).
+  {
+    const skip_final = pc;
+    emit2(encodeBL(Opcode.BGEL, 5, 7, 0)); // if best_len >= cur_len → skip
+    emit1(encodeR(Opcode.SUB, 4, 6, 7));
+    emit1(encodeR(Opcode.OR,  5, 7, 0));
+    patchBL(skip_final, pc);
+  }
+
+  // ====================
+  // Step 5: Copy own memory to target, skipping [best_start, best_start+best_len)
+  //         Start writing at target addr 0 (concatenate the two halves).
+  // ====================
+  li(2, PMEM_TID); out(3);                  // PMEM_TID = target (last use of r3)
+  li(1, 0); li(2, PMEM_ADDR); out(1);       // PMEM_ADDR = 0
+  emit1(encodeR(Opcode.ADD, 3, 4, 5));      // r3 = end_of_zero = best_start + best_len
+  li(2, PMEM_AUTO_VAL);                      // r2 = 0x2003 (fixed for copy loop)
+  zero(6);                                   // i = 0
+
+  // Pre-copy: while i < best_start: write mem[i]; i++
+  emit1(encodeLabel(L_COPY_PRE));
+  const branch_pre_end = pc;
+  emit2(encodeBL(Opcode.BGEL, 6, 4, 0));    // if i >= best_start → end pre
+  emit1(encodeI(Opcode.LW, 1, 6, 0));
+  out(1);
+  emit1(encodeI(Opcode.ADDI, 6, 6, 1));
+  emit1(encodeJmpl(L_COPY_PRE));
+  patchBL(branch_pre_end, pc);
+
+  // Skip the zero region: i = end_of_zero
+  emit1(encodeR(Opcode.OR, 6, 3, 0));       // i = r3
+
+  // Post-copy: while i < MEM_SIZE: write mem[i]; i++
+  li(5, MEM_SIZE);                           // limit (best_len no longer needed)
+  emit1(encodeLabel(L_COPY_POST));
+  const branch_post_end = pc;
+  emit2(encodeBL(Opcode.BGEL, 6, 5, 0));
+  emit1(encodeI(Opcode.LW, 1, 6, 0));
+  out(1);
+  emit1(encodeI(Opcode.ADDI, 6, 6, 1));
+  emit1(encodeJmpl(L_COPY_POST));
+  patchBL(branch_post_end, pc);
+
+  // ====================
+  // Step 6: Post-hijack cooldown
+  // ====================
+  li(1, postHijackCooldown);
+  emit1(encodeLabel(L_POST_COOL));
+  halt();
+  emit1(encodeI(Opcode.ADDI, 1, 1, -1));
+  branchIfNZJmpl(1, L_POST_COOL);
+
+  emit1(encodeJmpl(L_MAIN));
 
   return code;
 }

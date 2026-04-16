@@ -1,0 +1,7 @@
+{
+  "label": "10 v2 + 1 hij seed=1 30k",
+  "ticks": 30000,
+  "seed": 1,
+  "snapshotEvery": 1500,
+  "initial": { "numSets": 10 }
+}
