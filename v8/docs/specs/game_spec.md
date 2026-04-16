@@ -301,7 +301,7 @@ ASSEMBLE と DISCONNECT は**同時実行可能**（独立した領域で独立�
 | 2 | `connection_target_id` | R/W | 生成物を接続する対象のコンポーネント ID。0 = 非接続 |
 | 3 | `assemble_status` | R | 0 = idle, 1 = gathering, 2 = assembling |
 | 4 | `assemble_progress` | R | 組立フェーズの残り tick 数 |
-| 5 | `last_product_id` | R | 最後に生成したコンポーネントの ID。トリガー時に 0 クリア、ejection 時に書き込み |
+| 5 | `last_product_id` | R/W | 最後に生成したコンポーネントの ID。トリガー時に 0 クリア、ejection 時に書き込み。プログラム側からも明示的に書き換え可能（前回値の手動クリア等のため） |
 | **DISCONNECT 領域** | | | |
 | 6 | `disconnect_trigger` | W | DISCONNECT トリガー（1=実行）。処理後にクリア |
 | 7 | `disconnect_target_id` | R/W | 切断対象のコンポーネント ID |

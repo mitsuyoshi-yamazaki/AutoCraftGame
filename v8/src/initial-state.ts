@@ -6,7 +6,7 @@ import type { World, MaterialObject, EnergyObject, AssemblerObject, ProcessorObj
 import { createEmptyWorld, addObject, nextObjectId, createGroupWith } from './world.js';
 import { createAssembler } from './assembler.js';
 import { createProcessor } from './processor.js';
-import { generateReplicatorProgram } from './programs.js';
+import { generateReplicatorProgram, generateReplicatorProgramV2 } from './programs.js';
 
 export interface InitialStateConfig {
   readonly worldWidth: number;
@@ -16,6 +16,10 @@ export interface InitialStateConfig {
   readonly circuitPerSet: number;
   readonly energyPerSet: number;
   readonly programOptions?: { copySize?: number; targetRunning?: boolean };
+  /** 'v1' = original buggy replicator; 'v2' = fixed replicator. */
+  readonly programVariant?: 'v1' | 'v2';
+  /** v2 only: whether the replicator loops after each cycle. */
+  readonly programLoop?: boolean;
 }
 
 export const DEFAULT_INITIAL_CONFIG: InitialStateConfig = {
@@ -31,7 +35,13 @@ export function createInitialState(config: InitialStateConfig = DEFAULT_INITIAL_
   let world = createEmptyWorld(config.worldWidth, config.worldHeight);
 
   const progOpts = config.programOptions ?? {};
-  const program = generateReplicatorProgram(progOpts);
+  const variant = config.programVariant ?? 'v1';
+  const program = variant === 'v2'
+    ? generateReplicatorProgramV2({
+        copySize: progOpts.copySize,
+        loop: config.programLoop ?? false,
+      })
+    : generateReplicatorProgram(progOpts);
 
   const margin = 5;
   const spacing = 2;

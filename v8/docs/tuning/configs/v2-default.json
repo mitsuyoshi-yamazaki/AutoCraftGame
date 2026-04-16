@@ -1,0 +1,8 @@
+{
+  "label": "v2 fixed replicator, default config",
+  "ticks": 1000,
+  "seed": 42,
+  "initial": {
+    "programVariant": "v2"
+  }
+}

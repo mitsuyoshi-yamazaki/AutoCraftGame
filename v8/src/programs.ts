@@ -183,3 +183,148 @@ export function generateReplicatorProgram(_options: { copySize?: number; targetR
 
   return code;
 }
+
+/**
+ * Fixed replicator (v2). Same flow as generateReplicatorProgram, but:
+ * - Between step 4 (trigger recipe 3) and step 5 (poll last_product_id),
+ *   explicitly clear the Assembler's `last_product_id` slot. This avoids
+ *   the stale-read bug where parent P sees the previous cycle's child P
+ *   productId and exits the wait loop instantly, causing step 8's
+ *   DISCONNECT to fire before child A is born (child P ends up freestanding).
+ * - Supports optional `copySize` parameter (defaults to 1024).
+ * - Supports `loop` option: after step 8 the program jumps back to step 1
+ *   instead of halting forever, enabling the *parent* processor to run
+ *   additional replication cycles.
+ */
+export function generateReplicatorProgramV2(options: {
+  copySize?: number;
+  loop?: boolean;
+} = {}): number[] {
+  const copySize = options.copySize ?? 1024;
+  const loop = options.loop ?? false;
+
+  const code: number[] = [];
+  let pc = 0;
+  const emit1 = (w: number) => { code.push(w); pc++; };
+  const emit2 = (ws: readonly [number, number]) => { code.push(ws[0], ws[1]); pc += 2; };
+  const li = (rd: number, imm: number) => emit2(encodeW(Opcode.LI, rd, 0, imm));
+  const out = (valReg: number) => emit1(encodeR(Opcode.OUT, 0, 2, valReg));
+  const inr = (dest: number) => emit1(encodeR(Opcode.IN, dest, 2, 0));
+  const halt = () => emit1(encodeR(Opcode.HALT, 0, 0, 0));
+  const patchBL = (branchPc: number, targetPc: number) => {
+    code[branchPc + 1] = (targetPc - branchPc) & 0xFFFF;
+  };
+
+  const writeOpmem = (off: number, val: number) => {
+    li(1, off);  li(2, OPMEM_OFF); out(1);
+    li(1, val);  li(2, OPMEM_VAL); out(1);
+  };
+  const writeOpmemLidReg = (off: number, valReg: number) => {
+    li(1, off);  li(2, OPMEM_OFF); out(1);
+    li(2, OPMEM_VAL_LID); out(valReg);
+  };
+  const readOpmemLid = (off: number, dest: number) => {
+    li(1, off);  li(2, OPMEM_OFF); out(1);
+    li(2, OPMEM_VAL_LID); inr(dest);
+  };
+
+  // Fresh labels (v2 keeps its own set so both programs can coexist).
+  const L2_START    = 20;
+  const L2_WAIT_P   = 21;
+  const L2_WAIT_A   = 22;
+  const L2_COPY     = 23;
+  const L2_HALT     = 24;
+
+  emit1(encodeLabel(L2_START));
+
+  // Step 1: CSCAN filter=1 → r3
+  li(1, 1); li(2, CSCAN_FILTER); out(1);
+  li(1, 1); li(2, CSCAN_TRIGGER); out(1);
+  li(2, CSCAN_COUNT); inr(5);
+  const bne_have = pc;
+  emit2(encodeBL(Opcode.BNEL, 5, 0, 0));
+  emit1(encodeJmpl(L2_HALT));
+  patchBL(bne_have, pc);
+  li(2, CSCAN_RESULT0); inr(3);
+
+  // Step 2: assemble recipe=4 on parent A
+  li(2, OPMEM_TID); out(3);
+  writeOpmem(ASM_RECIPE, 4);
+  writeOpmemLidReg(ASM_CONN_TARGET, 3);
+  writeOpmem(ASM_TRIG, 1);
+
+  // Step 3: wait for child P
+  emit1(encodeLabel(L2_WAIT_P));
+  li(2, OPMEM_TID); out(3);
+  readOpmemLid(ASM_LAST_PRODUCT, 4);
+  const bne_wp = pc;
+  emit2(encodeBL(Opcode.BNEL, 4, 0, 0));
+  halt();
+  emit1(encodeJmpl(L2_WAIT_P));
+  patchBL(bne_wp, pc);
+  emit1(encodeR(Opcode.OR, 7, 4, 0));  // r7 = r4 = child P
+
+  // Step 4: assemble recipe=3 on parent A.
+  //
+  // *** Fix for the stale last_product_id bug: ***
+  // After writing assemble_trigger=1 the write sits in pendingWrites and is
+  // only committed at end of the processor's tick. Parent A's opmem in
+  // state.world still carries `last_product_id = <child P id>` from the
+  // previous cycle, so if we poll immediately the read returns nonzero and
+  // the wait loop exits on its first iteration. We therefore HALT right
+  // after writing the trigger — that yields the tick and lets the Component
+  // action phase fire, at which point parent A consumes the trigger (which
+  // clears last_product_id to 0 and enters gathering). The next tick's
+  // poll then correctly waits for the new product to be built.
+  li(2, OPMEM_TID); out(3);
+  writeOpmem(ASM_LAST_PRODUCT, 0);       // paranoia: also force clear via write
+  writeOpmem(ASM_RECIPE, 3);
+  writeOpmemLidReg(ASM_CONN_TARGET, 7);
+  writeOpmem(ASM_TRIG, 1);
+  halt();                                 // yield — crucial to avoid stale read
+
+  // Step 5: wait for child A
+  emit1(encodeLabel(L2_WAIT_A));
+  li(2, OPMEM_TID); out(3);
+  readOpmemLid(ASM_LAST_PRODUCT, 4);
+  const bne_wa = pc;
+  emit2(encodeBL(Opcode.BNEL, 4, 0, 0));
+  halt();
+  emit1(encodeJmpl(L2_WAIT_A));
+  patchBL(bne_wa, pc);
+
+  // Step 6: copy memory → child P
+  li(2, PMEM_TID); out(7);
+  li(1, 0); li(2, PMEM_ADDR); out(1);
+  li(6, 0);
+  li(5, copySize);
+  li(2, PMEM_AUTO_VAL);
+
+  emit1(encodeLabel(L2_COPY));
+  emit1(encodeR(Opcode.LW, 1, 6, 0));
+  out(1);
+  emit1(encodeI(Opcode.ADDI, 6, 6, 1));
+  const bge_copy = pc;
+  emit2(encodeBL(Opcode.BGEL, 6, 5, 0));
+  emit1(encodeJmpl(L2_COPY));
+  patchBL(bge_copy, pc);
+
+  // Step 7: start child P
+  li(2, OPMEM_TID); out(7);
+  writeOpmem(PROC_RUN_FLAG, 1);
+
+  // Step 8: disconnect parent A ↔ child P via parent A
+  li(2, OPMEM_TID); out(3);
+  writeOpmemLidReg(ASM_DISC_TARGET, 7);
+  writeOpmem(ASM_DISC_TRIG, 1);
+
+  // Step 9: halt or loop
+  if (loop) {
+    emit1(encodeJmpl(L2_START));
+  }
+  emit1(encodeLabel(L2_HALT));
+  halt();
+  emit1(encodeJmpl(L2_HALT));
+
+  return code;
+}

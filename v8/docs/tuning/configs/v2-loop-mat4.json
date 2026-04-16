@@ -1,0 +1,12 @@
+{
+  "label": "v2 loop + mat×4 + 3000 ticks",
+  "ticks": 3000,
+  "seed": 1,
+  "initial": {
+    "programVariant": "v2",
+    "programLoop": true,
+    "metalPerSet": 40,
+    "circuitPerSet": 60,
+    "energyPerSet": 800
+  }
+}
