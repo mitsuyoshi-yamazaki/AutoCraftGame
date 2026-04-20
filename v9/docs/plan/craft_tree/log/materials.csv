@@ -1,0 +1,16 @@
+Material,S,B,A,I,T,C,X
+BaseSolid,2,0,0,0,0,0,0
+DenseMatrix,3,0,0,0,0,0,0
+BindingShard,1,1,0,0,0,0,0
+FlexibleChain,1,2,0,0,0,0,0
+ReactiveFragment,1,0,1,0,0,0,0
+VolatileCore,0,0,2,0,0,0,0
+ChargedBinder,0,1,1,0,0,0,0
+SignalFluid,0,0,0,0,2,0,0
+ConductiveGel,1,0,0,0,1,0,0
+InfoSeed,0,0,0,1,0,0,0
+EncodedFragment,1,0,0,1,0,0,0
+PatternChain,0,1,0,1,0,0,0
+CatalystGrain,0,0,0,0,0,1,0
+ActiveCatalyst,0,0,1,0,0,1,0
+Residue,0,0,0,0,0,0,1
