@@ -12,9 +12,9 @@
 - Step 3（シミュレータ実装）: 完了。`src/sim/` + `src/vm/`、CLI（`npm run sim`）
 - Step 4（祖先種の構築と検証）: **完了（核心実験成功）**。`src/programs/ancestor.ts` が
   完全な自己複製と、プログラム自身が実装した複製時変異（LCG＋1ビットXOR）を実証
-- Step 5（長期実験と評価）: **完了**。捕食（`src/programs/predator.ts`、実験02）、
-  変異系統観察（実験03、生存変異体を確認）。総括は `docs/CONCLUSION.md`
-  （R1-R8達成、目的達成の実証と必要要件の還元）。テスト74件
+- Step 5（長期実験と評価）: **完了**。捕食（実験02）、変異系統（実験03）、
+  自己拡張・自己修復（実験04）、生態系・競争・空間（実験05）。総括は `docs/CONCLUSION.md`
+  （目標の3モード＋捕食を実証、必要要件の還元）。テスト83件
 
 ## プロジェクトの結論
 
@@ -25,14 +25,21 @@
 ## コマンド
 
 ```bash
-npm test                            # 全テスト（クラフトツリー静的検証＋シミュレータ＋祖先種）
+npm test                            # 全テスト（クラフトツリー静的検証＋シミュレータ＋各種）
 npm run sim -- --ancestor --ticks 3000        # 祖先種の自己複製実験
 npm run sim -- --ancestor-mutate --ticks 3000 # 変異あり祖先種
+npm run sim -- --predation --ticks 3000       # 捕食実験
 npm run sim -- --demo --ticks 300   # デモ実行（最小祖先・プログラムなし）
 npm run sim -- --config <path.json> --ticks 1000 [--seed N] [--output summary|events]
 npm run craft:report                # クラフトツリーの検証・コスト解析レポート
-npm run craft:report -- --markdown  # ドキュメント用生成テーブル（spec_draft.mdへ転記）
 ```
+
+## 種プログラム（src/programs/）
+
+- ancestor.ts … 自己複製（実験01）。helpers.ts … 共通ビルドヘルパ
+- expander.ts … 自己拡張（実験04）。repairer.ts … 自己修復（実験04）
+- predator.ts … 捕食（実験02）。ecology-config.ts … 複数コロニー競争・空間（実験05）
+- 実験記録は docs/experiments/01〜05、総括は docs/CONCLUSION.md
 
 ## 実装の構成
 
