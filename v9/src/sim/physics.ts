@@ -181,6 +181,12 @@ export const executePhysicsPhase = (
     const ay = force.y / body.mass;
     let vx = body.velocity.x + ax;
     let vy = body.velocity.y + ay;
+    // 媒質の終端速度。軽い剛体が重なり反発で射出されるのを防ぐ
+    const speed = Math.sqrt(vx * vx + vy * vy);
+    if (speed > params.maxSpeed) {
+      vx = (vx / speed) * params.maxSpeed;
+      vy = (vy / speed) * params.maxSpeed;
+    }
     if (vx * vx + vy * vy < params.velocityClampThreshold * params.velocityClampThreshold) {
       vx = 0;
       vy = 0;

@@ -55,6 +55,7 @@ export interface AssemblerComponent extends ComponentBase {
   readonly phase: 'idle' | 'reconfiguring' | 'crafting' | 'assembling';
   readonly ticksRemaining: number;
   readonly pendingRecipe: number; // reconfiguring中の切替先レシピコード
+  readonly spawnCount: number; // 自由設置の回数（設置方位の回転に使う）
 }
 
 export interface ProcessorComponent extends ComponentBase {

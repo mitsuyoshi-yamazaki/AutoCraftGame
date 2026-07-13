@@ -139,7 +139,12 @@ const completeAssemble = (
   const position = effectivePosition(world, assembler);
 
   const { id, world: w1 } = nextObjectId(world);
-  const spawnPos = { x: position.x + params.spawnOffset, y: position.y };
+  // 自由設置の方位は設置ごとに60°回転する（同じ場所に積み上げて衝突が連鎖するのを防ぐ）
+  const spawnAngle = (assembler.spawnCount % 6) * (Math.PI / 3);
+  const spawnPos = {
+    x: position.x + params.spawnOffset * Math.cos(spawnAngle),
+    y: position.y + params.spawnOffset * Math.sin(spawnAngle),
+  };
   const newComponent = createComponent(id, componentType, spawnPos, params);
 
   const targetRawId = assembler.opmem[ASM_OFF_CONNECTION_TARGET];
@@ -147,15 +152,18 @@ const completeAssemble = (
 
   let w: World = { ...w1, objects: [...w1.objects, newComponent] };
   let result = RESULT_SUCCESS;
+  let placedFreestanding = targetRawId === 0;
 
   const target = targetRawId !== 0 ? getComponent(w, targetRawId) : undefined;
   if (targetRawId !== 0 && (target === undefined || !isAccessible(w, assembler.id, targetRawId, params.proximityRange))) {
     result = RESULT_UNREACHABLE; // 自由設置にフォールバック
+    placedFreestanding = true;
   } else if (target !== undefined) {
     const targetEdge =
       edgeSpec === EDGE_AUTO ? target.edges.findIndex(peer => peer === null) : edgeSpec;
     if (targetEdge < 0 || targetEdge >= 6 || target.edges[targetEdge] !== null) {
       result = RESULT_EDGE_OCCUPIED; // 自由設置にフォールバック
+      placedFreestanding = true;
     } else {
       const newEdge = oppositeEdge(targetEdge);
       w = replaceObject(w, {
@@ -177,7 +185,11 @@ const completeAssemble = (
     [ASM_OFF_PROGRESS, 0],
     [ASM_OFF_RESULT, result],
     [ASM_OFF_LAST_PRODUCT, id & 0xffff],
-  ], { phase: 'idle', ticksRemaining: 0 });
+  ], {
+    phase: 'idle',
+    ticksRemaining: 0,
+    spawnCount: assembler.spawnCount + (placedFreestanding ? 1 : 0),
+  });
 };
 
 /** 進行中のフェーズを1tick進める */

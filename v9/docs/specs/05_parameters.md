@@ -29,6 +29,7 @@
 | FRICTION_COEFFICIENT | 0.8 | v3と同じ |
 | COLLISION_STIFFNESS | 200.0 | v3と同じ |
 | VELOCITY_CLAMP_THRESHOLD | 0.01 | v3と同じ |
+| MAX_SPEED | 1.0 | 剛体の上限速度/tick（媒質の終端速度。射出防止） |
 | MASS_PER_ATOM | 1 | 質量=原子数×この係数 |
 | THRUST_FORCE_UNIT | 1.0 | 推進力 = magnitude × この係数（magnitude 0〜255） |
 | THRUST_MAX | 255 | magnitudeの上限 |
@@ -53,7 +54,7 @@
 | CRAFT_TICKS_BASE | 5 | 最下層・精製レシピの所要tick |
 | CRAFT_TICKS_INTERMEDIATE | 10 | 中間物質レシピの所要tick |
 | CRAFT_TICKS_COMPONENT | 30 | コンポーネント生成（ASSEMBLE）の所要tick |
-| SPAWN_OFFSET | 1.0 | 自由設置時のオフセット距離（+x方向。v8と同じ） |
+| SPAWN_OFFSET | 2.0 | 自由設置時のオフセット距離（親グループ半径0.8+部品半径0.4と重ならない値。方位は設置ごとに60°回転） |
 
 ## Harvester / Disassembler
 

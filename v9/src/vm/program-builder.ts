@@ -44,6 +44,34 @@ export class ProgramBuilder {
     return this.raw(encodeR(OP.OP_SUB, rd, rs1, rs2));
   }
 
+  mul(rd: number, rs1: number, rs2: number): this {
+    return this.raw(encodeR(OP.OP_MUL, rd, rs1, rs2));
+  }
+
+  mod(rd: number, rs1: number, rs2: number): this {
+    return this.raw(encodeR(OP.OP_MOD, rd, rs1, rs2));
+  }
+
+  and(rd: number, rs1: number, rs2: number): this {
+    return this.raw(encodeR(OP.OP_AND, rd, rs1, rs2));
+  }
+
+  or(rd: number, rs1: number, rs2: number): this {
+    return this.raw(encodeR(OP.OP_OR, rd, rs1, rs2));
+  }
+
+  xor(rd: number, rs1: number, rs2: number): this {
+    return this.raw(encodeR(OP.OP_XOR, rd, rs1, rs2));
+  }
+
+  shl(rd: number, rs1: number, rs2: number): this {
+    return this.raw(encodeR(OP.OP_SHL, rd, rs1, rs2));
+  }
+
+  shr(rd: number, rs1: number, rs2: number): this {
+    return this.raw(encodeR(OP.OP_SHR, rd, rs1, rs2));
+  }
+
   addi(rd: number, rs: number, imm4: number): this {
     return this.raw(encodeI(OP.OP_ADDI, rd, rs, imm4));
   }

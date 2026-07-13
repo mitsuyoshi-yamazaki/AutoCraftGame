@@ -32,12 +32,15 @@ v3-v5の力ベース物理を再採用する（[5_design_decisions.md](../plan/5
 F_total = Σ THRUST（作動中のActuator） + F_摩擦 + F_衝突 + F_壁
 a  = F_total / mass
 v' = v + a
-if |v'| < VELOCITY_CLAMP_THRESHOLD: v' = 0     # 微小速度のスナップ（位置更新の前）
+|v'| > MAX_SPEED なら v' を MAX_SPEED に正規化   # 媒質の終端速度
+if |v'| < VELOCITY_CLAMP_THRESHOLD: v' = 0       # 微小速度のスナップ（位置更新の前）
 p' = p + v'
 p' を [radius, WORLD_SIZE - radius] にクランプ
 ```
 
-- 上限速度は設けない（終端速度は推進力と摩擦の釣り合いで決まる）
+- **上限速度 MAX_SPEED を設ける**（媒質の終端速度のメタファー）。
+  軽い剛体が重なり反発のバネ力で1tickに数ユニット射出される事象を防ぐために必要
+  （祖先種実験で、出現直後の子部品が接続射程外へ弾き出される問題として顕在化した）
 - 速度クランプは位置更新の**前**に行う（v3実装準拠。v3仕様書の記述はコードと逆だった点に注意）
 
 ## 推進（THRUST）

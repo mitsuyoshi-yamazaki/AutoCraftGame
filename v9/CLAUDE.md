@@ -9,15 +9,20 @@
 
 - Step 1（クラフトツリー確定）: 完了・レビュー承認済み
 - Step 2（シミュレータ仕様策定）: 完了。仕様は `docs/specs/`（00〜06）
-- Step 3（シミュレータ実装）: 完了。`src/sim/`（ワールド・アクション・物理・ライフサイクル）、
-  `src/vm/`（v8互換VM＋ProgramBuilder）、CLI（`npm run sim`）。テスト67件
-- Step 4（祖先種の構築と検証）: 未着手。ProgramBuilderで祖先種プログラムを作成し、
-  自己複製 → 意図的変異 → 長期実験へ進む
+- Step 3（シミュレータ実装）: 完了。`src/sim/` + `src/vm/`、CLI（`npm run sim`）
+- Step 4（祖先種の構築と検証）: **完了（核心実験成功）**。`src/programs/ancestor.ts` が
+  完全な自己複製（1サイクル約400〜500tick）と、プログラム自身が実装した複製時変異
+  （LCG＋1ビットXOR、システムは複写I/Oのみ提供）を実証。
+  実験記録: `docs/experiments/01_ancestor_replication.md`。テスト73件
+- Step 5（長期実験と評価）: 未着手。変異体の生存率、複数祖先の競争、捕食系統の投入、
+  要件・仕様への還元
 
 ## コマンド
 
 ```bash
-npm test                            # 全テスト（クラフトツリー静的検証＋シミュレータ）
+npm test                            # 全テスト（クラフトツリー静的検証＋シミュレータ＋祖先種）
+npm run sim -- --ancestor --ticks 3000        # 祖先種の自己複製実験
+npm run sim -- --ancestor-mutate --ticks 3000 # 変異あり祖先種
 npm run sim -- --demo --ticks 300   # デモ実行（最小祖先・プログラムなし）
 npm run sim -- --config <path.json> --ticks 1000 [--seed N] [--output summary|events]
 npm run craft:report                # クラフトツリーの検証・コスト解析レポート

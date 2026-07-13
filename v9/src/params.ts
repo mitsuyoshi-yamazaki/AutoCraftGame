@@ -21,6 +21,7 @@ export interface GameParams {
   readonly collisionStiffness: number;
   readonly velocityClampThreshold: number;
   readonly massPerAtom: number;
+  readonly maxSpeed: number;
   readonly thrustForceUnit: number;
   readonly thrustMax: number;
   readonly thrustEnergyDivisor: number;
@@ -75,6 +76,7 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   collisionStiffness: 200.0,
   velocityClampThreshold: 0.01,
   massPerAtom: 1,
+  maxSpeed: 1.0,
   thrustForceUnit: 1.0,
   thrustMax: 255,
   thrustEnergyDivisor: 16,
@@ -90,7 +92,8 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   craftTicksBase: 5,
   craftTicksIntermediate: 10,
   craftTicksComponent: 30,
-  spawnOffset: 1.0,
+  // 親（4コンポーネント、半径0.8）と重ならない距離。重なり反発で親が押し流されるのを防ぐ
+  spawnOffset: 2.0,
 
   harvestMatterRate: 1,
   harvestEnergyRate: 40,

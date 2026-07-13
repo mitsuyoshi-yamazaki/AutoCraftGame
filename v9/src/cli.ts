@@ -7,6 +7,7 @@
 
 import { readFileSync } from 'node:fs';
 import { DEFAULT_GAME_PARAMS } from './params';
+import { buildAncestorConfig } from './programs/ancestor-config';
 import { createRng } from './rng';
 import { formatAtomTotals, totalAtoms, totalEnergy } from './sim/accounting';
 import { buildInitialWorld, initialConfigSchema } from './sim/initial-state';
@@ -19,6 +20,8 @@ import { GAME_VERSION } from './version';
 interface CliOptions {
   readonly configPath?: string;
   readonly demo: boolean;
+  readonly ancestor: boolean;
+  readonly mutate: boolean;
   readonly ticks: number;
   readonly seed?: number;
   readonly output: 'summary' | 'events';
@@ -27,6 +30,8 @@ interface CliOptions {
 const parseArgs = (argv: string[]): CliOptions => {
   let configPath: string | undefined;
   let demo = false;
+  let ancestor = false;
+  let mutate = false;
   let ticks = 100;
   let seed: number | undefined;
   let output: CliOptions['output'] = 'summary';
@@ -37,6 +42,13 @@ const parseArgs = (argv: string[]): CliOptions => {
         break;
       case '--demo':
         demo = true;
+        break;
+      case '--ancestor':
+        ancestor = true;
+        break;
+      case '--ancestor-mutate':
+        ancestor = true;
+        mutate = true;
         break;
       case '--ticks':
         ticks = Number(argv[++i]);
@@ -51,7 +63,7 @@ const parseArgs = (argv: string[]): CliOptions => {
         break;
     }
   }
-  return { configPath, demo, ticks, seed, output };
+  return { configPath, demo, ancestor, mutate, ticks, seed, output };
 };
 
 /** デモ設定: 最小祖先の構成（プログラムなし・放置観察用） */
@@ -117,10 +129,14 @@ const main = (): void => {
   if (options.configPath !== undefined) {
     const raw: unknown = JSON.parse(readFileSync(options.configPath, 'utf-8'));
     config = initialConfigSchema.parse(raw);
+  } else if (options.ancestor) {
+    config = buildAncestorConfig(options.seed ?? 42, { mutation: options.mutate });
   } else if (options.demo) {
     config = demoConfig(options.seed ?? 42);
   } else {
-    console.log('usage: npm run sim -- (--config <path.json> | --demo) [--ticks N] [--seed N] [--output summary|events]');
+    console.log(
+      'usage: npm run sim -- (--config <path.json> | --demo | --ancestor | --ancestor-mutate) [--ticks N] [--seed N] [--output summary|events]',
+    );
     process.exitCode = 1;
     return;
   }

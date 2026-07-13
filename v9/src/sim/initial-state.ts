@@ -55,7 +55,7 @@ export type AncestorSpec = z.infer<typeof ancestorSchema>;
 
 // === 構築 ===
 
-const CRADLE_RADIUS = 2.0;
+const CRADLE_RADIUS = 1.5;
 
 const placeAutoNodes = (world: World, params: GameParams, rng: Rng): World => {
   let w = world;

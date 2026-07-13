@@ -35,6 +35,7 @@ export const createComponent = (
         phase: 'idle',
         ticksRemaining: 0,
         pendingRecipe: 0,
+        spawnCount: 0,
       };
     case 'Processor':
       return {
