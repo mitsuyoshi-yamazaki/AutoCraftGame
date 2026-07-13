@@ -8,17 +8,30 @@
 ## 現在のフェーズ
 
 - Step 1（クラフトツリー確定）: 完了・レビュー承認済み
-- Step 2（シミュレータ仕様策定）: 完了。仕様は `docs/specs/`（00〜06）。
-  複製シナリオ机上検証（06）はゲート判定PASS
-- Step 3（実装）: 未着手。仕様 `docs/specs/` に従い、v8のsrcを出発点に実装する
+- Step 2（シミュレータ仕様策定）: 完了。仕様は `docs/specs/`（00〜06）
+- Step 3（シミュレータ実装）: 完了。`src/sim/`（ワールド・アクション・物理・ライフサイクル）、
+  `src/vm/`（v8互換VM＋ProgramBuilder）、CLI（`npm run sim`）。テスト67件
+- Step 4（祖先種の構築と検証）: 未着手。ProgramBuilderで祖先種プログラムを作成し、
+  自己複製 → 意図的変異 → 長期実験へ進む
 
 ## コマンド
 
 ```bash
-npm test                            # 全テスト（クラフトツリーの静的検証を含む）
+npm test                            # 全テスト（クラフトツリー静的検証＋シミュレータ）
+npm run sim -- --demo --ticks 300   # デモ実行（最小祖先・プログラムなし）
+npm run sim -- --config <path.json> --ticks 1000 [--seed N] [--output summary|events]
 npm run craft:report                # クラフトツリーの検証・コスト解析レポート
 npm run craft:report -- --markdown  # ドキュメント用生成テーブル（spec_draft.mdへ転記）
 ```
+
+## 実装の構成
+
+- `src/craft/` … クラフトツリーデータと静的検証（仕様の実体）
+- `src/vm/` … v8互換の16bit VM、ProgramBuilder（プログラム組立DSL）
+- `src/sim/` … ワールド・コンポーネント・アクション・Processor I/O・物理・ライフサイクル・tickループ
+- `src/cli.ts` … ヘッドレス実行（config JSONはzodで検証）
+- 重要な不変条件はテストが守る: 原子保存（sim-integration）、決定論（同一シード完全一致）、
+  エネルギーポンプ禁止（craft-data）
 
 ## クラフトツリーの変更手順
 

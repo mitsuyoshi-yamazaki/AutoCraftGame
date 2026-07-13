@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run --root .",
+    "sim": "npx tsx src/cli.ts",
     "craft:report": "npx tsx src/tools/craft-report.ts"
   },
   "devDependencies": {
@@ -12,5 +13,8 @@
     "tsx": "^4.10.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }

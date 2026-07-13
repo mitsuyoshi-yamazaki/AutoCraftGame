@@ -124,14 +124,15 @@ v9固有の変更:
 | 8 | configured_recipe | 現在構成されているレシピコード（0=未構成） |
 | 9 | last_product_id | 直近のCRAFT/ASSEMBLE生成物（ローカルID変換対象の生ID） |
 
-### Harvester（サイズ4）
+### Harvester（サイズ5）
 
 | off | 名称 | 内容 |
 |:---:|------|------|
-| 0 | harvest_trigger | 1=HARVEST（最近傍自動対象） |
-| 1 | result | 結果コード |
-| 2 | last_type | 回収した種別コード |
-| 3 | last_amount | 回収量（物質は個数、エネルギーは量） |
+| 0 | harvest_trigger | 1=HARVEST（フィルタ適合の最近傍を自動対象化） |
+| 1 | harvest_filter | 0=全種, 20=エネルギー, 100+n=特定物質のみ |
+| 2 | result | 結果コード |
+| 3 | last_type | 回収した種別コード |
+| 4 | last_amount | 回収量（物質は個数、エネルギーは量） |
 
 ### Disassembler（サイズ5）
 
