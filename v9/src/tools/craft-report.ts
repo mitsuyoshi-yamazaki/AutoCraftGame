@@ -37,14 +37,26 @@ const printSummary = (): void => {
     console.log(`  ${recipe.id} (Δ安定性=+${stabilityDelta(recipe, SUBSTANCE_MAP)}): ${recipe.summary}`);
   }
   console.log('');
-  console.log('## コンポーネント一式（8種×1）の生産計画');
   const fullSet = SUBSTANCES.filter(substance => substance.tier === 'component').map(substance => ({
     substanceId: substance.id,
     count: 1,
   }));
-  const plan = planProduction(fullSet, SUBSTANCE_MAP, RECIPES);
+  printPlan('コンポーネント一式（8種×1）の生産計画', fullSet);
+  // 最小祖先: 自己複製サイクルに必須の4種（移動・捕食・拡張記憶を持たない定住型）
+  printPlan('最小祖先（Processor+Assembler+Harvester+Storage）の生産計画', [
+    { substanceId: 'Processor', count: 1 },
+    { substanceId: 'Assembler', count: 1 },
+    { substanceId: 'Harvester', count: 1 },
+    { substanceId: 'Storage', count: 1 },
+  ]);
+};
+
+const printPlan = (title: string, targets: Array<{ substanceId: string; count: number }>): void => {
+  console.log(`## ${title}`);
+  const plan = planProduction(targets, SUBSTANCE_MAP, RECIPES);
   console.log(`  エネルギー: ${plan.totalEnergy}`);
   console.log(`  工程数（レシピ実行回数）: ${plan.totalSteps}`);
+  console.log(`  使用レシピ種類数（Assembler再構成回数の下限）: ${plan.recipeInvocations.size}`);
   console.log('  自然資源消費:');
   for (const [substanceId, count] of [...plan.naturalConsumption.entries()].sort(([, a], [, b]) => b - a)) {
     console.log(`    ${substanceId} ×${count}`);
@@ -57,6 +69,7 @@ const printSummary = (): void => {
   for (const [recipeId, invocations] of plan.recipeInvocations.entries()) {
     console.log(`    ${recipeId} ×${invocations}`);
   }
+  console.log('');
 };
 
 if (process.argv.includes('--markdown')) {
