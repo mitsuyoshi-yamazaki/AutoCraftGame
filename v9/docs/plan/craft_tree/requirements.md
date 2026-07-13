@@ -39,7 +39,12 @@
 - MemoryCore
 - Actuator
 - Sensor
+- Harvester
 - Storage
+
+（2026-07-13確定: 本書初版はHarvesterを欠いており、0_requirement.md・1_design_discussion.mdは
+MemoryCoreを欠いていた。両方を採用した8種で確定。ただし祖先種の必須構成にMemoryCoreは
+含めない方針。経緯は design_notes.md §3 を参照）
 
 コンポーネントの性質:
 
