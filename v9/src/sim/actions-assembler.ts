@@ -34,6 +34,7 @@ import {
 import {
   depositEnergy,
   depositOrDrop,
+  dropItems,
   groupEnergy,
   groupItemCount,
   withdrawEnergy,
@@ -248,6 +249,9 @@ const executeRepair = (
   }
   let w = withdrawItems(world, assembler.id, materialCode, 1).world;
   w = withdrawEnergy(w, assembler.id, energyCost).world;
+  // 修理は新しい材料で摩耗部を置換する。置き換えられた等量の摩耗材はその場に排出される
+  // （原子保存: 修理材の原子を消滅させず、地面へ散布する。回収には再度Harvesterが要る）
+  w = dropItems(w, effectivePosition(w, assembler), materialCode, 1);
   const repaired = getComponent(w, targetId)!;
   w = replaceObject(w, {
     ...repaired,

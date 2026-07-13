@@ -36,6 +36,7 @@ v9固有の変更:
 | 0x0003 | SELF_GROUP_ID | 所属グループID（単独なら0） |
 | 0x0004 | GROUP_ENERGY | グループのStorage群の合計エネルギー（0xFFFF上限で飽和）**（v9追加）** |
 | 0x0005 | SELF_DURABILITY | このProcessor自身の耐久度 **（v9追加）** |
+| 0x0006 | SELF_OBJECT_ID | このProcessor自身のオブジェクトID **（v9追加）**。自己修復（Assemblerに自分を修理対象として渡す）や、子へ自分のIDを教える等の自己参照に使う |
 | その他 | — | 0 |
 
 ### 自身opmem 0x0100〜0x01FF（読み書き）

@@ -211,6 +211,8 @@ const ioRead = (state: IoState, addr: number): number => {
         return Math.min(0xffff, groupEnergy(state.world, state.proc.id));
       case 0x0005:
         return Math.max(0, state.proc.durability) & 0xffff;
+      case 0x0006:
+        return state.proc.id & 0xffff; // SELF_OBJECT_ID（自己修復・自己参照に必要）
       default:
         return 0;
     }
