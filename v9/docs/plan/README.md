@@ -16,6 +16,9 @@
 | [craft_tree/policy.md](craft_tree/policy.md) | クラフトツリー作成方針。原子・物質・レシピ・資源・副産物・安定性の設計方針 |
 | [craft_tree/spec_draft.md](craft_tree/spec_draft.md) | クラフトツリー仕様（レビュー待ち）。35物質・48レシピ。データ実体は `v9/src/craft/`、表は生成出力 |
 | [craft_tree/design_notes.md](craft_tree/design_notes.md) | 初版ドラフトで発見された構造的欠陥3件（X無生成・線形安定性の退化・裸原子出力）と再設計の記録、レビュー観点 |
+| [5_design_decisions.md](5_design_decisions.md) | 未決事項（Q5〜Q8）の決定と根拠。耐久度・逓増修理・レシピ切替コスト・エネルギー・資源産出・決定論・範囲外の確定 |
 | [ideas/](ideas/) | 個別トピックのアイデア集 |
+
+シミュレータ本体の仕様は [../specs/](../specs/) に策定済み（クラフトツリーのレビュー承認後に作成）。
 | [ideas/resource_production.md](ideas/resource_production.md) | 資源の産出方式。9方式の列挙と、総量・空間分布・時間挙動・発生条件の4軸による分類 |
 | [ideas/natural_transformation.md](ideas/natural_transformation.md) | Assembler/Disassemblerによらない自然な物質変化。グリッドベース環境場+変換ルールテーブルによる実装方式 |

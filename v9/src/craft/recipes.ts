@@ -433,3 +433,11 @@ export const RECIPES: readonly Recipe[] = [
 export const RECIPE_MAP: ReadonlyMap<string, Recipe> = new Map(
   RECIPES.map(recipe => [recipe.id, recipe]),
 );
+
+/**
+ * レシピコード: データ定義順の1始まり連番。
+ * Assemblerのレシピ指定（opmem recipe_code）で使用する（docs/specs/03_program_io.md）。
+ */
+export const RECIPE_CODES: ReadonlyMap<string, number> = new Map(
+  RECIPES.map((recipe, index) => [recipe.id, index + 1]),
+);

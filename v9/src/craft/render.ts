@@ -1,8 +1,8 @@
 import { planProduction } from './analysis';
 import { formatComposition } from './atoms';
-import { RECIPES } from './recipes';
+import { RECIPES, RECIPE_CODES } from './recipes';
 import { stabilityOf } from './stability';
-import { SUBSTANCES, SUBSTANCE_MAP } from './substances';
+import { SUBSTANCES, SUBSTANCE_CODES, SUBSTANCE_MAP } from './substances';
 import type { ItemStack, Recipe, RecipeKind, Substance, SubstanceTier } from './types';
 
 /**
@@ -45,7 +45,7 @@ const substanceRow = (substance: Substance): string => {
     substance.naturalAbundance === undefined
       ? '-'
       : `産出（${ABUNDANCE_LABEL[substance.naturalAbundance]}）`;
-  return `| ${substance.id} | ${formatComposition(substance.composition)} | ${stabilityOf(substance)} | ${natural} | ${substance.description} |`;
+  return `| ${substance.id} | ${SUBSTANCE_CODES.get(substance.id)} | ${formatComposition(substance.composition)} | ${stabilityOf(substance)} | ${natural} | ${substance.description} |`;
 };
 
 const substanceTable = (tier: SubstanceTier): string => {
@@ -53,23 +53,23 @@ const substanceTable = (tier: SubstanceTier): string => {
   return [
     `### ${TIER_LABEL[tier]}（${rows.length}種）`,
     '',
-    '| 物質 | 構成 | 安定性 | 自然産出 | 説明 |',
-    '|------|------|--------|----------|------|',
+    '| 物質 | コード | 構成 | 安定性 | 自然産出 | 説明 |',
+    '|------|:---:|------|--------|----------|------|',
     ...rows,
     '',
   ].join('\n');
 };
 
 const recipeRow = (recipe: Recipe): string =>
-  `| ${recipe.id} | ${formatStacks(recipe.inputs)} | ${formatStacks(recipe.outputs)} | ${recipe.energyCost} | ${recipe.summary} |`;
+  `| ${recipe.id} | ${RECIPE_CODES.get(recipe.id)} | ${formatStacks(recipe.inputs)} | ${formatStacks(recipe.outputs)} | ${recipe.energyCost} | ${recipe.summary} |`;
 
 const recipeTable = (kind: RecipeKind): string => {
   const rows = RECIPES.filter(recipe => recipe.kind === kind).map(recipeRow);
   return [
     `### ${KIND_LABEL[kind]}（${rows.length}件）`,
     '',
-    '| ID | 入力 | 出力 | E | 概要 |',
-    '|----|------|------|---|------|',
+    '| ID | コード | 入力 | 出力 | E | 概要 |',
+    '|----|:---:|------|------|---|------|',
     ...rows,
     '',
   ].join('\n');
@@ -109,6 +109,7 @@ export const renderCraftTables = (): string =>
     '',
     '全レシピの原子収支・到達可能性・循環は `npm test` で機械検証される。',
     'エネルギーコスト（E）は暫定値（正=消費、負=放出）。',
+    'コード列はプログラムI/Oで使用する数値ID（データ定義順の連番。docs/specs/03_program_io.md）。',
     '',
     recipeTable('synthesis'),
     recipeTable('decomposition'),

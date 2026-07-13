@@ -89,136 +89,137 @@
 
 ### 最下層物質（15種）
 
-| 物質 | 構成 | 安定性 | 自然産出 | 説明 |
-|------|------|--------|----------|------|
-| BaseSolid | S2 | 20 | 産出（豊富） | 最も基本的な安定物質 |
-| DenseMatrix | S3 | 30 | - | 高安定・低反応性 |
-| BindingShard | S1B1 | 14 | 産出（中程度） | 基本的な接続素材 |
-| FlexibleChain | S1B2 | 18 | - | 結合性が高いがやや不安定 |
-| ReactiveFragment | S1A1 | -2 | - | 最も基本的な活性物質 |
-| VolatileCore | A2 | -24 | 産出（限定的） | 非常に不安定・分解しやすい。分解時にエネルギーを放出する |
-| ChargedBinder | B1A1 | -8 | - | 結合しながら反応を起こす |
-| SignalFluid | T2 | -12 | 産出（限定的） | 流動性・伝達性 |
-| ConductiveGel | S1T1 | 4 | - | 構造＋伝達 |
-| InfoSeed | I1 | -8 | 産出（希少） | 最小の情報単位（非常に不安定） |
-| EncodedFragment | S1I1 | 2 | - | 安定化された情報 |
-| PatternChain | B1I1 | -4 | - | 結合可能な情報構造 |
-| CatalystGrain | C1 | 0 | 産出（希少） | 単純触媒 |
-| ActiveCatalyst | A1C1 | -12 | - | 反応促進能力が高い |
-| Residue | X1 | 8 | - | 低機能・安定・蓄積しやすい。消滅させることはできず、ContaminatedMassとの間で固定/分離を繰り返す |
+| 物質 | コード | 構成 | 安定性 | 自然産出 | 説明 |
+|------|:---:|------|--------|----------|------|
+| BaseSolid | 1 | S2 | 20 | 産出（豊富） | 最も基本的な安定物質 |
+| DenseMatrix | 2 | S3 | 30 | - | 高安定・低反応性 |
+| BindingShard | 3 | S1B1 | 14 | 産出（中程度） | 基本的な接続素材 |
+| FlexibleChain | 4 | S1B2 | 18 | - | 結合性が高いがやや不安定 |
+| ReactiveFragment | 5 | S1A1 | -2 | - | 最も基本的な活性物質 |
+| VolatileCore | 6 | A2 | -24 | 産出（限定的） | 非常に不安定・分解しやすい。分解時にエネルギーを放出する |
+| ChargedBinder | 7 | B1A1 | -8 | - | 結合しながら反応を起こす |
+| SignalFluid | 8 | T2 | -12 | 産出（限定的） | 流動性・伝達性 |
+| ConductiveGel | 9 | S1T1 | 4 | - | 構造＋伝達 |
+| InfoSeed | 10 | I1 | -8 | 産出（希少） | 最小の情報単位（非常に不安定） |
+| EncodedFragment | 11 | S1I1 | 2 | - | 安定化された情報 |
+| PatternChain | 12 | B1I1 | -4 | - | 結合可能な情報構造 |
+| CatalystGrain | 13 | C1 | 0 | 産出（希少） | 単純触媒 |
+| ActiveCatalyst | 14 | A1C1 | -12 | - | 反応促進能力が高い |
+| Residue | 15 | X1 | 8 | - | 低機能・安定・蓄積しやすい。消滅させることはできず、ContaminatedMassとの間で固定/分離を繰り返す |
 
 ### 中間物質（12種）
 
-| 物質 | 構成 | 安定性 | 自然産出 | 説明 |
-|------|------|--------|----------|------|
-| ReinforcedMatrix | S3B1 | 29 | - | 高安定構造基盤 |
-| ElasticFramework | S2B2 | 23 | - | 可変構造 |
-| ReactiveCluster | S1A2 | -19 | - | 高反応性塊 |
-| StabilizedReactor | S2B1A1 | 7 | - | 制御された反応媒体 |
-| SignalMatrix | S2T2 | 3 | - | 伝達ネットワーク |
-| ActiveConductor | S1A1T1 | -13 | - | エネルギー＋信号伝達 |
-| DataLattice | S2I2 | -1 | - | 安定な情報保存 |
-| LogicFilament | B1I2 | -17 | - | 演算的構造 |
-| EncodedMatrix | S2B1I1 | 11 | - | 構造＋情報の統合 |
-| CatalystMatrix | S1B1C1 | 9 | - | 安定触媒基盤 |
-| HyperCatalyst | A2C1 | -29 | - | 強力だが不安定 |
-| ContaminatedMass | S2X1 | 23 | 産出（豊富） | 不純物を含む低品位素材。自然産出し、X原子が世界に入る唯一の経路。精製すると BaseSolid と Residue に分離できる |
+| 物質 | コード | 構成 | 安定性 | 自然産出 | 説明 |
+|------|:---:|------|--------|----------|------|
+| ReinforcedMatrix | 16 | S3B1 | 29 | - | 高安定構造基盤 |
+| ElasticFramework | 17 | S2B2 | 23 | - | 可変構造 |
+| ReactiveCluster | 18 | S1A2 | -19 | - | 高反応性塊 |
+| StabilizedReactor | 19 | S2B1A1 | 7 | - | 制御された反応媒体 |
+| SignalMatrix | 20 | S2T2 | 3 | - | 伝達ネットワーク |
+| ActiveConductor | 21 | S1A1T1 | -13 | - | エネルギー＋信号伝達 |
+| DataLattice | 22 | S2I2 | -1 | - | 安定な情報保存 |
+| LogicFilament | 23 | B1I2 | -17 | - | 演算的構造 |
+| EncodedMatrix | 24 | S2B1I1 | 11 | - | 構造＋情報の統合 |
+| CatalystMatrix | 25 | S1B1C1 | 9 | - | 安定触媒基盤 |
+| HyperCatalyst | 26 | A2C1 | -29 | - | 強力だが不安定 |
+| ContaminatedMass | 27 | S2X1 | 23 | 産出（豊富） | 不純物を含む低品位素材。自然産出し、X原子が世界に入る唯一の経路。精製すると BaseSolid と Residue に分離できる |
 
 ### コンポーネント（8種）
 
-| 物質 | 構成 | 安定性 | 自然産出 | 説明 |
-|------|------|--------|----------|------|
-| Assembler | S3B2A1C1 | 11 | - | 物質の合成（レシピ実行）を行う |
-| Disassembler | S2B1A3C1 | -27 | - | 死骸や他コンポーネントの分解を行う。Assemblerより活性原子が多い |
-| Processor | S2B1I4 | -23 | - | プログラムを実行する。最も情報原子を要求する |
-| MemoryCore | S4B1I3 | 5 | - | 追加のプログラム/データ格納領域 |
-| Actuator | S3B2A1T1 | 5 | - | 移動の推進力を発生する |
-| Sensor | S2B1I1T2 | -11 | - | 周囲のオブジェクトを探知する |
-| Harvester | S3B1A1T1 | 1 | - | 周囲の資源・エネルギーを回収する |
-| Storage | S6B1 | 49 | - | 資源とエネルギーを格納する。構造原子のみで構成される |
+| 物質 | コード | 構成 | 安定性 | 自然産出 | 説明 |
+|------|:---:|------|--------|----------|------|
+| Assembler | 28 | S3B2A1C1 | 11 | - | 物質の合成（レシピ実行）を行う |
+| Disassembler | 29 | S2B1A3C1 | -27 | - | 死骸や他コンポーネントの分解を行う。Assemblerより活性原子が多い |
+| Processor | 30 | S2B1I4 | -23 | - | プログラムを実行する。最も情報原子を要求する |
+| MemoryCore | 31 | S4B1I3 | 5 | - | 追加のプログラム/データ格納領域 |
+| Actuator | 32 | S3B2A1T1 | 5 | - | 移動の推進力を発生する |
+| Sensor | 33 | S2B1I1T2 | -11 | - | 周囲のオブジェクトを探知する |
+| Harvester | 34 | S3B1A1T1 | 1 | - | 周囲の資源・エネルギーを回収する |
+| Storage | 35 | S6B1 | 49 | - | 資源とエネルギーを格納する。構造原子のみで構成される |
 
 ## レシピ一覧
 
 全レシピの原子収支・到達可能性・循環は `npm test` で機械検証される。
 エネルギーコスト（E）は暫定値（正=消費、負=放出）。
+コード列はプログラムI/Oで使用する数値ID（データ定義順の連番。docs/specs/03_program_io.md）。
 
 ### 合成型（22件）
 
-| ID | 入力 | 出力 | E | 概要 |
-|----|------|------|---|------|
-| R1 | BaseSolid + BindingShard×2 | DenseMatrix + FlexibleChain | 15 | 構造の高密度化。副産物として柔軟鎖が生じる |
-| R1c | BaseSolid + BindingShard×2 + CatalystGrain | DenseMatrix + FlexibleChain + CatalystGrain | 8 | R1の触媒版。触媒は消費されない |
-| R2 | BindingShard×4 | FlexibleChain×2 + BaseSolid | 10 | 接続素材から柔軟鎖を合成する |
-| R6 | ChargedBinder + ReactiveFragment | VolatileCore + BindingShard | 15 | 活性を濃縮し活性コアを再生する（A循環の閉路） |
-| R7 | BaseSolid + SignalFluid | ConductiveGel×2 | 10 | 伝達流体を構造に定着させる |
-| R9 | InfoSeed×2 + BaseSolid | EncodedFragment×2 | 20 | 情報を構造へ焼き付けて安定化する |
-| R12 | CatalystGrain×2 + ReactiveFragment×2 | ActiveCatalyst×2 + BaseSolid | 20 | 触媒に活性を付与する |
-| R32 | BaseSolid + Residue | ContaminatedMass | 5 | 不純物を構造に固定する（安価な廃棄物処理） |
-| RD1 | ContaminatedMass + BindingShard×2 | DenseMatrix + FlexibleChain + Residue | 10 | R1のdirty版。低品位素材を直接使うため安価だが不純物が残る |
-| RD2 | InfoSeed×2 + ContaminatedMass | EncodedFragment×2 + Residue | 12 | R9のdirty版。安価だが不純物が残る |
-| R21 | DenseMatrix×2 + BindingShard×2 | ReinforcedMatrix×2 + BaseSolid | 25 | 高安定構造基盤の合成 |
-| R22 | FlexibleChain×2 + BaseSolid | ElasticFramework + BindingShard×2 | 20 | 可変構造の合成 |
-| R23 | ReactiveFragment×2 + VolatileCore | ReactiveCluster×2 | 20 | 高反応性塊の合成 |
-| R24 | ReactiveCluster×2 + BindingShard×2 | StabilizedReactor×2 + VolatileCore | 30 | 反応を制御構造に収める。余剰活性が活性コアとして回収される |
-| R25 | ConductiveGel×2 | SignalMatrix | 20 | 伝達ネットワークの合成 |
-| R26 | ReactiveFragment×2 + ConductiveGel×2 | ActiveConductor×2 + BaseSolid | 25 | 活性伝達体の合成 |
-| R27 | EncodedFragment×2 | DataLattice | 30 | 安定情報格子の合成 |
-| R27c | EncodedFragment×2 + ActiveCatalyst | DataLattice + ActiveCatalyst | 15 | R27の触媒版。触媒は消費されない |
-| R28 | PatternChain + InfoSeed | LogicFilament | 30 | 演算構造の合成 |
-| R29 | EncodedFragment + BindingShard | EncodedMatrix | 25 | 構造と情報の統合 |
-| R30 | CatalystGrain + BindingShard | CatalystMatrix | 25 | 安定触媒基盤の合成 |
-| R31 | ActiveCatalyst×2 + VolatileCore | HyperCatalyst×2 | 30 | 強力だが不安定な触媒の合成 |
+| ID | コード | 入力 | 出力 | E | 概要 |
+|----|:---:|------|------|---|------|
+| R1 | 1 | BaseSolid + BindingShard×2 | DenseMatrix + FlexibleChain | 15 | 構造の高密度化。副産物として柔軟鎖が生じる |
+| R1c | 2 | BaseSolid + BindingShard×2 + CatalystGrain | DenseMatrix + FlexibleChain + CatalystGrain | 8 | R1の触媒版。触媒は消費されない |
+| R2 | 3 | BindingShard×4 | FlexibleChain×2 + BaseSolid | 10 | 接続素材から柔軟鎖を合成する |
+| R6 | 6 | ChargedBinder + ReactiveFragment | VolatileCore + BindingShard | 15 | 活性を濃縮し活性コアを再生する（A循環の閉路） |
+| R7 | 7 | BaseSolid + SignalFluid | ConductiveGel×2 | 10 | 伝達流体を構造に定着させる |
+| R9 | 9 | InfoSeed×2 + BaseSolid | EncodedFragment×2 | 20 | 情報を構造へ焼き付けて安定化する |
+| R12 | 12 | CatalystGrain×2 + ReactiveFragment×2 | ActiveCatalyst×2 + BaseSolid | 20 | 触媒に活性を付与する |
+| R32 | 17 | BaseSolid + Residue | ContaminatedMass | 5 | 不純物を構造に固定する（安価な廃棄物処理） |
+| RD1 | 19 | ContaminatedMass + BindingShard×2 | DenseMatrix + FlexibleChain + Residue | 10 | R1のdirty版。低品位素材を直接使うため安価だが不純物が残る |
+| RD2 | 20 | InfoSeed×2 + ContaminatedMass | EncodedFragment×2 + Residue | 12 | R9のdirty版。安価だが不純物が残る |
+| R21 | 21 | DenseMatrix×2 + BindingShard×2 | ReinforcedMatrix×2 + BaseSolid | 25 | 高安定構造基盤の合成 |
+| R22 | 22 | FlexibleChain×2 + BaseSolid | ElasticFramework + BindingShard×2 | 20 | 可変構造の合成 |
+| R23 | 23 | ReactiveFragment×2 + VolatileCore | ReactiveCluster×2 | 20 | 高反応性塊の合成 |
+| R24 | 24 | ReactiveCluster×2 + BindingShard×2 | StabilizedReactor×2 + VolatileCore | 30 | 反応を制御構造に収める。余剰活性が活性コアとして回収される |
+| R25 | 25 | ConductiveGel×2 | SignalMatrix | 20 | 伝達ネットワークの合成 |
+| R26 | 26 | ReactiveFragment×2 + ConductiveGel×2 | ActiveConductor×2 + BaseSolid | 25 | 活性伝達体の合成 |
+| R27 | 27 | EncodedFragment×2 | DataLattice | 30 | 安定情報格子の合成 |
+| R27c | 28 | EncodedFragment×2 + ActiveCatalyst | DataLattice + ActiveCatalyst | 15 | R27の触媒版。触媒は消費されない |
+| R28 | 29 | PatternChain + InfoSeed | LogicFilament | 30 | 演算構造の合成 |
+| R29 | 30 | EncodedFragment + BindingShard | EncodedMatrix | 25 | 構造と情報の統合 |
+| R30 | 31 | CatalystGrain + BindingShard | CatalystMatrix | 25 | 安定触媒基盤の合成 |
+| R31 | 32 | ActiveCatalyst×2 + VolatileCore | HyperCatalyst×2 | 30 | 強力だが不安定な触媒の合成 |
 
 ### 分解型（5件）
 
-| ID | 入力 | 出力 | E | 概要 |
-|----|------|------|---|------|
-| R4 | BaseSolid + VolatileCore | ReactiveFragment×2 | -10 | 活性コアで構造を割り、エネルギーを放出する（バッテリー用途） |
-| R8 | ConductiveGel×2 | BaseSolid + SignalFluid | 5 | ゲルから伝達流体を回収する（T循環の閉路） |
-| R13 | ActiveCatalyst×2 | CatalystGrain×2 + VolatileCore | -5 | 活性触媒の失活。少量のエネルギーを放出する（C循環の閉路） |
-| R19 | DenseMatrix×2 + VolatileCore | ReactiveFragment×2 + BaseSolid×2 | 5 | 高密度構造を活性で砕く（S循環の閉路） |
-| R20 | EncodedFragment×2 | InfoSeed×2 + BaseSolid | 25 | 情報構造から希少な情報原子を回収する（I循環の閉路） |
+| ID | コード | 入力 | 出力 | E | 概要 |
+|----|:---:|------|------|---|------|
+| R4 | 4 | BaseSolid + VolatileCore | ReactiveFragment×2 | -10 | 活性コアで構造を割り、エネルギーを放出する（バッテリー用途） |
+| R8 | 8 | ConductiveGel×2 | BaseSolid + SignalFluid | 5 | ゲルから伝達流体を回収する（T循環の閉路） |
+| R13 | 13 | ActiveCatalyst×2 | CatalystGrain×2 + VolatileCore | -5 | 活性触媒の失活。少量のエネルギーを放出する（C循環の閉路） |
+| R19 | 15 | DenseMatrix×2 + VolatileCore | ReactiveFragment×2 + BaseSolid×2 | 5 | 高密度構造を活性で砕く（S循環の閉路） |
+| R20 | 16 | EncodedFragment×2 | InfoSeed×2 + BaseSolid | 25 | 情報構造から希少な情報原子を回収する（I循環の閉路） |
 
 ### 再配置型（4件）
 
-| ID | 入力 | 出力 | E | 概要 |
-|----|------|------|---|------|
-| R5 | ReactiveFragment + BindingShard | ChargedBinder + BaseSolid | 5 | 活性を結合素材へ移す |
-| R10 | EncodedFragment + BindingShard | PatternChain + BaseSolid | 10 | 情報を結合可能な形へ再配置する |
-| R11 | PatternChain + BaseSolid | EncodedFragment + BindingShard | 10 | R10の逆変換 |
-| R18 | FlexibleChain×2 + BaseSolid | BindingShard×4 | 10 | 柔軟鎖を接続素材へ戻す（B循環の閉路） |
+| ID | コード | 入力 | 出力 | E | 概要 |
+|----|:---:|------|------|---|------|
+| R5 | 5 | ReactiveFragment + BindingShard | ChargedBinder + BaseSolid | 5 | 活性を結合素材へ移す |
+| R10 | 10 | EncodedFragment + BindingShard | PatternChain + BaseSolid | 10 | 情報を結合可能な形へ再配置する |
+| R11 | 11 | PatternChain + BaseSolid | EncodedFragment + BindingShard | 10 | R10の逆変換 |
+| R18 | 14 | FlexibleChain×2 + BaseSolid | BindingShard×4 | 10 | 柔軟鎖を接続素材へ戻す（B循環の閉路） |
 
 ### 精製型（1件）
 
-| ID | 入力 | 出力 | E | 概要 |
-|----|------|------|---|------|
-| R33 | ContaminatedMass | BaseSolid + Residue | 30 | 低品位素材の精製。清浄な構造材と不純物に分離する（高コスト） |
+| ID | コード | 入力 | 出力 | E | 概要 |
+|----|:---:|------|------|---|------|
+| R33 | 18 | ContaminatedMass | BaseSolid + Residue | 30 | 低品位素材の精製。清浄な構造材と不純物に分離する（高コスト） |
 
 ### コンポーネント生成（8件）
 
-| ID | 入力 | 出力 | E | 概要 |
-|----|------|------|---|------|
-| RC1 | DataLattice + LogicFilament | Processor | 150 | 情報格子と演算構造からProcessorを組み上げる |
-| RC2 | DataLattice + EncodedMatrix | MemoryCore | 120 | 情報格子と統合構造からMemoryCoreを組み上げる |
-| RC3 | StabilizedReactor + CatalystMatrix | Assembler | 120 | 制御反応媒体と触媒基盤からAssemblerを組み上げる |
-| RC4 | StabilizedReactor + HyperCatalyst | Disassembler | 120 | 制御反応媒体と強触媒からDisassemblerを組み上げる |
-| RC5 | ElasticFramework + ActiveConductor | Actuator | 100 | 可変構造と活性伝達体からActuatorを組み上げる |
-| RC6 | SignalMatrix + PatternChain | Sensor | 100 | 伝達ネットワークとパターン構造からSensorを組み上げる |
-| RC7 | StabilizedReactor + ConductiveGel | Harvester | 100 | 制御反応媒体と伝達ゲルからHarvesterを組み上げる |
-| RC8 | ReinforcedMatrix + DenseMatrix | Storage | 80 | 強化構造からStorageを組み上げる |
+| ID | コード | 入力 | 出力 | E | 概要 |
+|----|:---:|------|------|---|------|
+| RC1 | 33 | DataLattice + LogicFilament | Processor | 150 | 情報格子と演算構造からProcessorを組み上げる |
+| RC2 | 34 | DataLattice + EncodedMatrix | MemoryCore | 120 | 情報格子と統合構造からMemoryCoreを組み上げる |
+| RC3 | 35 | StabilizedReactor + CatalystMatrix | Assembler | 120 | 制御反応媒体と触媒基盤からAssemblerを組み上げる |
+| RC4 | 36 | StabilizedReactor + HyperCatalyst | Disassembler | 120 | 制御反応媒体と強触媒からDisassemblerを組み上げる |
+| RC5 | 37 | ElasticFramework + ActiveConductor | Actuator | 100 | 可変構造と活性伝達体からActuatorを組み上げる |
+| RC6 | 38 | SignalMatrix + PatternChain | Sensor | 100 | 伝達ネットワークとパターン構造からSensorを組み上げる |
+| RC7 | 39 | StabilizedReactor + ConductiveGel | Harvester | 100 | 制御反応媒体と伝達ゲルからHarvesterを組み上げる |
+| RC8 | 40 | ReinforcedMatrix + DenseMatrix | Storage | 80 | 強化構造からStorageを組み上げる |
 
 ### コンポーネント分解（8件）
 
-| ID | 入力 | 出力 | E | 概要 |
-|----|------|------|---|------|
-| RX1 | Processor | EncodedFragment×2 + PatternChain + InfoSeed | 15 | Processorの分解。希少な情報系素材が回収できる |
-| RX2 | MemoryCore | EncodedFragment×2 + PatternChain + BaseSolid | 15 | MemoryCoreの分解 |
-| RX3 | Assembler | CatalystGrain + ChargedBinder + BindingShard + BaseSolid | 15 | Assemblerの分解。触媒が回収できる |
-| RX4 | Disassembler | CatalystGrain + ChargedBinder + VolatileCore + BaseSolid | 15 | Disassemblerの分解 |
-| RX5 | Actuator | ConductiveGel + ReactiveFragment + FlexibleChain | 15 | Actuatorの分解 |
-| RX6 | Sensor | SignalFluid + PatternChain + BaseSolid | 15 | Sensorの分解 |
-| RX7 | Harvester | ConductiveGel + ReactiveFragment + BindingShard | 15 | Harvesterの分解 |
-| RX8 | Storage | DenseMatrix + BaseSolid + BindingShard | 15 | Storageの分解 |
+| ID | コード | 入力 | 出力 | E | 概要 |
+|----|:---:|------|------|---|------|
+| RX1 | 41 | Processor | EncodedFragment×2 + PatternChain + InfoSeed | 15 | Processorの分解。希少な情報系素材が回収できる |
+| RX2 | 42 | MemoryCore | EncodedFragment×2 + PatternChain + BaseSolid | 15 | MemoryCoreの分解 |
+| RX3 | 43 | Assembler | CatalystGrain + ChargedBinder + BindingShard + BaseSolid | 15 | Assemblerの分解。触媒が回収できる |
+| RX4 | 44 | Disassembler | CatalystGrain + ChargedBinder + VolatileCore + BaseSolid | 15 | Disassemblerの分解 |
+| RX5 | 45 | Actuator | ConductiveGel + ReactiveFragment + FlexibleChain | 15 | Actuatorの分解 |
+| RX6 | 46 | Sensor | SignalFluid + PatternChain + BaseSolid | 15 | Sensorの分解 |
+| RX7 | 47 | Harvester | ConductiveGel + ReactiveFragment + BindingShard | 15 | Harvesterの分解 |
+| RX8 | 48 | Storage | DenseMatrix + BaseSolid + BindingShard | 15 | Storageの分解 |
 
 ## 生産コスト解析
 

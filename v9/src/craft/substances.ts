@@ -299,3 +299,11 @@ export const SUBSTANCE_MAP: ReadonlyMap<string, Substance> = new Map(
 export const NATURAL_SOURCES: readonly Substance[] = SUBSTANCES.filter(
   substance => substance.naturalAbundance !== undefined,
 );
+
+/**
+ * 物質コード: データ定義順の1始まり連番。
+ * I/Oの種別コード（100+コード）とStorageの在庫照会で使用する（docs/specs/03_program_io.md）。
+ */
+export const SUBSTANCE_CODES: ReadonlyMap<string, number> = new Map(
+  SUBSTANCES.map((substance, index) => [substance.id, index + 1]),
+);
