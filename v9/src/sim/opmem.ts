@@ -67,12 +67,13 @@ export const ACT_OFF_MAGNITUDE = 1;
 export const ACT_OFF_STATUS = 2; // 0=停止, 1=作動, 3=エネルギー不足
 export const ACTUATOR_OPMEM_SIZE = 3;
 
-// === Sensor（サイズ35） ===
+// === Sensor（サイズ43） ===
 export const SENS_OFF_TRIGGER = 0;
 export const SENS_OFF_FILTER = 1; // 0=全種, 1-8=コンポーネント種別, 9=物質, 10=エネルギー
 export const SENS_OFF_COUNT = 2;
-export const SENS_OFF_RESULTS = 3; // 3..34
-export const SENSOR_OPMEM_SIZE = 35;
+export const SENS_OFF_RESULTS = 3; // 3..42（5ワード×8件: [生ID, 種別, 距離, 方向, aux]）
+export const SENS_ENTRY_WORDS = 5;
+export const SENSOR_OPMEM_SIZE = 43;
 
 // === Storage（サイズ9） ===
 export const STOR_OFF_TRANSFER_TRIGGER = 0;

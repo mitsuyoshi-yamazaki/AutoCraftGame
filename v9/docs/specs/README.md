@@ -3,6 +3,9 @@
 v9のゴール: ダイナミックな生態系を実現できるクラフトゲームの仕組みを作成すること
 （[../plan/3_v9_goal.md](../plan/3_v9_goal.md)）。
 
+**プロジェクト全体の総括は [../CONCLUSION.md](../CONCLUSION.md)**（目的達成の評価と必要要件の還元）。
+実験記録は [../experiments/](../experiments/)（01複製・02捕食・03変異系統）。
+
 設計判断の経緯は [../plan/5_design_decisions.md](../plan/5_design_decisions.md)、
 クラフトツリーの内容は [../plan/craft_tree/spec_draft.md](../plan/craft_tree/spec_draft.md)
 （データ実体 `src/craft/`）を参照。

@@ -110,6 +110,35 @@ describe('祖先種v1: 意図的変異（本プロジェクトの核心実験）
     expect(xor & (xor - 1)).toBe(0); // 1ビットだけ立っている
   });
 
+  it('現実的な変異率でも系統内に生存する変異体が現れる（seedSalt=2, 1/4, 豊かなクレードル）', () => {
+    const params = makeParams({
+      nodeAmountByAbundance: { abundant: 400, common: 200, limited: 200, rare: 120 },
+    });
+    const options = { mutation: true, mutationGateMask: 3, seedSalt: 2 };
+    const original = buildAncestorProgram(options);
+    const config = buildAncestorConfig(42, options);
+    const rng = createRng(config.seed);
+    let world = buildInitialWorld(config, params, rng);
+    for (let i = 0; i < 6500; i++) {
+      world = executeTick(world, params, rng).world;
+    }
+    const processors = world.objects.filter(
+      (o): o is ProcessorComponent => o.kind === 'component' && o.componentType === 'Processor',
+    );
+    const founderId = Math.min(...processors.map(p => p.id));
+    const mutants = processors
+      .filter(p => p.id !== founderId)
+      .filter(p => {
+        for (let addr = 0; addr < ANCESTOR_LAYOUT.GLOBALS_BASE; addr++) {
+          if (p.memory[addr] !== original[addr]) return true;
+        }
+        return false;
+      });
+    expect(mutants.length).toBeGreaterThanOrEqual(2);
+    // 観察された変異体は生存している（エネルギー恒常性が保たれている）
+    expect(mutants.some(p => p.running && p.durability > 0)).toBe(true);
+  });
+
   it('変異を含めて決定論が保たれる（同一シード2回で完全一致）', () => {
     const params = makeParams();
     const config = buildAncestorConfig(42, { mutation: true, mutationGateMask: 0 });

@@ -152,15 +152,17 @@ v9固有の変更:
 | 1 | magnitude | 推進の強さ 0〜THRUST_MAX。0で停止（トリガ不要の継続動作） |
 | 2 | status | 0=停止, 1=作動, 3=エネルギー不足 |
 
-### Sensor（サイズ35）
+### Sensor（サイズ43）
 
 | off | 名称 | 内容 |
 |:---:|------|------|
 | 0 | scan_trigger | 1=SCAN |
 | 1 | scan_filter | 0=全種, 1〜8=コンポーネント種別, 9=物質（ノード・地面）, 10=EnergyNode |
 | 2 | scan_count | 結果件数 |
-| 3〜34 | scan_results | 4ワード×最大 SCAN_MAX_RESULTS 件: [生オブジェクトID, 種別コード, floor(距離), aux] 距離昇順 |
+| 3〜42 | scan_results | 5ワード×最大 SCAN_MAX_RESULTS 件: [生オブジェクトID, 種別コード, floor(距離), 方向, aux] 距離昇順 |
 
+- 方向: Sensorから対象への方位 0〜255（= 0〜2π。Actuatorのdirectionと同じ符号化。
+  探知した対象へ移動する＝追跡・捕食に必要）
 - aux: コンポーネント→耐久度（残骸=0）、MatterNode/地面の物体→残量/個数、EnergyNode→当tick残流量
 - 結果のIDスロットは生のオブジェクトIDで格納される。プログラムは0x1005経由で読むことで
   自分のローカルIDとして取得できる。結果は次のSCANまで保持される

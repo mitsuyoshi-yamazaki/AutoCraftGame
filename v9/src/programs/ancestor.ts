@@ -43,6 +43,11 @@ export interface AncestorOptions {
   /** 変異を有効にする。mutationGateMask=0で毎回変異（テスト用）、7で確率1/8 */
   readonly mutation?: boolean;
   readonly mutationGateMask?: number;
+  /**
+   * LCGの初期種。ゲノム（pmem）の一部として子に複製される。
+   * 創始者は常にtick0で起動するため、これを変えることで系統ごとに変異スケジュールが変わる
+   */
+  readonly seedSalt?: number;
 }
 
 interface CraftStep {
@@ -321,7 +326,9 @@ export const buildAncestorProgram = (options: AncestorOptions = {}): number[] =>
     b.li(2, 6927).add(3, 3, 2);
     b.sw(3, 7, G_SEED);
     if (gateMask > 0) {
-      b.li(2, gateMask).and(4, 3, 2);
+      // 判定はseedの上位側ビットで行う（LCGの下位ビットは周期が短く規則的なため）
+      b.li(2, 8).shr(4, 3, 2);
+      b.li(2, gateMask).and(4, 4, 2);
       b.li(2, 0);
       b.bnelTo(4, 2, skip);
     }
@@ -384,6 +391,8 @@ export const buildAncestorProgram = (options: AncestorOptions = {}): number[] =>
     memory[addr++] = substanceCodeOf(substanceId);
   }
   memory[addr] = 0;
+
+  memory[GLOBALS_BASE + G_SEED] = (options.seedSalt ?? 0) & 0xffff;
 
   // 末尾の連続0は複写に含まれるので切り詰めない（pmem全域が「プログラム」）
   return memory;

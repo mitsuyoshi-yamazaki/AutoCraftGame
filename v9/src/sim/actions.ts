@@ -38,6 +38,7 @@ import {
   RESULT_SUCCESS,
   RESULT_UNREACHABLE,
   SCAN_ENTRY_WORDS,
+  SENS_ENTRY_WORDS,
   SENS_OFF_COUNT,
   SENS_OFF_FILTER,
   SENS_OFF_RESULTS,
@@ -401,15 +402,20 @@ const processSensor = (
     [SENS_OFF_COUNT, found.length],
   ];
   for (let i = 0; i < params.scanMaxResults; i++) {
-    const base = SENS_OFF_RESULTS + i * SCAN_ENTRY_WORDS;
+    const base = SENS_OFF_RESULTS + i * SENS_ENTRY_WORDS;
     if (i < found.length) {
       const { obj, dist } = found[i];
+      const target = effectivePosition(w1, obj);
+      // 方向: 0〜255 = 0〜2π（Actuatorのdirectionと同じ符号化）
+      const angle = Math.atan2(target.y - position.y, target.x - position.x);
+      const direction = Math.round(((angle + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI) * 256) & 0xff;
       patch.push([base + 0, obj.id & 0xffff]);
       patch.push([base + 1, typeCodeOf(obj)]);
       patch.push([base + 2, Math.floor(dist)]);
-      patch.push([base + 3, scanAux(obj, params)]);
+      patch.push([base + 3, direction]);
+      patch.push([base + 4, scanAux(obj, params)]);
     } else {
-      patch.push([base + 0, 0], [base + 1, 0], [base + 2, 0], [base + 3, 0]);
+      patch.push([base + 0, 0], [base + 1, 0], [base + 2, 0], [base + 3, 0], [base + 4, 0]);
     }
   }
   return applyWear(patchOpmem(w1, sensorId, patch), sensorId, events);
