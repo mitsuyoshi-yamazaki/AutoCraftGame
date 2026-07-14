@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoCraft Game v9</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="topbar">
+    <span class="brand">AutoCraft <b id="version"></b></span>
+    <label>実験
+      <select id="experiment"></select>
+    </label>
+    <label>seed
+      <input id="seed" type="number" step="1" style="width:5em" />
+    </label>
+    <button id="btn-reset" title="この実験を最初から">↺ リセット</button>
+    <button id="btn-play" title="Space">▶ 再生</button>
+    <button id="btn-step">1 tick</button>
+    <button id="btn-fit" title="表示を全体にフィット">⤢ フィット</button>
+    <label>速度
+      <input id="speed" type="range" min="1" max="240" />
+      <span id="speed-val" class="mono"></span> tick/s
+    </label>
+    <span id="tick" class="mono">tick 0</span>
+    <span id="exp-desc" class="desc"></span>
+  </div>
+
+  <div id="main">
+    <div id="canvas-container"></div>
+    <aside id="side">
+      <section id="metrics-section">
+        <h3>メトリクス</h3>
+        <div id="metrics"></div>
+      </section>
+      <section>
+        <h3>選択</h3>
+        <div id="selected"><em>個体や資源をクリックすると詳細が出ます</em></div>
+      </section>
+      <section id="legend">
+        <h3>凡例</h3>
+        <div><span class="dot" style="background:#29b6f6"></span>移動種</div>
+        <div><span class="dot" style="background:#ffa726"></span>定住種</div>
+        <div><span class="dot" style="background:#e53935"></span>捕食者</div>
+        <div><span class="dot" style="background:#ffd700"></span>エネルギーノード</div>
+        <div><span class="dot" style="background:#ffd54f"></span>情報資源(希少)</div>
+        <div><span class="dot" style="background:#8899aa"></span>構造資源</div>
+        <div><span class="dot" style="background:#555b55"></span>残骸</div>
+        <div class="hint">ドラッグで移動・ホイールで拡大縮小・クリックで選択</div>
+      </section>
+    </aside>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

@@ -1,17 +1,20 @@
 {
   "name": "auto-craft-game-v9",
-  "version": "9.5.0",
+  "version": "9.5.1",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "vitest run --root .",
     "sim": "npx tsx src/cli.ts",
-    "craft:report": "npx tsx src/tools/craft-report.ts"
+    "craft:report": "npx tsx src/tools/craft-report.ts",
+    "ui": "vite",
+    "build:ui": "vite build"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
     "tsx": "^4.10.0",
     "typescript": "^5.4.0",
+    "vite": "^5.4.0",
     "vitest": "^1.6.0"
   },
   "dependencies": {
