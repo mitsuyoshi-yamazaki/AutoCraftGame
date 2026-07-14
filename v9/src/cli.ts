@@ -8,6 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { DEFAULT_GAME_PARAMS } from './params';
 import { buildAncestorConfig } from './programs/ancestor-config';
+import { buildCompetitionConfig } from './programs/competition-config';
 import { buildMobileConfig } from './programs/mobile';
 import { buildPredationConfig } from './programs/predation-config';
 import { createRng } from './rng';
@@ -26,6 +27,7 @@ interface CliOptions {
   readonly mutate: boolean;
   readonly predation: boolean;
   readonly mobile: boolean;
+  readonly competition: boolean;
   readonly ticks: number;
   readonly seed?: number;
   readonly output: 'summary' | 'events';
@@ -38,6 +40,7 @@ const parseArgs = (argv: string[]): CliOptions => {
   let mutate = false;
   let predation = false;
   let mobile = false;
+  let competition = false;
   let ticks = 100;
   let seed: number | undefined;
   let output: CliOptions['output'] = 'summary';
@@ -62,6 +65,9 @@ const parseArgs = (argv: string[]): CliOptions => {
       case '--mobile':
         mobile = true;
         break;
+      case '--competition':
+        competition = true;
+        break;
       case '--ticks':
         ticks = Number(argv[++i]);
         break;
@@ -75,7 +81,7 @@ const parseArgs = (argv: string[]): CliOptions => {
         break;
     }
   }
-  return { configPath, demo, ancestor, mutate, predation, mobile, ticks, seed, output };
+  return { configPath, demo, ancestor, mutate, predation, mobile, competition, ticks, seed, output };
 };
 
 // 移動種は散在資源＋潤沢なエネルギーの環境を前提とする
@@ -148,6 +154,8 @@ const main = (): void => {
   if (options.configPath !== undefined) {
     const raw: unknown = JSON.parse(readFileSync(options.configPath, 'utf-8'));
     config = initialConfigSchema.parse(raw);
+  } else if (options.competition) {
+    config = buildCompetitionConfig(options.seed ?? 2);
   } else if (options.mobile) {
     config = buildMobileConfig(options.seed ?? 42, { mutation: options.mutate });
   } else if (options.predation) {
@@ -158,7 +166,7 @@ const main = (): void => {
     config = demoConfig(options.seed ?? 42);
   } else {
     console.log(
-      'usage: npm run sim -- (--config <path.json> | --demo | --ancestor | --ancestor-mutate | --predation | --mobile) [--ticks N] [--seed N] [--output summary|events]',
+      'usage: npm run sim -- (--config <path.json> | --demo | --ancestor | --ancestor-mutate | --predation | --mobile | --competition) [--ticks N] [--seed N] [--output summary|events]',
     );
     process.exitCode = 1;
     return;
@@ -166,7 +174,7 @@ const main = (): void => {
 
   const seed = options.seed ?? config.seed;
   const rng = createRng(seed);
-  const params = options.mobile ? MOBILE_PARAMS : DEFAULT_GAME_PARAMS;
+  const params = options.mobile || options.competition ? MOBILE_PARAMS : DEFAULT_GAME_PARAMS;
   let world = buildInitialWorld({ ...config, seed }, params, rng);
 
   console.log(`seed=${seed} ticks=${options.ticks} initial atoms: ${formatAtomTotals(totalAtoms(world))}`);
