@@ -67,8 +67,10 @@ export const DEFAULT_GAME_PARAMS: GameParams = {
   scanMaxResults: 8,
 
   instructionsPerTick: 10000,
-  pmemWords: 1024,
-  memcoreWords: 1024,
+  // 4096語。定住型複製子は約620語で足りたが、移動＋探索採取＋6部品の子を持つ移動複製子は
+  // 約1400語を要し1024語では不足した（docs/experiments/06参照）。16bitアドレス空間の範囲で拡大。
+  pmemWords: 4096,
+  memcoreWords: 4096,
   procTickCost: 1,
 
   componentRadius: 0.4,

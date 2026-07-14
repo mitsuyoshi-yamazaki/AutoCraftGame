@@ -9,7 +9,7 @@ v8のVMとI/O体系の互換拡張である（3_v9_goal「VMの命令セット�
 |------|-----|
 | アーキテクチャ | 16bit von Neumann（プログラム=データ同一空間、自己参照可能） |
 | レジスタ | 8本（r0=常に0、r7=スタックポインタ） |
-| pmem | 1024ワード（アドレスは mod 1024 で巡回） |
+| pmem | 4096ワード（アドレスは mod PMEM_WORDS で巡回。定住複製子には1024で足りたが移動複製子のため拡大。実験06） |
 | 実行 | instructionsPerTick 命令/tick、PCはtick跨ぎで保持、HALTでtick終了 |
 | 命令セット | v8と同一（ADD〜HALT、PC相対分岐 BEQL/BNEL/BLTL/BGEL、JMP、LABEL/JMPL/LWL/SWL、LI等） |
 | ラベルキャッシュ | v8と同一（メモリ書込で無効化、JMPLは同IDラベルの次ワードへ） |

@@ -17,8 +17,8 @@
 | 定数 | 値 | 説明 |
 |------|:---:|------|
 | instructionsPerTick | 10000 | v8と同じ |
-| PMEM_WORDS | 1024 | Processorのメモリ語数 |
-| MEMCORE_WORDS | 1024 | MemoryCoreの記憶語数 |
+| PMEM_WORDS | 4096 | Processorのメモリ語数（定住複製子は約620語で足りたが、移動複製子は約1400語を要し1024から拡大。実験06） |
+| MEMCORE_WORDS | 4096 | MemoryCoreの記憶語数 |
 | PROC_TICK_COST | 1 | Processor実行のエネルギー/tick（v9新設） |
 
 ## 物理

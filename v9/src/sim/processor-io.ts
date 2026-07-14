@@ -246,7 +246,7 @@ const ioRead = (state: IoState, addr: number): number => {
         return readExternalPMem(state);
       case 0x2003: {
         const value = readExternalPMem(state);
-        state.pmemAddr = (state.pmemAddr + 1) & 0x3ff;
+        state.pmemAddr = (state.pmemAddr + 1) & (state.params.pmemWords - 1);
         return value;
       }
       default:
@@ -295,14 +295,14 @@ const ioWrite = (state: IoState, addr: number, rawValue: number): void => {
         state.pmemTargetId = value;
         break;
       case 0x2001:
-        state.pmemAddr = value & 0x3ff;
+        state.pmemAddr = value & (state.params.pmemWords - 1);
         break;
       case 0x2002:
         writeExternalPMem(state, value);
         break;
       case 0x2003:
         writeExternalPMem(state, value);
-        state.pmemAddr = (state.pmemAddr + 1) & 0x3ff;
+        state.pmemAddr = (state.pmemAddr + 1) & (state.params.pmemWords - 1);
         break;
       default:
         break;

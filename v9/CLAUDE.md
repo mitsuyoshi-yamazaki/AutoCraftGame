@@ -29,6 +29,7 @@ npm test                            # 全テスト（クラフトツリー静的
 npm run sim -- --ancestor --ticks 3000        # 祖先種の自己複製実験
 npm run sim -- --ancestor-mutate --ticks 3000 # 変異あり祖先種
 npm run sim -- --predation --ticks 3000       # 捕食実験
+npm run sim -- --mobile --ticks 3000          # 移動複製種（探索採取・空間拡散）
 npm run sim -- --demo --ticks 300   # デモ実行（最小祖先・プログラムなし）
 npm run sim -- --config <path.json> --ticks 1000 [--seed N] [--output summary|events]
 npm run craft:report                # クラフトツリーの検証・コスト解析レポート
@@ -39,7 +40,9 @@ npm run craft:report                # クラフトツリーの検証・コスト
 - ancestor.ts … 自己複製（実験01）。helpers.ts … 共通ビルドヘルパ
 - expander.ts … 自己拡張（実験04）。repairer.ts … 自己修復（実験04）
 - predator.ts … 捕食（実験02）。ecology-config.ts … 複数コロニー競争・空間（実験05）
-- 実験記録は docs/experiments/01〜05、総括は docs/CONCLUSION.md
+- mobile.ts … 移動複製種（実験06。探索採取・6部品の子・分散）。helpers.ts に forageOne/forageEnergy
+- 実験記録は docs/experiments/01〜06、総括は docs/CONCLUSION.md
+- pmemは4096語（移動複製子のため1024から拡大。実験06）
 
 ## 実装の構成
 

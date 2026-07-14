@@ -8,6 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { DEFAULT_GAME_PARAMS } from './params';
 import { buildAncestorConfig } from './programs/ancestor-config';
+import { buildMobileConfig } from './programs/mobile';
 import { buildPredationConfig } from './programs/predation-config';
 import { createRng } from './rng';
 import { formatAtomTotals, totalAtoms, totalEnergy } from './sim/accounting';
@@ -24,6 +25,7 @@ interface CliOptions {
   readonly ancestor: boolean;
   readonly mutate: boolean;
   readonly predation: boolean;
+  readonly mobile: boolean;
   readonly ticks: number;
   readonly seed?: number;
   readonly output: 'summary' | 'events';
@@ -35,6 +37,7 @@ const parseArgs = (argv: string[]): CliOptions => {
   let ancestor = false;
   let mutate = false;
   let predation = false;
+  let mobile = false;
   let ticks = 100;
   let seed: number | undefined;
   let output: CliOptions['output'] = 'summary';
@@ -56,6 +59,9 @@ const parseArgs = (argv: string[]): CliOptions => {
       case '--predation':
         predation = true;
         break;
+      case '--mobile':
+        mobile = true;
+        break;
       case '--ticks':
         ticks = Number(argv[++i]);
         break;
@@ -69,7 +75,14 @@ const parseArgs = (argv: string[]): CliOptions => {
         break;
     }
   }
-  return { configPath, demo, ancestor, mutate, predation, ticks, seed, output };
+  return { configPath, demo, ancestor, mutate, predation, mobile, ticks, seed, output };
+};
+
+// 移動種は散在資源＋潤沢なエネルギーの環境を前提とする
+const MOBILE_PARAMS = {
+  ...DEFAULT_GAME_PARAMS,
+  nodeAmountByAbundance: { abundant: 4000, common: 2000, limited: 1000, rare: 200 },
+  energyNodeCount: 60,
 };
 
 /** デモ設定: 最小祖先の構成（プログラムなし・放置観察用） */
@@ -135,6 +148,8 @@ const main = (): void => {
   if (options.configPath !== undefined) {
     const raw: unknown = JSON.parse(readFileSync(options.configPath, 'utf-8'));
     config = initialConfigSchema.parse(raw);
+  } else if (options.mobile) {
+    config = buildMobileConfig(options.seed ?? 42, { mutation: options.mutate });
   } else if (options.predation) {
     config = buildPredationConfig(options.seed ?? 42);
   } else if (options.ancestor) {
@@ -143,7 +158,7 @@ const main = (): void => {
     config = demoConfig(options.seed ?? 42);
   } else {
     console.log(
-      'usage: npm run sim -- (--config <path.json> | --demo | --ancestor | --ancestor-mutate | --predation) [--ticks N] [--seed N] [--output summary|events]',
+      'usage: npm run sim -- (--config <path.json> | --demo | --ancestor | --ancestor-mutate | --predation | --mobile) [--ticks N] [--seed N] [--output summary|events]',
     );
     process.exitCode = 1;
     return;
@@ -151,7 +166,7 @@ const main = (): void => {
 
   const seed = options.seed ?? config.seed;
   const rng = createRng(seed);
-  const params = DEFAULT_GAME_PARAMS;
+  const params = options.mobile ? MOBILE_PARAMS : DEFAULT_GAME_PARAMS;
   let world = buildInitialWorld({ ...config, seed }, params, rng);
 
   console.log(`seed=${seed} ticks=${options.ticks} initial atoms: ${formatAtomTotals(totalAtoms(world))}`);
