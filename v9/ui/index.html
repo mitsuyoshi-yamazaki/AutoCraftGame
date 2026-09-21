@@ -40,18 +40,23 @@
       </section>
       <section id="legend">
         <h3>凡例</h3>
-        <div><span class="dot" style="background:#29b6f6"></span>移動種</div>
-        <div><span class="dot" style="background:#ffa726"></span>定住種</div>
-        <div><span class="dot" style="background:#e53935"></span>捕食者</div>
-        <div><span class="dot" style="background:#ffd700"></span>エネルギーノード</div>
-        <div><span class="dot" style="background:#ffd54f"></span>情報資源(希少)</div>
-        <div><span class="dot" style="background:#8899aa"></span>構造資源</div>
-        <div><span class="dot" style="background:#555b55"></span>残骸</div>
+        <div id="legend-body"></div>
+      </section>
+      <section id="encoding-section">
+        <h3>符号化表</h3>
+        <div id="encoding-body"></div>
         <div class="hint">ドラッグで移動・ホイールで拡大縮小・クリックで選択</div>
       </section>
     </aside>
   </div>
 
+  <script src="./simulation-ui-kit/lib/color.js"></script>
+  <script src="./simulation-ui-kit/lib/sources.js"></script>
+  <script src="./simulation-ui-kit/lib/shapes.js"></script>
+  <script src="./simulation-ui-kit/lib/state-marks.js"></script>
+  <script src="./simulation-ui-kit/lib/recipes.js"></script>
+  <script src="./simulation-ui-kit/shapes.js"></script>
+  <script src="./visual-language-model.js"></script>
   <script type="module" src="./main.ts"></script>
 </body>
 </html>

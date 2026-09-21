@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoCraft v9 — 視覚言語ダッシュボード</title>
+  <link rel="stylesheet" href="./visual-language.css" />
+</head>
+<body>
+  <div id="topbar">
+    <h1>AutoCraft v9 視覚言語</h1>
+    <span class="desc">
+      規約は <code>ui/simulation-ui-kit/CONVENTION.md</code> が正。
+      色は処方から導出していて、手で選んでいない
+    </span>
+  </div>
+
+  <div id="layout">
+    <div id="controls" class="panel"></div>
+
+    <div>
+      <section class="panel">
+        <h2>見本</h2>
+        <div id="specimens"></div>
+      </section>
+      <section class="panel">
+        <h2>場面</h2>
+        <div class="scroll-x">
+          <canvas id="scene-canvas"></canvas>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <section class="panel">
+        <h2>符号化表（規約 A-5）</h2>
+        <div id="encoding" class="scroll-x"></div>
+      </section>
+      <section class="panel">
+        <h2>状態チャネル（規約 A-6）</h2>
+        <div id="state-channels" class="scroll-x"></div>
+      </section>
+      <section class="panel">
+        <h2>導出された色</h2>
+        <div id="swatches"></div>
+      </section>
+      <section class="panel">
+        <h2>検査</h2>
+        <div id="checks"></div>
+      </section>
+      <section class="panel">
+        <h2>処方の書き出し</h2>
+        <p class="group-note">
+          気に入ったら <code>ui/simulation-ui-kit/lib/recipes.js</code> の
+          <code>RECIPES</code> へ貼って <code>node derive-palette.js</code> を回す
+        </p>
+        <textarea id="recipe-out" readonly></textarea>
+      </section>
+    </div>
+  </div>
+
+  <script src="./simulation-ui-kit/lib/color.js"></script>
+  <script src="./simulation-ui-kit/lib/sources.js"></script>
+  <script src="./simulation-ui-kit/lib/shapes.js"></script>
+  <script src="./simulation-ui-kit/lib/state-marks.js"></script>
+  <script src="./simulation-ui-kit/lib/recipes.js"></script>
+  <script src="./simulation-ui-kit/lib/checks.js"></script>
+  <script src="./simulation-ui-kit/shapes.js"></script>
+  <script src="./visual-language-model.js"></script>
+  <script src="./visual-language-draw.js"></script>
+  <script src="./visual-language-controls.js"></script>
+  <script src="./visual-language.js"></script>
+</body>
+</html>

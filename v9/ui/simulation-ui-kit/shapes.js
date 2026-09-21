@@ -1,0 +1,56 @@
+/* 生成物。手で編集しない。`node derive-shapes.js` で作り直す。 */
+window.SimUIShapeTokens = {
+  "generatedBy": "derive-shapes.js",
+  "farCollapse": 0.25,
+  "shapes": [
+    {
+      "id": "circle",
+      "label": "円",
+      "note": "基準。起伏が無く、どの大きさでも壊れない",
+      "m": 0,
+      "n": 1,
+      "rot": 0,
+      "sx": 1,
+      "sy": 1,
+      "opticalScale": 1,
+      "areaScale": 1.000013
+    },
+    {
+      "id": "square",
+      "label": "四角",
+      "note": "4 回対称で角が外へ出る側。円との差は角の有無だけ",
+      "m": 4,
+      "n": 4.6,
+      "rot": 0,
+      "sx": 1,
+      "sy": 1,
+      "opticalScale": 1,
+      "areaScale": 0.912905
+    },
+    {
+      "id": "diamond",
+      "label": "菱形",
+      "note": "同じ 4 回対称で角が内へ入る側。四角とは起伏の符号が逆で、族の中で最も離れる対",
+      "m": 4,
+      "n": 1.25,
+      "rot": 0,
+      "sx": 1,
+      "sy": 1,
+      "opticalScale": 1,
+      "areaScale": 1.137713
+    },
+    {
+      "id": "capsule",
+      "label": "横長",
+      "note": "唯一の縦横比ちがい。**遠景まで生き残る唯一の差**",
+      "m": 4,
+      "n": 8,
+      "rot": 0,
+      "sx": 1.55,
+      "sy": 0.6,
+      "opticalScale": 1,
+      "areaScale": 0.929051
+    }
+  ],
+  "dropped": []
+};

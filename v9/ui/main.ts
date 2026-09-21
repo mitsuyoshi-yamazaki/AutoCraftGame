@@ -13,7 +13,8 @@ import { executeTick } from '@/sim/simulation.js';
 import type { ComponentObject, ProcessorComponent, World } from '@/sim/types.js';
 import { isWreck } from '@/sim/types.js';
 import { GAME_VERSION } from '@/version.js';
-import { Renderer } from './renderer.js';
+import { renderEncoding, renderLegend } from './legend.js';
+import { classColor, Renderer, surfaceTokens } from './renderer.js';
 import type { Selection } from './renderer.js';
 
 const MIN_TPS = 1;
@@ -160,9 +161,9 @@ function draw(): void {
 
   $('tick').textContent = `tick ${w.tick}`;
   const speciesRows = [
-    c.mobile > 0 ? `<span class="dot" style="background:#29b6f6"></span>移動種: <b>${c.mobile}</b>` : '',
-    c.sedentary > 0 ? `<span class="dot" style="background:#ffa726"></span>定住種: <b>${c.sedentary}</b>` : '',
-    c.predator > 0 ? `<span class="dot" style="background:#e53935"></span>捕食者: <b>${c.predator}</b>` : '',
+    c.mobile > 0 ? `<span class="dot" style="background:${classColor('mover')}"></span>移動種: <b>${c.mobile}</b>` : '',
+    c.sedentary > 0 ? `<span class="dot" style="background:${classColor('settler')}"></span>定住種: <b>${c.sedentary}</b>` : '',
+    c.predator > 0 ? `<span class="dot" style="background:${classColor('predator')}"></span>捕食者: <b>${c.predator}</b>` : '',
   ].filter(Boolean).join('<br>');
   const typeRows = [...c.byType.entries()]
     .sort()
@@ -280,7 +281,20 @@ function buildControls(): void {
   });
 }
 
+/** 面のトークンを CSS 変数へ。style.css は色を1つも持たず、これを受けるだけ */
+function applySurface(): void {
+  const style = document.documentElement.style;
+  style.setProperty('--surface-base', surfaceTokens.base);
+  style.setProperty('--surface-panel', surfaceTokens.panel);
+  style.setProperty('--surface-line', surfaceTokens.line);
+  style.setProperty('--ink', surfaceTokens.ink);
+  style.setProperty('--ink-dim', surfaceTokens.inkDim);
+}
+
 function main(): void {
+  applySurface();
+  renderLegend($('legend-body'));
+  renderEncoding($('encoding-body'));
   renderer.init($('canvas-container'));
   renderer.onSelectChanged(sel => {
     state = { ...state, selection: sel };
