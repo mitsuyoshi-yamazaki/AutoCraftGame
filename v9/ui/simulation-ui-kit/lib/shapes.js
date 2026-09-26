@@ -91,8 +91,18 @@
   }
 
   /** 面積を揃え、さらに人間が付けた光学補正（既定 1）を掛けた最終倍率。 */
+  /**
+   * v9 での追加（2026-09-22）: shape に数値の areaScale があればそれを使う。
+   * shapes.json は導出時の areaScale を持っているのに、ここが毎回輪郭から
+   * 計算し直していたので、保存された値は使われていなかった。
+   *
+   * v9 ではこれが要る——資源の角丸をマークの大きさに依らず一定の px にすると、
+   * 輪郭の面積が大きさでわずかに変わってしまう。**面積はシミュレーション上の量の
+   * 表現であり、角丸は表現上の装飾**なので、面積合わせは角を丸めない形の値で固定する。
+   */
   function scaleOf(shape) {
-    return areaScale(shape) * (shape.opticalScale === undefined ? 1 : shape.opticalScale);
+    var base = typeof shape.areaScale === 'number' ? shape.areaScale : areaScale(shape);
+    return base * (shape.opticalScale === undefined ? 1 : shape.opticalScale);
   }
 
   /** 正規化済みの輪郭（半径 1 の円と同じ重さになる）。 */

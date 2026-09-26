@@ -65,7 +65,7 @@ export interface V9Tuning {
   readonly energyBackdrop: number;
   readonly structureLightness: number;
   readonly wasteLightness: number;
-  readonly corner: number;
+  readonly cornerPx: number;
 }
 
 export interface V9Kind {
@@ -128,7 +128,9 @@ declare global {
       };
       kindById(id: string): V9Kind;
       classById(id: string): V9Class;
-      shapeCatalog(corner: number): readonly SimUIShape[];
+      shapeCatalog(): readonly SimUIShape[];
+      /** 角丸をマークの大きさに依らず一定の px にするため、描く直前に輪郭を作り直す */
+      shapeAt(shape: SimUIShape, cornerPx: number, radiusPx: number): SimUIShape;
       energyColor(tuning: V9Tuning): string;
       greyColor(lightness: number): string;
       backdropColor(energy: string, surfaceBase: string, amount: number): string;

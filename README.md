@@ -1,5 +1,9 @@
 # AutoCraftGame
 
+> **English readers:** start at [v9/README.md](v9/README.md). It lists each claim made about v9,
+> where it is shown in the code and experiment records, and how to reproduce the runs.
+> Most other documents here are in Japanese. License: [MIT](LICENSE); third-party color data is credited in [NOTICE](NOTICE).
+
 自己複製可能な自律キャラクターによる人工生命シミュレータを目指すプロジェクト。
 
 最終目標は、進化手法をゲームシステムとして提供せず、個々のキャラクター（人工生命）の自律的な活動の結果として進化が創発するシミュレータの実現。段階的にバージョンを重ね、各バージョンで特定の検証テーマに取り組む。
@@ -12,6 +16,8 @@
 /
 ├── v1/ ... v9/        ... 各バージョン（独立したnpmプロジェクト）
 ├── docs/versions.md   ... 全バージョンの総括（目的・達成度・課題）
+├── LICENSE            ... MIT
+├── NOTICE             ... 第三者の配色データ（ColorBrewer・viridis 系）の帰属表示
 ├── docs/future_work*/ ... バージョン横断の検討資料（将来仕様の検討）
 ├── CLAUDE.md          ... ClaudeCode共通ルール
 └── .claude/           ... ClaudeCode設定
@@ -31,7 +37,7 @@
 | v6 | プリミティブ制御層のみでの自己複製 | 実装・検証完了 |
 | v7 | WorldObjectモデルとコンポーネント分離 | 実装・検証完了 |
 | v8 | 接続・剛体グループとハイジャッカー | 実装・検証完了 |
-| v9 | ダイナミックな生態系（クラフトツリー再設計、耐久度、捕食） | 仕様策定中 |
+| v9 | ダイナミックな生態系（クラフトツリー再設計、耐久度、捕食） | 実装・検証完了（目的を達成。[v9/README.md](v9/README.md)） |
 
 ### バージョンの追加方法
 
@@ -49,7 +55,7 @@
 
 ## 各バージョンの実行方法
 
-各バージョンのディレクトリに移動してコマンドを実行する。詳細は各バージョンの `README.md` を参照。
+各バージョンのディレクトリに移動してコマンドを実行する。詳細は各バージョンの `README.md`（v1〜v6・v9。v9 は英語）を参照。v7・v8 には README が無いため、`vN/docs/` と [docs/versions.md](docs/versions.md) を参照。
 
 ```bash
 cd v1

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>シミュレーションUIキット — 動作例</title>
+<style>
+  body{margin:0;background:#15171c;color:#e9ecf2;
+       font:14px/1.7 system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}
+  main{max-width:900px;margin:0 auto;padding:20px 16px 40px}
+  h1{font-size:17px;margin:0 0 4px}
+  p{color:#99a1b2;font-size:13px;margin:0 0 14px;max-width:70ch}
+  canvas{width:100%;height:auto;display:block;border-radius:8px;margin-bottom:10px}
+  select{background:#262a33;color:#e9ecf2;border:1px solid #333844;border-radius:7px;
+         padding:6px 10px;font:inherit;font-size:13px;min-height:34px;margin-bottom:14px}
+  dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:12px;margin:0;
+     border:1px solid #333844;border-radius:8px;padding:10px 12px}
+  dt{color:#99a1b2;font:11px/1.6 ui-monospace,monospace}
+  dd{margin:0}
+  code{font:12px/1.5 ui-monospace,monospace;color:#99a1b2}
+</style>
+</head>
+<body>
+<main>
+  <h1>シミュレーションUIキット — 動作例</h1>
+  <p>
+    コピーした直後に、これが開いて図が出れば導入は成功している。
+    描いているのは <code>lib/state-marks.js</code> の <code>draw()</code> 1本だけで、
+    色は <code>tokens.json</code>、形は <code>shapes.json</code> から来ている——
+    <strong>このファイルには色の値も形の定義も1つも書かれていない</strong>。
+  </p>
+
+  <select id="palette"></select>
+  <canvas id="stage" width="880" height="330"></canvas>
+
+  <p>この絵の符号化表（規約 A-5。<strong>宣言していないチャネルは使わない</strong>）:</p>
+  <dl id="encoding"></dl>
+</main>
+
+<script src="lib/color.js"></script>
+<script src="lib/shapes.js"></script>
+<script src="lib/state-marks.js"></script>
+<script src="tokens.js"></script>
+<script src="shapes.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var Marks = window.SimUIStateMarks;
+  var palettes = window.SimUITokens.palettes;
+  var shapes = window.SimUIShapeTokens.shapes;
+
+  /** 規約 A-5: この絵が何をどのチャネルで運んでいるか。 */
+  var ENCODING = [
+    { channel: '色相', carries: '種（カテゴリ）' },
+    { channel: '形', carries: '種（カテゴリ・色と二重に運ぶ）' },
+    { channel: '位置', carries: '場所' },
+    { channel: '外周の弧', carries: '体力（連続した割合。円のときだけ）' },
+    { channel: '内側の塗りの高さ', carries: '積載（二つ目の割合）' },
+    { channel: '縁の有無', carries: '選択されているか（二値）' },
+  ];
+
+  var stage = document.getElementById('stage');
+  var ctx = stage.getContext('2d');
+  var selector = document.getElementById('palette');
+
+  function makeRandom(seed) {
+    var state = seed >>> 0;
+    return function () {
+      state ^= state << 13; state >>>= 0;
+      state ^= state >> 17;
+      state ^= state << 5; state >>>= 0;
+      return state / 4294967296;
+    };
+  }
+
+  function draw() {
+    var palette = palettes[selector.selectedIndex];
+    var random = makeRandom(20260921);
+    ctx.fillStyle = palette.surface.base;
+    ctx.fillRect(0, 0, stage.width, stage.height);
+
+    for (var i = 0; i < 44; i++) {
+      var kind = Math.floor(random() * shapes.length);
+      var health = random();
+      var mark = {
+        shape: shapes[kind],
+        x: 46 + random() * (stage.width - 92),
+        y: 46 + random() * (stage.height - 92),
+        radius: 15,
+        color: palette.categorical[kind % palette.categorical.length],
+        ink: palette.surface.ink,
+        surface: palette.surface.base,
+      };
+      Marks.draw(ctx, mark, {
+        ring: health,
+        fill: 1 - health,
+        outline: health > 0.82,
+      });
+    }
+
+    // 文字は文字用の色で書く（規約 B-6）
+    ctx.fillStyle = palette.surface.inkDim;
+    ctx.font = '12px ui-monospace, monospace';
+    ctx.fillText(palette.label + ' / カテゴリ ' + palette.categorical.length + ' 色 × 形 ' + shapes.length, 14, 22);
+  }
+
+  palettes.forEach(function (palette) {
+    var option = document.createElement('option');
+    option.textContent = palette.label;
+    selector.appendChild(option);
+  });
+  selector.addEventListener('change', draw);
+
+  var list = document.getElementById('encoding');
+  ENCODING.forEach(function (entry) {
+    var term = document.createElement('dt');
+    term.textContent = entry.channel;
+    var detail = document.createElement('dd');
+    detail.textContent = entry.carries;
+    list.appendChild(term);
+    list.appendChild(detail);
+  });
+
+  draw();
+})();
+</script>
+</body>
+</html>

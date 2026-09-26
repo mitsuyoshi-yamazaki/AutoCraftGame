@@ -12,6 +12,10 @@
  *
  * 色を手で選ばない原則は保っている——黄も灰も、彩度の違う2組の色も、すべて導出である。
  *
+ * **色覚多様性への対応は範囲外**（2026-09-22 ユーザ判断）。本プロジェクトはプロトタイプで、
+ * アクセシビリティを考慮しないと決めている。キットの検査は色覚3型も見るので、
+ * その結果は参考扱いにし、こちらの検査は通常視の色差だけで立てている。
+ *
  * ## v9 の資源が持つ状態（src/sim/types.ts が正）
  *  - MatterNode  … 物質種 + 残量。回収で減るだけ、再生せず、0 で消滅する
  *  - EnergyNode  … **量を持たない。** 総量は無限で、当tickの流出量に上限があるだけ
@@ -25,6 +29,7 @@
   'use strict';
 
   var Color = root.SimUIColor;
+  var Shapes = root.SimUIShapes;
   var ShapeTokens = root.SimUIShapeTokens;
 
   /** ワールドの一辺（世界単位）。場面の生成と描画が共有する */
@@ -41,6 +46,13 @@
   var ENERGY_LIGHTNESS = 0.86;
   /** 角を丸めるときの1角あたりの分割数 */
   var CORNER_STEPS = 10;
+  /**
+   * 単位菱形の一辺の長さ（面積合わせ込み）。
+   * 角丸の食い込み比を「px でいくら丸めたいか」から逆算するのに使う。
+   */
+  var DIAMOND_EDGE = Math.SQRT2 * 1.2533;
+  /** 角丸が辺を食う比の上限。これを超えると辺が消えて菱形に見えなくなる */
+  var CORNER_MAX_RATIO = 0.35;
   /** 無彩色のマークに残す彩度と色相。0 にすると面から浮くので、面の色相へわずかに寄せる */
   var GREY_CHROMA = 0.012;
   var GREY_HUE = 150;
@@ -84,16 +96,48 @@
     }, []);
   };
 
-  /** キットの4形に、v9 固有の形を足したもの。角の丸みで輪郭が変わる */
-  var shapeCatalog = function (corner) {
+  /**
+   * 角丸の食い込み比。**マークの大きさに依らず角丸を一定の px にする**
+   * （2026-09-22 ユーザ判断）ため、半径が小さいほど比は大きくなる。
+   */
+  var cornerRatio = function (cornerPx, radiusPx) {
+    if (cornerPx <= 0 || radiusPx <= 0) return 0;
+    return Math.min(CORNER_MAX_RATIO, cornerPx / (DIAMOND_EDGE * radiusPx));
+  };
+
+  /**
+   * **角を丸めない**菱形の面積合わせ。角丸の大きさに関わらずこの値で固定する——
+   * 面積はシミュレーション上の量の表現であり、角丸は表現上の装飾なので、
+   * 装飾で量の表示が動いてはいけない（2026-09-22 ユーザ判断）。
+   */
+  var SHARP_DIAMOND = { m: 4, points: roundedPolygon(DIAMOND_VERTICES, 0) };
+  var SHARP_DIAMOND_SCALE = Shapes.areaScale(SHARP_DIAMOND);
+
+  /** キットの4形に、v9 固有の形を足したもの。角丸は描くときに大きさを見て決める */
+  var shapeCatalog = function () {
     return ShapeTokens.shapes.concat([{
       id: 'diamondStraight',
       label: '菱形（直線・角丸）',
       note: 'v9 固有。資源は無機的なので辺を曲げない',
       // 4回対称であることを宣言する（規約 A-2 は偶対称に限る）。輪郭は points が決める
       m: 4,
-      points: roundedPolygon(DIAMOND_VERTICES, corner),
+      cornerScaled: true,
+      areaScale: SHARP_DIAMOND_SCALE,
+      points: SHARP_DIAMOND.points,
     }]);
+  };
+
+  /**
+   * 描くときに、そのマークの大きさ用の輪郭へ差し替える。
+   * 角丸を持たない形はそのまま返す。
+   */
+  var shapeAt = function (shape, cornerPx, radiusPx) {
+    if (shape.cornerScaled !== true) return shape;
+    return Object.assign({}, shape, {
+      // 面積合わせは角を丸めない形の値のまま（装飾で大きさを動かさない）
+      areaScale: SHARP_DIAMOND_SCALE,
+      points: roundedPolygon(DIAMOND_VERTICES, cornerRatio(cornerPx, radiusPx)),
+    });
   };
 
   /**
@@ -101,10 +145,10 @@
    * `palette` は彩度の系統。個体だけ高い彩度の組を使い、環境は低い彩度の組を使う。
    */
   var KINDS = [
-    { id: 'matter', label: '物質', shape: 'diamondStraight', area: 0.7, minPx: 1.0, palette: 'environment', note: '菱形。辺は直線で角だけ丸い。残量は大きさだけが運ぶ' },
+    { id: 'matter', label: '物質', shape: 'diamondStraight', area: 0.7, minPx: 2.6, palette: 'environment', note: '菱形。辺は直線で角だけ丸い。残量は大きさだけが運ぶ。最小2.6pxは量696相当（基準4000のとき）' },
     { id: 'organism', label: '個体', shape: 'circle', area: 1.8, minPx: 2.2, palette: 'organism', note: '円。主体なので最も大きく・最も鮮やか。外周の弧が使えるのも円だけ' },
     { id: 'component', label: '単独部品', shape: 'capsule', area: 0.45, minPx: 1.0, palette: 'environment', note: '横長。加工された＝プリミティブな形状から離れた形' },
-    { id: 'energy', label: 'エネルギー', shape: 'square', area: 0.5, minPx: 1.2, palette: 'environment', note: '四角。湧出点だけは量を持たないので固定サイズ' },
+    { id: 'energy', label: 'エネルギー', shape: 'square', area: 0.2, minPx: 1.2, palette: 'environment', note: '四角。湧出点だけは量を持たないので固定サイズ。係数0.2は従来0.5の半径63%' },
   ];
 
   /**
@@ -136,11 +180,13 @@
     { id: 'settler', kind: 'organism', label: '定住種', slot: 'cat2', note: 'Harvester を持つ' },
     { id: 'mover', kind: 'organism', label: '移動種', slot: 'cat0', note: 'Actuator を持つ' },
     { id: 'predator', kind: 'organism', label: '捕食者', slot: 'cat3', note: 'Disassembler を持つ。3種は色覚3型でも分かれる組' },
+    { id: 'wreck', kind: 'organism', label: '残骸のみの個体', slot: 'grey', note: '生存部品が無いものは種ではない。不活性な物質として無彩色で描く' },
     { id: 'harvester', kind: 'component', label: 'Harvester', slot: 'cat2' },
     { id: 'actuator', kind: 'component', label: 'Actuator', slot: 'cat0' },
     { id: 'disassembler', kind: 'component', label: 'Disassembler', slot: 'cat3' },
     { id: 'assembler', kind: 'component', label: 'Assembler', slot: 'cat1' },
     { id: 'otherPart', kind: 'component', label: 'その他の部品（4種）', slot: 'grey', note: 'Processor・Storage・Sensor・MemoryCore。割り当て可能な色が4なので畳む' },
+    { id: 'wreckPart', kind: 'component', label: '残骸の部品', slot: 'grey', note: '同じ無彩色だが、耐久0なので内側の塗りが空になり、その他の部品と区別できる' },
     { id: 'energyNode', kind: 'energy', label: 'エネルギー湧出点', slot: 'energy', note: '量を持たない。固定サイズの薄い四角の上へ、当tickの残流量ぶんの面積で黄を重ねる' },
     { id: 'energyPile', kind: 'energy', label: '散布エネルギー', slot: 'energy', note: '量を持つので、ふつうに大きさが量を運ぶ' },
   ];
@@ -152,7 +198,7 @@
   var ENCODING = [
     { channel: '形', carries: '大分類（物質・個体・単独部品・エネルギー）' },
     { channel: '色相', carries: '種別。黄はエネルギー専用、2段の無彩色は構造系と廃棄系の専用' },
-    { channel: '大きさ', carries: '量（面積に比例）。エネルギー湧出点は量を持たないので固定' },
+    { channel: '大きさ', carries: '量（面積に比例）。ただし下限あり（小さすぎると読めないため）。エネルギー湧出点は量を持たないので固定' },
     { channel: '位置', carries: '場所（ワールド座標）' },
     { channel: '長さ', carries: '耐久（個体は外周の弧、単独部品は内側の塗りの高さ）' },
     { channel: '明度', carries: '豊富な物質の区別（構造系＝明・廃棄系＝暗の2段）' },
@@ -193,7 +239,7 @@
       energyHue: 95, energyChroma: 0.90, energyLightness: ENERGY_LIGHTNESS,
       energyBackdrop: 0.55,
       structureLightness: 0.55, wasteLightness: 0.40,
-      corner: 0.25,
+      cornerPx: 1.5,
     },
     shapes: indexBy(KINDS, function (kind) { return kind.shape; }),
     areas: indexBy(KINDS, function (kind) { return kind.area; }),
@@ -363,6 +409,7 @@
     kindById: kindById,
     classById: classById,
     shapeCatalog: shapeCatalog,
+    shapeAt: shapeAt,
     energyColor: energyColor,
     greyColor: greyColor,
     backdropColor: backdropColor,

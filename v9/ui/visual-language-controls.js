@@ -81,8 +81,8 @@
     return Object.keys(dictionary).map(function (key) { return { value: key, label: key }; });
   };
 
-  var shapeOptions = function (state) {
-    return Model.shapeCatalog(state.tuning.corner).map(function (shape) {
+  var shapeOptions = function () {
+    return Model.shapeCatalog().map(function (shape) {
       return { value: shape.id, label: shape.label };
     });
   };
@@ -120,11 +120,11 @@
     ];
 
     var form = [
-      { path: ['tuning', 'corner'], type: 'range', label: '角の丸み', value: state.tuning.corner, min: 0, max: 0.45, step: 0.01, note: '菱形の辺は直線のまま、角だけ丸める' },
+      { path: ['tuning', 'cornerPx'], type: 'range', label: '角の丸み（px）', value: state.tuning.cornerPx, min: 0, max: 6, step: 0.1, note: '菱形の辺は直線のまま、角だけ丸める。マークの大きさに依らず一定' },
     ];
 
     var shapes = Model.KINDS.map(function (kind) {
-      return { path: ['shapes', kind.id], type: 'select', label: kind.label, value: state.shapes[kind.id], options: shapeOptions(state), note: kind.note };
+      return { path: ['shapes', kind.id], type: 'select', label: kind.label, value: state.shapes[kind.id], options: shapeOptions(), note: kind.note };
     });
 
     var areas = Model.KINDS.map(function (kind) {

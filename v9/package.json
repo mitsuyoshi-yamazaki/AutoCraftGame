@@ -1,12 +1,13 @@
 {
   "name": "auto-craft-game-v9",
-  "version": "9.5.2",
+  "version": "9.5.12",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "vitest run --root .",
     "sim": "npx tsx src/cli.ts",
     "craft:report": "npx tsx src/tools/craft-report.ts",
+    "recording:script": "npx tsx src/tools/recording-script.ts",
     "ui": "vite",
     "build:ui": "vite build",
     "verify:ui": "node ui/simulation-ui-kit/verify.js --scan ./ui"

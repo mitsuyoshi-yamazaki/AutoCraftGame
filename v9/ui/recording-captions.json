@@ -1,0 +1,75 @@
+{
+  "gameVersion": "9.5.12",
+  "experimentId": "recording",
+  "seed": 5,
+  "ticks": 12000,
+  "generatedBy": "npx tsx src/tools/recording-script.ts",
+  "entries": [
+    {
+      "tick": 2093,
+      "kind": "birth",
+      "text": "A new organism starts its program — the copy is alive",
+      "x": 52.8,
+      "y": 38.5,
+      "objectId": 201,
+      "marker": true,
+      "leadSeconds": 3,
+      "holdSeconds": 4
+    },
+    {
+      "tick": 2748,
+      "kind": "birth",
+      "text": "Another copy starts — replication repeats",
+      "x": 52.2,
+      "y": 39,
+      "objectId": 213,
+      "marker": true,
+      "leadSeconds": 3,
+      "holdSeconds": 4
+    },
+    {
+      "tick": 5854,
+      "kind": "growth",
+      "text": "8 organisms are now alive — the lineage is spreading",
+      "x": 50,
+      "y": 50,
+      "objectId": null,
+      "marker": false,
+      "leadSeconds": 3,
+      "holdSeconds": 4
+    },
+    {
+      "tick": 6990,
+      "kind": "death",
+      "text": "An organism dies — its processor is worn out and stops",
+      "x": 37.6,
+      "y": 39.1,
+      "objectId": 168,
+      "marker": true,
+      "leadSeconds": 3,
+      "holdSeconds": 4
+    },
+    {
+      "tick": 7424,
+      "kind": "decay",
+      "text": "The wreck collapses — its matter scatters on the ground",
+      "x": 37.6,
+      "y": 38.7,
+      "objectId": 168,
+      "marker": true,
+      "leadSeconds": 3,
+      "holdSeconds": 4
+    },
+    {
+      "tick": 10844,
+      "kind": "reclaim",
+      "text": "Another organism harvests material from the remains",
+      "x": 37,
+      "y": 37.4,
+      "objectId": null,
+      "marker": true,
+      "leadSeconds": 3,
+      "holdSeconds": 4
+    }
+  ]
+}

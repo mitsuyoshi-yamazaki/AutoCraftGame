@@ -13,33 +13,41 @@
 
 import { substanceByCode } from '@/sim/codes.js';
 import { DEFAULT_GAME_PARAMS } from '@/params.js';
+import type { GameParams } from '@/params.js';
 import type { ComponentObject, ProcessorComponent, World, WorldObject } from '@/sim/types.js';
 import { isWreck } from '@/sim/types.js';
 import type { SimUIMark, SimUIMarkState, SimUIShape, V9Palettes } from './sim-ui-kit.js';
 
 export type Selection = { id: number } | null;
 
+/**
+ * 字幕が指している場所の印。**対象が消えたあとも座標に残す**ので、
+ * 崩壊のように「消えること自体が出来事」でも、どこで起きたかが分かる。
+ */
+export type Highlight = { x: number; y: number } | null;
+
 const Visual = window.V9Visual;
 const Shapes = window.SimUIShapes;
 const StateMarks = window.SimUIStateMarks;
 
-/** 耐久リングの正規化基準。全実験で共通のためデフォルトを参照する（表示のみ） */
-const MAX_DURABILITY = DEFAULT_GAME_PARAMS.maxDurability;
-/** 湧出点の残流量の正規化基準 */
-const MAX_NODE_FLOW = DEFAULT_GAME_PARAMS.energyNodeFlow;
-
 /**
  * 量の基準。**この値のとき半径が基準サイズになる**。
- * v9 の実数値（残量400・部品数4…）を、視覚言語が期待する 1 前後の量へ揃えるための換算。
+ * v9 の実数値を、視覚言語が期待する 1 前後の量へ揃えるための換算。
+ *
+ * 物質だけは実験ごとに 100 倍も違う（既定 400／移動複製 4000／潤沢 40000）ので、
+ * **固定値にできない**。abundant なノードの初期量を基準に取り、
+ * 「満量の abundant ノード＝つねに同じ大きさ」になるようにする。
  */
-const AMOUNT_REFERENCE: Readonly<Record<string, number>> = {
-  matter: 100,
-  organism: 4,
-  component: 1,
-  energy: 0.5,
-};
-/** 散布エネルギーの量の基準（Storage残骸の分解で出るため単位が大きい） */
-const ENERGY_PILE_REFERENCE = 200;
+const ORGANISM_REFERENCE = 4;
+const COMPONENT_REFERENCE = 1;
+const ENERGY_NODE_REFERENCE = 0.5;
+/** 字幕の指す場所に置く印の大きさ（px）。拡大率に依らず一定にして見失わないようにする */
+export const HIGHLIGHT_RADIUS_PX = 16;
+const HIGHLIGHT_CROSS_PX = 6;
+/** 面と面の間に置く地の色の隙間（px）。規約 B-4 */
+const GAP_PX = 1;
+/** 角丸が辺を食う長さ（px）。マークの大きさに依らず一定にする */
+const CORNER_PX = Visual.DEFAULTS.tuning.cornerPx;
 /** クリックの許容半径（ワールド単位）。画面のズームぶんを足して使う */
 const CLICK_SLACK = 1.5;
 
@@ -108,7 +116,7 @@ const buildPalettes = (): V9Palettes => {
 };
 
 const PALETTES = buildPalettes();
-const SHAPES = Visual.shapeCatalog(Visual.DEFAULTS.tuning.corner);
+const SHAPES = Visual.shapeCatalog();
 
 /** 表示クラスの色。凡例とメトリクスも同じ色をここから取る */
 export const classColor = (classId: string): string =>
@@ -125,8 +133,11 @@ export class Renderer {
   private ctx!: CanvasRenderingContext2D;
   private view: View = { scale: 6, offsetX: 0, offsetY: 0 };
   private world: World | null = null;
+  private params: GameParams = DEFAULT_GAME_PARAMS;
   private currentSelection: Selection = null;
+  private highlight: Highlight | null = null;
   private onSelect: (sel: Selection) => void = () => {};
+  private onView: () => void = () => {};
 
   init(container: HTMLElement): void {
     this.canvas = document.createElement('canvas');
@@ -168,8 +179,23 @@ export class Renderer {
     this.onSelect = cb;
   }
 
+  /** パン・ズームで見え方が変わったときに呼ぶ（字幕は画面座標で置くので追従が要る） */
+  onViewChanged(cb: () => void): void {
+    this.onView = cb;
+  }
+
+  /** ワールド座標を画面座標（CSSピクセル・canvasの左上基準）へ */
+  screenPositionOf(x: number, y: number): { x: number; y: number } {
+    const [sx, sy] = this.toScreen(x, y);
+    return { x: sx, y: sy };
+  }
+
   setSelection(sel: Selection): void {
     this.currentSelection = sel;
+  }
+
+  setHighlight(highlight: Highlight): void {
+    this.highlight = highlight;
   }
 
   private toScreen(x: number, y: number): [number, number] {
@@ -248,11 +274,12 @@ export class Renderer {
     }
     if (obj.kind === 'energyNode') {
       // 量を持たないので大きさは固定。当tickの残流量だけが状態
-      const level = Math.max(0, MAX_NODE_FLOW - obj.flowUsed) / MAX_NODE_FLOW;
+      const level = Math.max(0, this.params.energyNodeFlow - obj.flowUsed) / this.params.energyNodeFlow;
       return { classId: 'energyNode', kindId: 'energy', amount: 1, state: { outline: selected }, level };
     }
     if (obj.kind === 'energyPile') {
-      return { classId: 'energyPile', kindId: 'energy', amount: obj.amount / ENERGY_PILE_REFERENCE, state: { outline: selected }, level: null };
+      // 散布エネルギーは Storage 残骸の分解で出るので、容量を量の基準に取る
+      return { classId: 'energyPile', kindId: 'energy', amount: obj.amount / this.params.energyCapacity, state: { outline: selected }, level: null };
     }
     if (obj.kind === 'group') {
       const members = obj.memberIds
@@ -261,10 +288,11 @@ export class Renderer {
       const alive = members.filter(m => !isWreck(m));
       const durability = alive.length === 0
         ? 0
-        : alive.reduce((sum, m) => sum + m.durability, 0) / alive.length / MAX_DURABILITY;
+        : alive.reduce((sum, m) => sum + m.durability, 0) / alive.length / this.params.maxDurability;
       const running = alive.filter(m => m.componentType === 'Processor' && (m as ProcessorComponent).running).length;
       return {
-        classId: alive.length === 0 ? 'settler' : speciesClass(alive),
+        // 生存部品が無いものは種ではない。専用クラスへ落とす（旧実装の灰と同じ扱い）
+        classId: alive.length === 0 ? 'wreck' : speciesClass(alive),
         kindId: 'organism',
         amount: obj.memberIds.length,
         state: { ring: durability, pips: running, outline: selected },
@@ -273,30 +301,48 @@ export class Renderer {
     }
     if (obj.kind === 'component' && obj.groupId === null) {
       return {
-        classId: CLASS_BY_COMPONENT[obj.componentType] ?? 'otherPart',
+        classId: isWreck(obj) ? 'wreckPart' : (CLASS_BY_COMPONENT[obj.componentType] ?? 'otherPart'),
         kindId: 'component',
         amount: 1,
-        state: { fill: obj.durability / MAX_DURABILITY, outline: selected },
+        state: { fill: obj.durability / this.params.maxDurability, outline: selected },
         level: null,
       };
     }
     return null;
   }
 
+  /** 大分類ごとの量の基準。物質だけは実験のパラメータから取る */
+  private referenceOf(kindId: string): number {
+    if (kindId === 'matter') return this.params.nodeAmountByAbundance.abundant;
+    if (kindId === 'organism') return ORGANISM_REFERENCE;
+    if (kindId === 'component') return COMPONENT_REFERENCE;
+    return ENERGY_NODE_REFERENCE;
+  }
+
   private markOf(obj: WorldObject, look: Appearance): SimUIMark {
     const kind = Visual.kindById(look.kindId);
-    const shape = SHAPES.find((s: SimUIShape) => s.id === Visual.DEFAULTS.shapes[look.kindId])!;
     const [sx, sy] = this.toScreen(obj.position.x, obj.position.y);
-    const radius = Visual.radiusOf(look.amount / AMOUNT_REFERENCE[look.kindId], Visual.DEFAULTS.areas[look.kindId]);
+    const worldRadius = Visual.radiusOf(look.amount / this.referenceOf(look.kindId), Visual.DEFAULTS.areas[look.kindId]);
+    const radius = Math.max(kind.minPx, worldRadius * this.view.scale);
+    const base = SHAPES.find((s: SimUIShape) => s.id === Visual.DEFAULTS.shapes[look.kindId])!;
     return {
-      shape,
+      // 角丸はマークの大きさに依らず一定の px にするので、ここで輪郭を決める
+      shape: Visual.shapeAt(base, CORNER_PX, radius),
       x: sx,
       y: sy,
-      radius: Math.max(kind.minPx, radius * this.view.scale),
+      radius,
       color: classColor(look.classId),
       ink: PALETTES.surface.ink,
       surface: PALETTES.surface.base,
     };
+  }
+
+  /** 隣り合う面の間に地の色の隙間を置く（規約 B-4） */
+  private carveGap(mark: SimUIMark): void {
+    this.ctx.lineWidth = GAP_PX * 2;
+    this.ctx.strokeStyle = mark.surface;
+    Shapes.path(this.ctx, mark.shape, mark.x, mark.y, mark.radius);
+    this.ctx.stroke();
   }
 
   /**
@@ -320,8 +366,9 @@ export class Renderer {
 
   // === 描画 ===
 
-  draw(world: World, selection: Selection): void {
+  draw(world: World, selection: Selection, params: GameParams): void {
     this.world = world;
+    this.params = params;
     this.currentSelection = selection;
     const ctx = this.ctx;
     const rect = this.canvas.getBoundingClientRect();
@@ -341,6 +388,33 @@ export class Renderer {
     for (const obj of world.objects) {
       if (obj.kind === 'group') this.drawObject(obj, selection);
     }
+    this.drawHighlight();
+  }
+
+  /** 字幕の指す場所に印を描く。色は地の ink だけを使う（新しい色を作らない） */
+  private drawHighlight(): void {
+    if (this.highlight === null) return;
+    const { x, y } = this.highlight;
+    const [sx, sy] = this.toScreen(x, y);
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = PALETTES.surface.ink;
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.arc(sx, sy, HIGHLIGHT_RADIUS_PX, 0, Math.PI * 2);
+    ctx.stroke();
+    // 十字（対象が消えても位置が読める）
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(sx - HIGHLIGHT_CROSS_PX, sy);
+    ctx.lineTo(sx + HIGHLIGHT_CROSS_PX, sy);
+    ctx.moveTo(sx, sy - HIGHLIGHT_CROSS_PX);
+    ctx.lineTo(sx, sy + HIGHLIGHT_CROSS_PX);
+    ctx.stroke();
+    ctx.restore();
   }
 
   private drawObject(obj: WorldObject, selection: Selection): void {
@@ -348,6 +422,7 @@ export class Renderer {
     const look = this.appearanceOf(obj, selected);
     if (look === null) return;
     const mark = this.markOf(obj, look);
+    this.carveGap(mark);
     if (look.level !== null) {
       this.drawEnergyNode(mark, look.level, selected);
       return;
@@ -356,6 +431,7 @@ export class Renderer {
   }
 
   private redraw(): void {
-    if (this.world !== null) this.draw(this.world, this.currentSelection);
+    if (this.world !== null) this.draw(this.world, this.currentSelection, this.params);
+    this.onView();
   }
 }

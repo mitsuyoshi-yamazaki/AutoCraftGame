@@ -173,22 +173,34 @@
    * **実際に使っている色**だけで弁別を見る。
    * カテゴリは形で文脈化されるので、同じ大分類の中で分かれていれば足りる——
    * パレット全体を見る検査より、この絵にとって意味のある問いになる。
+   *
+   * **通常視だけを見る。** 本プロジェクトはプロトタイプで、色覚多様性への対応は
+   * 範囲外と決めている（2026-09-22 ユーザ判断）。キットの検査は色覚3型も見るので、
+   * ここでは同じ問いを通常視の色差だけで立て直している。
    */
   var checkUsedSeparation = function (palettes) {
+    var limit = Checks.THRESHOLDS.normalDeltaE;
     var failing = Model.KINDS.map(function (kind) {
       var colors = Model.CLASSES
         .filter(function (cls) { return cls.kind === kind.id; })
         .map(function (cls) { return Model.colorOf(palettes, state.slots[cls.id], kind.id); });
       var unique = colors.filter(function (color, index) { return colors.indexOf(color) === index; });
-      return { kind: kind, result: Checks.checkCategoricalSeparation(unique) };
-    }).filter(function (entry) { return entry.result.status !== 'pass'; });
+      var close = [];
+      unique.forEach(function (a, i) {
+        unique.slice(i + 1).forEach(function (b) {
+          var d = deltaE(a, b);
+          if (d < limit) close.push(a + '↔' + b + '（ΔE ' + d.toFixed(1) + '）');
+        });
+      });
+      return { kind: kind, close: close };
+    }).filter(function (entry) { return entry.close.length > 0; });
     return {
       id: 'used-separation',
       label: '同じ形の中で使っている色が分かれている',
-      status: failing.length ? failing[0].result.status : 'pass',
+      status: failing.length ? 'fail' : 'pass',
       detail: failing.length
-        ? failing.map(function (entry) { return entry.kind.label + ': ' + entry.result.detail; }).join(' / ')
-        : '全ての大分類で、使っている色どうしが通常視・色覚3型で分かれている',
+        ? failing.map(function (entry) { return entry.kind.label + ': ' + entry.close.join('、'); }).join(' / ')
+        : '全ての大分類で、使っている色どうしが通常視で ΔE ' + limit + ' 以上離れている',
       rule: 'A-2',
     };
   };
@@ -218,8 +230,8 @@
   };
 
   /**
-   * パレット全体の弁別は**使っていない色の対まで**数える。
-   * この絵にとって効くのは checkUsedSeparation のほうなので、参考として出す。
+   * パレット全体の弁別は、使っていない色の対まで数えるうえ、
+   * **範囲外と決めた色覚多様性も見る**。効くのは checkUsedSeparation のほうなので参考扱い。
    */
   /**
    * 予約色（黄・2段の灰）が他のクラスへ漏れていないか。
@@ -228,7 +240,7 @@
   var checkReserved = function (palettes) {
     var reserved = [
       { label: 'エネルギーの黄', color: palettes.energy, owners: ['energyNode', 'energyPile'] },
-      { label: '構造系の灰', color: palettes.grey, owners: ['structure', 'otherPart'] },
+      { label: '構造系の灰', color: palettes.grey, owners: ['structure', 'otherPart', 'wreck', 'wreckPart'] },
       { label: '廃棄系の灰', color: palettes.greyDim, owners: ['waste'] },
     ];
     var leaks = reserved.reduce(function (found, entry) {
@@ -256,7 +268,7 @@
   var labelled = function (prefix, check) {
     var informational = check.id === 'categorical-separation';
     return Object.assign({}, check, {
-      label: prefix + (informational ? '（参考）' : '') + check.label,
+      label: prefix + (informational ? '（参考・色覚多様性は範囲外）' : '') + check.label,
       status: informational && check.status === 'warn' ? 'note' : check.status,
     });
   };
@@ -305,7 +317,7 @@
       'energy: 色相 ' + state.tuning.energyHue + ' / 彩度 ' + state.tuning.energyChroma.toFixed(2)
         + ' / 明度 ' + state.tuning.energyLightness.toFixed(2) + ' → ' + palettes.energy
         + '（下敷き ' + palettes.energyBackdrop + '）',
-      'corner: ' + state.tuning.corner.toFixed(2),
+      'cornerPx: ' + state.tuning.cornerPx.toFixed(1),
       'areas: ' + Model.KINDS.map(function (kind) {
         return kind.id + ' ' + state.areas[kind.id];
       }).join(' / '),
@@ -317,7 +329,7 @@
 
   var render = function () {
     var palettes = withBackdrop(palettesOf(state), state.tuning);
-    var catalog = Model.shapeCatalog(state.tuning.corner);
+    var catalog = Model.shapeCatalog();
     applySurface(palettes.surface);
     renderSwatches(palettes);
     renderChecks(palettes);

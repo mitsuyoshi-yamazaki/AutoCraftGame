@@ -24,11 +24,13 @@
   var markOf = function (palettes, state, catalog, classId, x, y, radiusPx) {
     var cls = Model.classById(classId);
     var kind = Model.kindById(cls.kind);
+    var radius = Math.max(kind.minPx, radiusPx);
     return {
-      shape: shapeById(catalog, state.shapes[cls.kind]),
+      // 角丸はマークの大きさに依らず一定の px にするので、ここで輪郭を決める
+      shape: Model.shapeAt(shapeById(catalog, state.shapes[cls.kind]), state.tuning.cornerPx, radius),
       x: x,
       y: y,
-      radius: Math.max(kind.minPx, radiusPx),
+      radius: radius,
       color: Model.colorOf(palettes, state.slots[classId], cls.kind),
       ink: palettes.surface.ink,
       surface: palettes.surface.base,

@@ -1,4 +1,4 @@
-import { cpSync } from 'node:fs';
+import { cpSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
@@ -15,6 +15,8 @@ const PLAIN_ASSETS = [
   'visual-language.js',
   'visual-language.css',
   'visual-language.html',
+  // 録画用の字幕台本（src/tools/recording-script.ts が書き出す。無くてもUIは動く）
+  'recording-captions.json',
 ];
 
 const copyPlainAssets = () => ({
@@ -23,7 +25,9 @@ const copyPlainAssets = () => ({
     const from = resolve(__dirname, 'ui');
     const to = resolve(__dirname, 'ui/dist');
     for (const entry of PLAIN_ASSETS) {
-      cpSync(resolve(from, entry), resolve(to, entry), { recursive: true });
+      const source = resolve(from, entry);
+      if (!existsSync(source)) continue; // 台本は任意（生成していない環境もある）
+      cpSync(source, resolve(to, entry), { recursive: true });
     }
   },
 });

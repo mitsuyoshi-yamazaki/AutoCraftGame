@@ -13,9 +13,12 @@ import { executeTick } from '@/sim/simulation.js';
 import type { ComponentObject, ProcessorComponent, World } from '@/sim/types.js';
 import { isWreck } from '@/sim/types.js';
 import { GAME_VERSION } from '@/version.js';
+import { CaptionPlayer, fetchCaptionScript } from './captions.js';
 import { renderEncoding, renderLegend } from './legend.js';
-import { classColor, Renderer, surfaceTokens } from './renderer.js';
+import { classColor, HIGHLIGHT_RADIUS_PX, Renderer, surfaceTokens } from './renderer.js';
 import type { Selection } from './renderer.js';
+import { effectivePosition } from '@/sim/world.js';
+import type { ActiveCaption } from './captions.js';
 
 const MIN_TPS = 1;
 const MAX_TPS = 240;
@@ -40,7 +43,18 @@ const $ = (id: string): HTMLElement => {
   return el;
 };
 
+/** 録画用の字幕台本の置き場所（src/tools/recording-script.ts が書き出す） */
+const CAPTION_SCRIPT_URL = './recording-captions.json';
+/**
+ * 発生地点からこれだけ離れたら、印は対象を追うのをやめて**その場に残る**（ワールド単位）。
+ * 出来事が済んだあとまで動く個体を追うと、印が「どこで起きたか」を指さなくなるため。
+ */
+const MARKER_RELEASE_DISTANCE = 4;
+/** 印の下に字幕を置く間隔（px）。印との相対位置は常に一定にする */
+const CAPTION_GAP_PX = 10;
+
 const renderer = new Renderer();
+const captions = new CaptionPlayer();
 let state: State = init(EXPERIMENTS[0], EXPERIMENTS[0].defaultSeed);
 let timer: number | null = null;
 
@@ -75,6 +89,7 @@ function step(): void {
   if (state.selection !== null && !result.world.objects.some(o => o.id === state.selection!.id)) {
     state = { ...state, selection: null };
   }
+  captions.update(result.world.tick, Date.now());
   draw();
 }
 
@@ -99,6 +114,8 @@ function toggleRun(): void {
 function reset(): void {
   stopTimer();
   state = init(state.experiment, state.seed, state.tps);
+  captions.rewind();
+  void loadCaptions();
   renderer.resetView(state.world.width, state.world.height);
   ($('btn-play') as HTMLButtonElement).textContent = '▶ 再生';
   ($('btn-step') as HTMLButtonElement).disabled = false;
@@ -153,9 +170,83 @@ function census(world: World): Census {
   return { mobile, sedentary, predator, byType, groups, spread };
 }
 
+/** 発生の瞬間に対象がいた場所と、追うのをやめたかどうか */
+let markerOrigin: { key: string; x: number; y: number; released: boolean } | null = null;
+
+/**
+ * 印と字幕を置く場所を決める。`show` が false のときは**印を出さない**。
+ *
+ * - 対象がまだ世界にいる間は**一緒に動く**（個体は移動するので、置きっぱなしでは指せない）
+ * - 対象がまだ現れていなくても印は出す（予告になる）
+ * - 発生が済み、対象が発生地点から大きく離れたら**印を消す**。その場に残し続けると、
+ *   対象はもうそこに居ないので**間違った場所を指す**ことになる。一度離れたら戻らない
+ * - 対象が消えた出来事（崩壊・枯渇）は、その地点が出来事の場所そのものなので印を残す
+ *
+ * 字幕のほうは離れても発生地点に留める。指す先がずれるのは印と同じだが、
+ * 字幕が対象と一緒に画面を飛び回るほうが読めなくなるので、こちらを採る。
+ */
+function markerPosition(active: ActiveCaption): { x: number; y: number; show: boolean } {
+  const entry = active.entry;
+  const key = `${entry.tick}:${entry.kind}`;
+  if (markerOrigin?.key !== key) markerOrigin = { key, x: entry.x, y: entry.y, released: false };
+  const origin = { x: markerOrigin.x, y: markerOrigin.y };
+  const target =
+    entry.objectId === null ? undefined : state.world.objects.find(o => o.id === entry.objectId);
+  // 対象が世界から消えた＝その地点で起きた出来事なので、印はそのまま残す
+  if (target === undefined) return { ...origin, show: true };
+  if (markerOrigin.released) return { ...origin, show: false };
+  const live =
+    target.kind === 'component' ? effectivePosition(state.world, target) : target.position;
+  if (active.pending) {
+    // 発生前は必ず追う。発生の瞬間にどこを見ればよいかを指し続けるため
+    markerOrigin = { key, x: live.x, y: live.y, released: false };
+    return { x: live.x, y: live.y, show: true };
+  }
+  if (Math.hypot(live.x - origin.x, live.y - origin.y) <= MARKER_RELEASE_DISTANCE) {
+    return { x: live.x, y: live.y, show: true };
+  }
+  markerOrigin = { ...markerOrigin, released: true };
+  return { ...origin, show: false };
+}
+
+/** 字幕バーと、字幕が指している場所の印を更新する */
+function drawCaption(): void {
+  const bar = $('caption');
+  const active = captions.current;
+  if (active === null) {
+    const notice = captions.notice;
+    bar.textContent = notice ?? '';
+    bar.className = notice === null ? 'caption-hidden' : 'caption-notice';
+    bar.style.removeProperty('left');
+    bar.style.removeProperty('top');
+    renderer.setHighlight(null);
+    markerOrigin = null;
+    return;
+  }
+  bar.textContent = active.entry.text;
+  // 指す対象が無い字幕（世界全体の話）は、印を出さずその座標に置く
+  if (active.entry.marker === false) {
+    bar.className = 'caption-live caption-anchorless';
+    const screen = renderer.screenPositionOf(active.entry.x, active.entry.y);
+    bar.style.left = `${screen.x}px`;
+    bar.style.top = `${screen.y}px`;
+    renderer.setHighlight(null);
+    markerOrigin = null;
+    return;
+  }
+  const at = markerPosition(active);
+  bar.className = 'caption-live';
+  // 字幕は印の真下に、一定の間隔で置く（画面外へはみ出しても構わない）
+  const screen = renderer.screenPositionOf(at.x, at.y);
+  bar.style.left = `${screen.x}px`;
+  bar.style.top = `${screen.y + HIGHLIGHT_RADIUS_PX + CAPTION_GAP_PX}px`;
+  renderer.setHighlight(at.show ? { x: at.x, y: at.y } : null);
+}
+
 function draw(): void {
   renderer.setSelection(state.selection);
-  renderer.draw(state.world, state.selection);
+  drawCaption(); // 印の位置を決めてから描く（字幕は同じ位置へ置く）
+  renderer.draw(state.world, state.selection, state.params);
   const c = census(state.world);
   const w = state.world;
 
@@ -245,6 +336,7 @@ function buildControls(): void {
     stopTimer();
     const exp = experimentById(select.value);
     state = { ...init(exp, exp.defaultSeed), tps: state.tps };
+    void loadCaptions();
     ($('seed') as HTMLInputElement).value = String(state.seed);
     $('exp-desc').textContent = exp.description;
     ($('btn-play') as HTMLButtonElement).textContent = '▶ 再生';
@@ -281,6 +373,19 @@ function buildControls(): void {
   });
 }
 
+/**
+ * 字幕台本を読み込む。置いていなければ字幕なしで動く（他の実験はこれ）。
+ * 実験・シード・版が合わない台本は**使わない**——ずれた字幕は嘘になる。
+ */
+async function loadCaptions(): Promise<void> {
+  captions.clear();
+  const script = await fetchCaptionScript(CAPTION_SCRIPT_URL);
+  if (script !== null) {
+    captions.load(script, state.experiment.id, state.seed, GAME_VERSION.toString());
+  }
+  drawCaption();
+}
+
 /** 面のトークンを CSS 変数へ。style.css は色を1つも持たず、これを受けるだけ */
 function applySurface(): void {
   const style = document.documentElement.style;
@@ -300,8 +405,20 @@ function main(): void {
     state = { ...state, selection: sel };
     draw();
   });
+  // パン・ズームでは tick が進まないので、字幕の位置だけを追従させる
+  renderer.onViewChanged(() => {
+    const active = captions.current;
+    if (active === null) return;
+    const anchorless = active.entry.marker === false;
+    const at = anchorless ? { x: active.entry.x, y: active.entry.y } : markerPosition(active);
+    const screen = renderer.screenPositionOf(at.x, at.y);
+    const bar = $('caption');
+    bar.style.left = `${screen.x}px`;
+    bar.style.top = `${screen.y + (anchorless ? 0 : HIGHLIGHT_RADIUS_PX + CAPTION_GAP_PX)}px`;
+  });
   buildControls();
   renderer.resetView(state.world.width, state.world.height);
+  void loadCaptions();
   draw();
 }
 

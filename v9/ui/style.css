@@ -103,3 +103,40 @@ body { display: flex; flex-direction: column; }
 .enc-row b { font-weight: 600; font-size: 11px; }
 .enc-row span { color: var(--ink-dim); font-size: 11px; line-height: 1.4; }
 .hint { color: var(--ink-dim); margin-top: 8px; line-height: 1.4; }
+
+/* === 録画用の字幕（docs/specs/08_ui.md） ===
+   色は持たない。面のトークン（--surface-panel / --ink / --ink-dim）だけを受ける。
+   発生前（予告）は淡く、発生後ははっきり出す。 */
+#canvas-container { position: relative; overflow: hidden; }
+
+/* 印の真下に置くため、left/top は main.ts が画面座標で与える。
+   はみ出しても追い込まない（画面外へ出てよい）ので、器で切り取るだけにする。 */
+#caption {
+  position: absolute;
+  transform: translateX(-50%);
+  max-width: min(36rem, 80%);
+  width: max-content;
+  padding: 0.6rem 1.1rem;
+  border-radius: 6px;
+  border: 1px solid var(--surface-line);
+  background: var(--surface-panel);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.caption-hidden { opacity: 0; }
+.caption-live { opacity: 1; color: var(--ink); }
+/* 指す対象が無い字幕は、その座標に中央を合わせる */
+.caption-anchorless { transform: translate(-50%, -50%); }
+/* 台本が実機と合わないときの断り書きだけは、印を持たないので下端に固定する */
+.caption-notice {
+  opacity: 1;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  left: 50%;
+  top: auto;
+  bottom: 2.5rem;
+}
